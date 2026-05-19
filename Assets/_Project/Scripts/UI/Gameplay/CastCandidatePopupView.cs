@@ -6,12 +6,15 @@ using UnityEngine.UI;
 
 namespace Tessera.UI
 {
-    /// <summary>현재 제출 가능한 Cast 후보 목록을 동적으로 생성한다.</summary>
+    /// <summary>현재 가능한 Cast 후보를 표시하고 선택 이벤트를 전달한다.</summary>
     public class CastCandidatePopupView : MonoBehaviour
     {
         [Header("Entry")]
         [SerializeField] private RectTransform entryRoot;
         [SerializeField] private CastCandidateEntryView entryTemplate;
+
+        [Header("Popup Options")]
+        [SerializeField] private bool showPopup = true;
 
         [Header("Dynamic Size")]
         [SerializeField] private bool resizeHeightToEntryCount = true;
@@ -25,7 +28,7 @@ namespace Tessera.UI
         private readonly List<CastBoardEntryModel> filteredEntries = new List<CastBoardEntryModel>();
         private RectTransform cachedRectTransform;
 
-        /// <summary>템플릿 행을 숨겨 실제 후보 행과 구분한다.</summary>
+        /// <summary>템플릿 행을 숨기고 RectTransform을 캐싱한다.</summary>
         private void Awake()
         {
             cachedRectTransform = GetComponent<RectTransform>();
@@ -34,14 +37,27 @@ namespace Tessera.UI
                 entryTemplate.gameObject.SetActive(false);
         }
 
+        /// <summary>Popup 표시 여부를 설정한다.</summary>
+        public void SetPopupVisible(bool isVisible)
+        {
+            showPopup = isVisible;
+            gameObject.SetActive(isVisible);
+        }
+
         /// <summary>Cast 후보 목록을 다시 생성한다.</summary>
         public void Refresh(
             CastBoardViewModel viewModel,
-            int opponentCurrentHp,
             RollPatternType selectedPatternType,
+            RollPatternType recommendedPatternType,
             Action<RollPatternType> onCandidateClicked)
         {
             Clear();
+
+            if (!showPopup)
+            {
+                ResizePopupHeight(0);
+                return;
+            }
 
             if (viewModel == null)
             {
@@ -50,10 +66,10 @@ namespace Tessera.UI
             }
 
             BuildFilteredEntries(viewModel);
-            SortEntriesByVisibleDamageDescending();
+            SortEntriesByCastScoreDescending();
 
             for (int i = 0; i < filteredEntries.Count; i++)
-                CreateEntry(filteredEntries[i], opponentCurrentHp, selectedPatternType, onCandidateClicked);
+                CreateEntry(filteredEntries[i], selectedPatternType, recommendedPatternType, onCandidateClicked);
 
             ResizePopupHeight(filteredEntries.Count);
 
@@ -74,6 +90,7 @@ namespace Tessera.UI
             filteredEntries.Clear();
         }
 
+        /// <summary>표시 가능한 후보만 필터링한다.</summary>
         private void BuildFilteredEntries(CastBoardViewModel viewModel)
         {
             filteredEntries.Clear();
@@ -85,7 +102,7 @@ namespace Tessera.UI
                 if (entry.Status != CastBoardEntryStatus.Available)
                     continue;
 
-                // Broken Cast는 피해 0이어도 항상 명시적인 선택지로 남긴다.
+                // Broken Cast는 0점이어도 후보로 유지한다.
                 if (entry.PatternType != RollPatternType.BrokenCast && entry.RawCastScore <= 0)
                     continue;
 
@@ -93,45 +110,48 @@ namespace Tessera.UI
             }
         }
 
-        private void SortEntriesByVisibleDamageDescending()
+        /// <summary>Cast Score 높은 순으로 후보 목록을 정렬한다.</summary>
+        private void SortEntriesByCastScoreDescending()
         {
             filteredEntries.Sort(CompareEntry);
         }
 
+        /// <summary>두 후보의 표시 우선순위를 비교한다.</summary>
         private static int CompareEntry(CastBoardEntryModel left, CastBoardEntryModel right)
         {
-            // Broken Cast는 0점이어도 표시하되, 기본적으로 맨 아래로 보낸다.
             if (left.PatternType == RollPatternType.BrokenCast && right.PatternType != RollPatternType.BrokenCast)
                 return 1;
 
             if (right.PatternType == RollPatternType.BrokenCast && left.PatternType != RollPatternType.BrokenCast)
                 return -1;
 
-            int rawCompare = right.RawCastScore.CompareTo(left.RawCastScore);
+            int scoreCompare = right.RawCastScore.CompareTo(left.RawCastScore);
 
-            if (rawCompare != 0)
-                return rawCompare;
+            if (scoreCompare != 0)
+                return scoreCompare;
 
-            int finalDamageCompare = right.DamageAfterTableRules.CompareTo(left.DamageAfterTableRules);
+            int damageCompare = right.DamageAfterTableRules.CompareTo(left.DamageAfterTableRules);
 
-            if (finalDamageCompare != 0)
-                return finalDamageCompare;
+            if (damageCompare != 0)
+                return damageCompare;
 
             return left.PatternType.CompareTo(right.PatternType);
         }
 
+        /// <summary>후보 행 하나를 생성한다.</summary>
         private void CreateEntry(
             CastBoardEntryModel entryModel,
-            int opponentCurrentHp,
             RollPatternType selectedPatternType,
+            RollPatternType recommendedPatternType,
             Action<RollPatternType> onCandidateClicked)
         {
             if (entryRoot == null || entryTemplate == null)
                 return;
 
             CastCandidateEntryView entryView = Instantiate(entryTemplate, entryRoot);
-            bool isKillCandidate = entryModel.DamageAfterTableRules >= opponentCurrentHp && entryModel.DamageAfterTableRules > 0;
+
             bool isSelected = entryModel.PatternType == selectedPatternType;
+            bool isRecommended = entryModel.PatternType == recommendedPatternType;
 
             entryView.gameObject.SetActive(true);
             entryView.Initialize(onCandidateClicked);
@@ -139,12 +159,13 @@ namespace Tessera.UI
                 entryModel.PatternType,
                 entryModel.DisplayName,
                 entryModel.RawCastScore,
-                isKillCandidate,
-                isSelected);
+                isSelected,
+                isRecommended);
 
             spawnedEntries.Add(entryView);
         }
 
+        /// <summary>후보 개수에 맞춰 Popup 높이를 조절한다.</summary>
         private void ResizePopupHeight(int entryCount)
         {
             if (!resizeHeightToEntryCount || cachedRectTransform == null)

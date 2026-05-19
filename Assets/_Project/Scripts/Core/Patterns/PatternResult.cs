@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Tessera.Core
 {
-    /// <summary>하나의 Cast 카테고리 판정 결과와 최종 피해량을 담는다.</summary>
+    /// <summary>하나의 Cast 판정 결과와 전투 계산용 점수 정보를 담는다.</summary>
     public class PatternResult
     {
         private readonly List<int> _includedDiceValues;
@@ -17,19 +17,25 @@ namespace Tessera.Core
         /// <summary>포함 주사위 눈금 합.</summary>
         public int IncludedDiceSum { get; }
 
-        /// <summary>야추식 기본 Cast 점수.</summary>
+        /// <summary>야추식 기본 Cast Score.</summary>
         public int RawCastScore { get; }
 
-        /// <summary>Raw Cast Score에 더해지는 고정 보너스.</summary>
+        /// <summary>야추식 기본 Cast Score이며 RawCastScore와 동일하다.</summary>
+        public int CastScore => RawCastScore;
+
+        /// <summary>Cast Score에 더해지는 고정 보너스.</summary>
         public int FlatBonus { get; }
 
-        /// <summary>Raw Cast Score와 Flat Bonus 합에 곱해지는 피해 배율.</summary>
-        public int DamageMultiplier { get; }
+        /// <summary>Cast Score에 적용되는 기본 Force 값.</summary>
+        public int BaseForce { get; }
 
-        /// <summary>배율 계산 이후 더해지는 최종 보너스.</summary>
+        /// <summary>기존 코드 호환용 피해 배율 값이며 BaseForce와 동일하다.</summary>
+        public int DamageMultiplier => BaseForce;
+
+        /// <summary>Force 계산 이후 더해지는 고정 피해 보너스.</summary>
         public int ExtraBonus { get; }
 
-        /// <summary>최종 피해량.</summary>
+        /// <summary>Table Rule 적용 전 피해량.</summary>
         public int FinalDamage { get; }
 
         /// <summary>Cast 카테고리 판정 결과를 생성한다.</summary>
@@ -38,7 +44,7 @@ namespace Tessera.Core
             IReadOnlyList<int> includedDiceValues,
             int rawCastScore,
             int flatBonus,
-            int damageMultiplier,
+            int baseForce,
             int extraBonus,
             int finalDamage)
         {
@@ -50,7 +56,7 @@ namespace Tessera.Core
             IncludedDiceSum = Sum(includedDiceValues);
             RawCastScore = rawCastScore;
             FlatBonus = flatBonus;
-            DamageMultiplier = damageMultiplier;
+            BaseForce = baseForce;
             ExtraBonus = extraBonus;
             FinalDamage = finalDamage;
         }
@@ -58,9 +64,10 @@ namespace Tessera.Core
         /// <summary>디버그용 Cast 결과 문자열을 반환한다.</summary>
         public override string ToString()
         {
-            return $"{PatternType} | Raw={RawCastScore}, Flat={FlatBonus}, Mult={DamageMultiplier}, Extra={ExtraBonus}, Final={FinalDamage}";
+            return $"{PatternType} | Score={RawCastScore}, Flat={FlatBonus}, Force={BaseForce}, Extra={ExtraBonus}, Damage={FinalDamage}";
         }
 
+        /// <summary>정수 목록의 합계를 계산한다.</summary>
         private static int Sum(IReadOnlyList<int> values)
         {
             int sum = 0;

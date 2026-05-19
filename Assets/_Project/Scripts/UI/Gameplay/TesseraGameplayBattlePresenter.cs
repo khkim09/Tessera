@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Tessera.Core;
+using Tessera.Data;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -23,9 +24,21 @@ namespace Tessera.UI
         [SerializeField] private int die4 = 5;
         [SerializeField] private int die5 = 5;
 
-        [Header("Kill Candidate Debug")]
-        [SerializeField] private bool useKillCandidatePreviewHpOverride;
-        [SerializeField] private int killCandidatePreviewOpponentHp = 12;
+        // [Header("Debug Devices")]
+        // [SerializeField] private SlotPairDeviceType[] debugDeviceTypes = new SlotPairDeviceType[5];
+        // [SerializeField] private int[] debugDeviceIntValues = new int[5];
+        // [SerializeField] private float[] debugDeviceFloatValues = new float[5];
+        // [SerializeField] private float[] debugDeviceForceThresholds = new float[5];
+        // [SerializeField] private RollPatternType[] debugDeviceRequiredPatterns = new RollPatternType[5];
+
+        [Header("Slot Pair Devices")]
+        [SerializeField] private SlotPairDeviceDefinitionSO[] slotPairDevices = new SlotPairDeviceDefinitionSO[5];
+
+        [Header("Device Slot Views")]
+        [SerializeField] private DeviceSlotView[] deviceSlotViews = new DeviceSlotView[5];
+
+        [Header("Popup")]
+        [SerializeField] private bool showCastCandidatePopup = true;
 
         [Header("Left Info Texts")]
         [SerializeField] private TMP_Text roundTitleText;
@@ -36,6 +49,10 @@ namespace Tessera.UI
         [SerializeField] private TMP_Text overchargeText;
         [SerializeField] private TMP_Text enemyIntentText;
         [SerializeField] private TMP_Text partsText;
+        [SerializeField] private TMP_Text selectedCastText;
+        [SerializeField] private TMP_Text scoreText;
+        [SerializeField] private TMP_Text forceText;
+        [SerializeField] private TMP_Text previewDamageText;
         [SerializeField] private TMP_Text messageText;
 
         [Header("Dice Views")]
@@ -44,7 +61,6 @@ namespace Tessera.UI
 
         [Header("Cast Popup")]
         [SerializeField] private CastCandidatePopupView castCandidatePopupView;
-        [SerializeField] private TMP_Text selectedCastText;
 
         [Header("Buttons")]
         [SerializeField] private Button rollButton;
@@ -52,7 +68,7 @@ namespace Tessera.UI
         [SerializeField] private Button submitBrokenCastButton;
         [SerializeField] private Button nextAttemptButton;
         [SerializeField] private Button resetRoundButton;
-        [SerializeField] private Button killCandidateTestButton;
+        [SerializeField] private Button togglePopupButton;
 
         private readonly int[] lockedDiceIndexBySlot = { -1, -1, -1, -1, -1 };
 
@@ -60,6 +76,8 @@ namespace Tessera.UI
         private RoundState roundState;
         private CastBoardModelBuilder castBoardModelBuilder;
         private CastBoardViewModel currentCastBoardViewModel;
+        private SlotPairDamagePreview currentSlotPairPreview;
+        private TableRuleEvaluationResult currentPreviewTableRuleResult;
         private RollPatternType selectedPatternType = RollPatternType.None;
         private int earnedParts;
 
@@ -69,7 +87,7 @@ namespace Tessera.UI
             simulator = useFixedSeed ? new CoreRoundSimulator(seed) : new CoreRoundSimulator();
             castBoardModelBuilder = CastBoardModelBuilder.CreateDefault();
 
-            // 슬롯 클릭 콜백은 한 번만 연결하고 이후에는 index 매핑만 갱신한다.
+            // 슬롯 클릭 콜백은 한 번만 연결하고 이후에는 내부 매핑만 갱신한다.
             InitializeDiceSlots();
         }
 
@@ -101,7 +119,8 @@ namespace Tessera.UI
             roundState = simulator.StartRound(ruleContext);
             earnedParts = 0;
             selectedPatternType = RollPatternType.None;
-            useKillCandidatePreviewHpOverride = false;
+            currentSlotPairPreview = null;
+            currentPreviewTableRuleResult = null;
 
             // 새 Round에서는 이전 Lock 슬롯 배치를 모두 초기화한다.
             ClearLockSlotMapping();
@@ -129,7 +148,7 @@ namespace Tessera.UI
                 RefreshAll("No rolls left.");
         }
 
-        /// <summary>현재 선택한 Cast를 제출한다.</summary>
+        /// <summary>현재 선택한 Cast를 SlotPair 계산값으로 제출한다.</summary>
         public void SubmitSelectedCast()
         {
             if (!CanActInCurrentAttempt())
@@ -144,7 +163,15 @@ namespace Tessera.UI
                 return;
             }
 
-            bool submitted = simulator.TrySubmitSpecificCast(roundState, selectedPatternType, out CastSubmitResult result);
+            // 제출 직전 비어 있는 Lock 슬롯을 DiceIndex 오름차순으로 자동 채운다.
+            EnsureAllDiceAssignedToLockSlots();
+
+            bool submitted = simulator.TrySubmitSpecificCast(
+                roundState,
+                selectedPatternType,
+                CreateLockSlotDiceIndexList(),
+                CreateDebugDeviceDefinitions(),
+                out CastSubmitResult result);
 
             if (!submitted)
             {
@@ -152,10 +179,15 @@ namespace Tessera.UI
                 return;
             }
 
+            // 제출 후에는 Core 결과를 그대로 보존해야 한다.
+            selectedPatternType = result.PatternResult.PatternType;
+            currentSlotPairPreview = result.SlotPairDamagePreview;
+            currentPreviewTableRuleResult = result.TableRuleEvaluationResult;
+
             RefreshAll(BuildSubmitMessage(result));
         }
 
-        /// <summary>Broken Cast를 직접 제출한다.</summary>
+        /// <summary>Broken Cast를 SlotPair 계산값으로 제출한다.</summary>
         public void SubmitBrokenCast()
         {
             if (!CanActInCurrentAttempt())
@@ -164,13 +196,26 @@ namespace Tessera.UI
                 return;
             }
 
-            bool submitted = simulator.TrySubmitSpecificCast(roundState, RollPatternType.BrokenCast, out CastSubmitResult result);
+            // Broken Cast도 SlotPair 연출 대상이므로 5칸을 먼저 채운다.
+            EnsureAllDiceAssignedToLockSlots();
+
+            bool submitted = simulator.TrySubmitSpecificCast(
+                roundState,
+                RollPatternType.BrokenCast,
+                CreateLockSlotDiceIndexList(),
+                CreateDebugDeviceDefinitions(),
+                out CastSubmitResult result);
 
             if (!submitted)
             {
                 RefreshAll("Broken Cast cannot be submitted.");
                 return;
             }
+
+            // 제출 후에는 Core 결과를 그대로 보존해야 한다.
+            selectedPatternType = result.PatternResult.PatternType;
+            currentSlotPairPreview = result.SlotPairDamagePreview;
+            currentPreviewTableRuleResult = result.TableRuleEvaluationResult;
 
             RefreshAll(BuildSubmitMessage(result));
         }
@@ -193,9 +238,10 @@ namespace Tessera.UI
             }
 
             selectedPatternType = RollPatternType.None;
-            useKillCandidatePreviewHpOverride = false;
+            currentSlotPairPreview = null;
+            currentPreviewTableRuleResult = null;
 
-            // 다음 Attempt에서 주사위가 새로 세팅될 수 있으므로 Lock 매핑도 정리한다.
+            // 새 Attempt의 주사위는 새 객체이므로 Lock 슬롯 매핑을 초기화한다.
             ClearLockSlotMapping();
 
             if (useManualDiceValuesOnNextAttempt)
@@ -204,16 +250,15 @@ namespace Tessera.UI
             RefreshAll("Next attempt started.");
         }
 
-        /// <summary>Kill Candidate 강조를 확인하기 위한 임시 HP 기준을 토글한다.</summary>
-        public void ToggleKillCandidatePreviewTest()
+        /// <summary>Cast 후보 Popup 표시 여부를 토글한다.</summary>
+        public void ToggleCastCandidatePopup()
         {
-            useKillCandidatePreviewHpOverride = !useKillCandidatePreviewHpOverride;
+            showCastCandidatePopup = !showCastCandidatePopup;
 
-            string message = useKillCandidatePreviewHpOverride
-                ? $"Kill preview ON. Highlight HP <= {killCandidatePreviewOpponentHp}."
-                : "Kill preview OFF.";
+            if (castCandidatePopupView != null)
+                castCandidatePopupView.SetPopupVisible(showCastCandidatePopup);
 
-            RefreshAll(message);
+            RefreshAll(showCastCandidatePopup ? "Cast popup ON." : "Cast popup OFF.");
         }
 
         /// <summary>주사위 슬롯 클릭 콜백을 등록한다.</summary>
@@ -243,7 +288,7 @@ namespace Tessera.UI
 
             bool willLock = !roundState.Dice[diceIndex].IsLocked;
 
-            // Core 상태를 먼저 갱신한 뒤 UI 슬롯 매핑을 맞춘다.
+            // Core Lock 상태를 먼저 갱신한다.
             simulator.ToggleDiceLock(roundState, diceIndex);
 
             if (willLock)
@@ -254,7 +299,7 @@ namespace Tessera.UI
             RefreshAll("Dice lock changed.");
         }
 
-        /// <summary>Cast 후보를 선택한다.</summary>
+        /// <summary>Popup 후보 클릭으로 제출할 Cast를 선택한다.</summary>
         private void SelectCastCandidate(RollPatternType patternType)
         {
             selectedPatternType = patternType;
@@ -269,21 +314,52 @@ namespace Tessera.UI
 
             currentCastBoardViewModel = castBoardModelBuilder.Build(roundState);
 
-            // 선택이 없으면 현재 추천 후보를 기본 선택으로 사용한다.
-            if (selectedPatternType == RollPatternType.None)
-                selectedPatternType = currentCastBoardViewModel.RecommendedPatternType;
+            // 제출 전 조작 가능한 상태에서만 자동 추천 Cast를 갱신한다.
+            if (CanActInCurrentAttempt())
+            {
+                if (selectedPatternType == RollPatternType.None)
+                    selectedPatternType = currentCastBoardViewModel.RecommendedPatternType;
 
-            // 사용 불가능해진 후보가 선택되어 있으면 다시 추천 후보로 이동한다.
-            if (!CanSelectedCastStillSubmit())
-                selectedPatternType = currentCastBoardViewModel.RecommendedPatternType;
+                if (!CanSelectedCastStillSubmit())
+                    selectedPatternType = currentCastBoardViewModel.RecommendedPatternType;
 
+                BuildCurrentSlotPairPreview();
+            }
+
+            // 제출 후이거나 Round 종료 상태라면 방금 제출한 SlotPair 결과를 유지한다.
             RefreshLeftInfoTexts();
             RefreshDiceViews();
+            RefreshDeviceSlotViews();
             RefreshCastPopup();
             RefreshButtonStates();
 
             if (!string.IsNullOrWhiteSpace(optionalMessage))
                 SetMessage(optionalMessage);
+        }
+
+        /// <summary>선택된 Cast 기준 SlotPair 피해 미리보기를 계산한다.</summary>
+        private void BuildCurrentSlotPairPreview()
+        {
+            // 이미 제출된 Attempt나 종료된 Round에서는 새 Preview를 만들면 안 된다.
+            if (roundState == null || roundState.IsRoundEnded || roundState.CurrentAttempt.IsSubmitted)
+                return;
+
+            currentSlotPairPreview = null;
+            currentPreviewTableRuleResult = null;
+
+            if (selectedPatternType == RollPatternType.None)
+                return;
+
+            List<int> previewLockSlots = CreatePreviewResolvedLockSlotDiceIndexList();
+
+            simulator.TryBuildSlotPairDamagePreview(
+                roundState,
+                selectedPatternType,
+                previewLockSlots,
+                CreateDebugDeviceDefinitions(),
+                out PatternResult patternResult,
+                out currentSlotPairPreview,
+                out currentPreviewTableRuleResult);
         }
 
         /// <summary>좌측 전투 정보 텍스트를 갱신한다.</summary>
@@ -297,7 +373,30 @@ namespace Tessera.UI
             SetText(overchargeText, $"Overcharge {roundState.Overcharge.CurrentOvercharge}");
             SetText(enemyIntentText, $"Intent {roundState.CurrentEnemyIntent.IntentType} {roundState.CurrentEnemyIntent.Damage}");
             SetText(partsText, $"Parts {earnedParts}");
-            SetText(selectedCastText, selectedPatternType == RollPatternType.None ? "Selected: -" : $"Selected: {CastBoardCatalog.GetDisplayName(selectedPatternType)}");
+
+            RefreshSelectedCastTexts();
+        }
+
+        /// <summary>선택 Cast와 SlotPair 계산 미리보기 텍스트를 갱신한다.</summary>
+        private void RefreshSelectedCastTexts()
+        {
+            if (selectedPatternType == RollPatternType.None || currentSlotPairPreview == null)
+            {
+                SetText(selectedCastText, "Cast -");
+                SetText(scoreText, "Score -");
+                SetText(forceText, "Force -");
+                SetText(previewDamageText, "Damage -");
+                return;
+            }
+
+            int damageAfterRules = currentPreviewTableRuleResult != null
+                ? currentPreviewTableRuleResult.ModifiedDamage
+                : currentSlotPairPreview.DamageBeforeTableRules;
+
+            SetText(selectedCastText, $"Cast {CastBoardCatalog.GetDisplayName(selectedPatternType)}");
+            SetText(scoreText, $"Score {currentSlotPairPreview.FinalScore}");
+            SetText(forceText, $"Force x{currentSlotPairPreview.FormatFinalForce()}");
+            SetText(previewDamageText, $"Damage {damageAfterRules}");
         }
 
         /// <summary>Tray 주사위와 Lock 슬롯 표시를 갱신한다.</summary>
@@ -312,11 +411,28 @@ namespace Tessera.UI
 
                 bool isLocked = i < roundState.Dice.Count && roundState.Dice[i].IsLocked;
 
-                // Tray는 원본 주사위 index를 그대로 유지한다.
+                // Tray는 원본 DiceIndex를 그대로 유지한다.
                 trayDiceSlots[i].BindTrayDice(i, diceValues[i], isLocked);
             }
 
             RefreshLockSlotViews(diceValues);
+        }
+
+        /// <summary>상단 Device Slot View 5개를 현재 slotPairDevices 배열 기준으로 갱신한다.</summary>
+        private void RefreshDeviceSlotViews()
+        {
+            if (deviceSlotViews == null)
+                return;
+
+            for (int i = 0; i < deviceSlotViews.Length; i++)
+            {
+                if (deviceSlotViews[i] == null)
+                    continue;
+
+                // i번째 DeviceSlotView에 slotPairDevices[i] 전달 (null-safe)
+                SlotPairDeviceDefinitionSO device = (i >= 0 && i < slotPairDevices.Length) ? slotPairDevices[i] : null;
+                deviceSlotViews[i].SetDevice(device);
+            }
         }
 
         /// <summary>Lock 슬롯을 현재 매핑 순서대로 갱신한다.</summary>
@@ -337,24 +453,27 @@ namespace Tessera.UI
                     continue;
                 }
 
-                // Lock 슬롯은 원본 diceIndex를 보관해야 클릭 시 정확히 Unlock된다.
+                // Lock 슬롯은 원본 DiceIndex를 보관해야 클릭 시 정확히 Unlock된다.
                 lockDiceSlots[slotIndex].BindLockedDice(diceIndex, diceValues[diceIndex]);
             }
         }
 
-        /// <summary>Cast 후보 팝업을 갱신한다.</summary>
+        /// <summary>Cast 후보 Popup을 갱신한다.</summary>
         private void RefreshCastPopup()
         {
-            if (castCandidatePopupView == null)
+            if (castCandidatePopupView == null) return;
+
+            castCandidatePopupView.SetPopupVisible(showCastCandidatePopup);
+
+            if (!showCastCandidatePopup) return;
+
+            if (roundState == null || roundState.IsRoundEnded || roundState.CurrentAttempt.IsSubmitted)
                 return;
 
-            int opponentHpForHighlight = GetOpponentHpForKillCandidateHighlight();
-
-            // 실제 표시 숫자는 RawCastScore지만, 킬 강조는 내부 최종 피해 기준으로 계산한다.
             castCandidatePopupView.Refresh(
                 currentCastBoardViewModel,
-                opponentHpForHighlight,
                 selectedPatternType,
+                currentCastBoardViewModel.RecommendedPatternType,
                 SelectCastCandidate);
         }
 
@@ -370,10 +489,10 @@ namespace Tessera.UI
             SetButtonInteractable(submitBrokenCastButton, canAct);
             SetButtonInteractable(nextAttemptButton, canNext);
             SetButtonInteractable(resetRoundButton, true);
-            SetButtonInteractable(killCandidateTestButton, hasRound);
+            SetButtonInteractable(togglePopupButton, hasRound);
         }
 
-        /// <summary>선택된 Cast가 아직 제출 가능한지 확인한다.</summary>
+        /// <summary>현재 선택된 Cast가 아직 제출 가능한 후보인지 확인한다.</summary>
         private bool CanSelectedCastStillSubmit()
         {
             if (currentCastBoardViewModel == null)
@@ -383,8 +502,7 @@ namespace Tessera.UI
                 return false;
 
             return currentCastBoardViewModel.TryGetEntry(selectedPatternType, out CastBoardEntryModel entry)
-                   && entry.Status == CastBoardEntryStatus.Available
-                   && (entry.RawCastScore > 0 || entry.PatternType == RollPatternType.BrokenCast);
+                   && entry.Status == CastBoardEntryStatus.Available;
         }
 
         /// <summary>현재 Attempt에서 플레이어 조작이 가능한지 확인한다.</summary>
@@ -397,6 +515,29 @@ namespace Tessera.UI
                 return false;
 
             return !roundState.CurrentAttempt.IsSubmitted;
+        }
+
+        /// <summary>제출 직전 모든 주사위를 LockSlot 5칸에 배치한다.</summary>
+        private void EnsureAllDiceAssignedToLockSlots()
+        {
+            RepairInvalidLockSlotMapping();
+
+            for (int diceIndex = 0; diceIndex < roundState.Dice.Count; diceIndex++)
+            {
+                if (FindLockSlotIndexByDiceIndex(diceIndex) >= 0)
+                    continue;
+
+                int emptySlotIndex = FindFirstEmptyLockSlotIndex();
+
+                if (emptySlotIndex < 0)
+                    break;
+
+                // 비어 있는 슬롯은 DiceIndex 오름차순으로 자동 채운다.
+                lockedDiceIndexBySlot[emptySlotIndex] = diceIndex;
+                simulator.SetDiceLocked(roundState, diceIndex, true);
+            }
+
+            RefreshDiceViews();
         }
 
         /// <summary>Lock 슬롯 매핑을 모두 비운다.</summary>
@@ -428,6 +569,7 @@ namespace Tessera.UI
             if (slotIndex < 0)
                 return;
 
+            // 슬롯은 당겨지지 않고 해당 자리만 빈 칸으로 남는다.
             lockedDiceIndexBySlot[slotIndex] = -1;
         }
 
@@ -471,7 +613,7 @@ namespace Tessera.UI
                     continue;
                 }
 
-                // Core 기준으로 이미 Unlock된 주사위는 UI 슬롯에서도 제거한다.
+                // Core 기준으로 Unlock된 주사위는 UI 슬롯에서도 제거한다.
                 if (!roundState.Dice[diceIndex].IsLocked)
                     lockedDiceIndexBySlot[slotIndex] = -1;
             }
@@ -489,13 +631,86 @@ namespace Tessera.UI
             }
         }
 
-        /// <summary>킬 후보 강조에 사용할 적 HP 기준값을 반환한다.</summary>
-        private int GetOpponentHpForKillCandidateHighlight()
+        /// <summary>현재 LockSlot 매핑을 리스트로 반환한다.</summary>
+        private List<int> CreateLockSlotDiceIndexList()
         {
-            if (useKillCandidatePreviewHpOverride)
-                return killCandidatePreviewOpponentHp;
+            List<int> result = new List<int>(lockedDiceIndexBySlot.Length);
 
-            return roundState.Encounter.OpponentCurrentHp;
+            for (int i = 0; i < lockedDiceIndexBySlot.Length; i++)
+                result.Add(lockedDiceIndexBySlot[i]);
+
+            return result;
+        }
+
+        /// <summary>미리보기용으로 자동 채움까지 반영한 LockSlot 매핑을 반환한다.</summary>
+        private List<int> CreatePreviewResolvedLockSlotDiceIndexList()
+        {
+            List<int> result = CreateLockSlotDiceIndexList();
+
+            for (int diceIndex = 0; diceIndex < roundState.Dice.Count; diceIndex++)
+            {
+                if (ContainsDiceIndex(result, diceIndex))
+                    continue;
+
+                int emptySlotIndex = FindFirstEmptyIndex(result);
+
+                if (emptySlotIndex < 0)
+                    break;
+
+                result[emptySlotIndex] = diceIndex;
+            }
+
+            return result;
+        }
+
+        /// <summary>리스트가 지정 주사위 인덱스를 포함하는지 확인한다.</summary>
+        private static bool ContainsDiceIndex(IReadOnlyList<int> diceIndexes, int diceIndex)
+        {
+            for (int i = 0; i < diceIndexes.Count; i++)
+            {
+                if (diceIndexes[i] == diceIndex)
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>리스트에서 첫 번째 빈 슬롯 인덱스를 찾는다.</summary>
+        private static int FindFirstEmptyIndex(IReadOnlyList<int> diceIndexes)
+        {
+            for (int i = 0; i < diceIndexes.Count; i++)
+            {
+                if (diceIndexes[i] < 0)
+                    return i;
+            }
+
+            return -1;
+        }
+
+        /// <summary>현재 장착된 SlotPair Device SO를 Core 계산용 정의 리스트로 변환한다.</summary>
+        private List<SlotPairDeviceDefinition> CreateDebugDeviceDefinitions()
+        {
+            List<SlotPairDeviceDefinition> devices = new List<SlotPairDeviceDefinition>(SlotPairDamageCalculator.SlotPairCount);
+
+            for (int i = 0; i < SlotPairDamageCalculator.SlotPairCount; i++)
+                devices.Add(CreateDeviceDefinitionFromSlot(i));
+
+            return devices;
+        }
+
+        /// <summary>지정 슬롯에 장착된 Device SO를 Core 계산용 정의로 변환한다.</summary>
+        private SlotPairDeviceDefinition CreateDeviceDefinitionFromSlot(int index)
+        {
+            if (slotPairDevices == null)
+                return SlotPairDeviceDefinition.None();
+
+            if (index < 0 || index >= slotPairDevices.Length)
+                return SlotPairDeviceDefinition.None();
+
+            if (slotPairDevices[index] == null)
+                return SlotPairDeviceDefinition.None();
+
+            return slotPairDevices[index].ToCoreDefinition();
         }
 
         /// <summary>제출 결과 메시지를 생성한다.</summary>
@@ -510,6 +725,9 @@ namespace Tessera.UI
             string enemyMessage = result.EnemyIntentResult.DidExecute
                 ? $" Enemy hit {result.EnemyIntentResult.DamageToPlayer}."
                 : " Enemy did not act.";
+
+            if (result.SlotPairDamagePreview != null)
+                return $"{result.PatternResult.PatternType}: Score {result.SlotPairDamagePreview.FinalScore} x Force {result.SlotPairDamagePreview.FormatFinalForce()} = Damage {result.DamageApplied}.{enemyMessage}";
 
             return $"{result.PatternResult.PatternType} dealt {result.DamageApplied}.{enemyMessage}";
         }
@@ -538,8 +756,8 @@ namespace Tessera.UI
             if (resetRoundButton != null)
                 resetRoundButton.onClick.AddListener(StartDebugRound);
 
-            if (killCandidateTestButton != null)
-                killCandidateTestButton.onClick.AddListener(ToggleKillCandidatePreviewTest);
+            if (togglePopupButton != null)
+                togglePopupButton.onClick.AddListener(ToggleCastCandidatePopup);
         }
 
         /// <summary>버튼 클릭 이벤트를 해제한다.</summary>
@@ -560,8 +778,8 @@ namespace Tessera.UI
             if (resetRoundButton != null)
                 resetRoundButton.onClick.RemoveListener(StartDebugRound);
 
-            if (killCandidateTestButton != null)
-                killCandidateTestButton.onClick.RemoveListener(ToggleKillCandidatePreviewTest);
+            if (togglePopupButton != null)
+                togglePopupButton.onClick.RemoveListener(ToggleCastCandidatePopup);
         }
 
         /// <summary>인스펙터에 입력된 수동 주사위 값을 리스트로 만든다.</summary>

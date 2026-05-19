@@ -8,12 +8,14 @@ namespace Tessera.Core
     {
         private readonly DiceRoller _diceRoller;
         private readonly PatternEvaluator _patternEvaluator;
+        private readonly SlotPairDamageCalculator _slotPairDamageCalculator;
 
         /// <summary>시드 없는 랜덤 굴림 기반 Round 시뮬레이터를 생성한다.</summary>
         public CoreRoundSimulator()
         {
             _diceRoller = new DiceRoller();
             _patternEvaluator = PatternEvaluator.CreateDefault();
+            _slotPairDamageCalculator = new SlotPairDamageCalculator();
         }
 
         /// <summary>고정 시드 기반 Round 시뮬레이터를 생성한다.</summary>
@@ -21,6 +23,7 @@ namespace Tessera.Core
         {
             _diceRoller = new DiceRoller(seed);
             _patternEvaluator = PatternEvaluator.CreateDefault();
+            _slotPairDamageCalculator = new SlotPairDamageCalculator();
         }
 
         /// <summary>기본 규칙으로 새 Round를 시작한다.</summary>
@@ -137,7 +140,7 @@ namespace Tessera.Core
             List<PatternResult> availablePatterns = GetAvailablePatterns(roundState);
             PatternResult bestResult = FindBestSubmittableResult(roundState, availablePatterns);
 
-            return SubmitResolvedCast(roundState, bestResult);
+            return SubmitResolvedCast(roundState, bestResult, null, TableRuleEvaluator.Evaluate(roundState.RuleContext, bestResult));
         }
 
         /// <summary>현재 주사위에서 가능한 특정 Cast를 직접 선택해 제출한다.</summary>
@@ -145,29 +148,62 @@ namespace Tessera.Core
         {
             ValidatePlayableRound(roundState);
 
-            if (!roundState.CanUseCastThisRound(patternType))
+            if (!TryResolvePatternAndTableRule(roundState, patternType, out PatternResult patternResult, out TableRuleEvaluationResult tableRuleResult))
             {
                 result = null;
                 return false;
             }
+
+            result = SubmitResolvedCast(roundState, patternResult, null, tableRuleResult);
+            return true;
+        }
+
+        /// <summary>SlotPair 계산값을 사용해 특정 Cast를 제출한다.</summary>
+        public bool TrySubmitSpecificCast(
+            RoundState roundState,
+            RollPatternType patternType,
+            IReadOnlyList<int> lockSlotDiceIndexes,
+            IReadOnlyList<SlotPairDeviceDefinition> deviceDefinitions,
+            out CastSubmitResult result)
+        {
+            ValidatePlayableRound(roundState);
+
+            if (!TryBuildSlotPairDamagePreview(roundState, patternType, lockSlotDiceIndexes, deviceDefinitions, out PatternResult patternResult, out SlotPairDamagePreview preview, out TableRuleEvaluationResult tableRuleResult))
+            {
+                result = null;
+                return false;
+            }
+
+            result = SubmitResolvedCast(roundState, patternResult, preview, tableRuleResult);
+            return true;
+        }
+
+        /// <summary>SlotPair 기준 선택 Cast 피해 미리보기를 생성한다.</summary>
+        public bool TryBuildSlotPairDamagePreview(
+            RoundState roundState,
+            RollPatternType patternType,
+            IReadOnlyList<int> lockSlotDiceIndexes,
+            IReadOnlyList<SlotPairDeviceDefinition> deviceDefinitions,
+            out PatternResult patternResult,
+            out SlotPairDamagePreview preview,
+            out TableRuleEvaluationResult tableRuleResult)
+        {
+            ValidatePlayableRound(roundState);
+
+            patternResult = null;
+            preview = null;
+            tableRuleResult = null;
+
+            if (!TryResolvePatternAndTableRule(roundState, patternType, out patternResult, out TableRuleEvaluationResult baseTableRuleResult))
+                return false;
 
             List<int> diceValues = roundState.GetCurrentDiceValues();
-
-            if (!_patternEvaluator.TryEvaluateSpecificPattern(diceValues, patternType, out PatternResult patternResult))
-            {
-                result = null;
-                return false;
-            }
-
-            TableRuleEvaluationResult tableRuleResult = TableRuleEvaluator.Evaluate(roundState.RuleContext, patternResult);
+            preview = _slotPairDamageCalculator.Calculate(patternResult, diceValues, lockSlotDiceIndexes, deviceDefinitions);
+            tableRuleResult = TableRuleEvaluator.Evaluate(roundState.RuleContext, patternResult.PatternType, preview.DamageBeforeTableRules);
 
             if (tableRuleResult.IsCastBlocked)
-            {
-                result = null;
                 return false;
-            }
 
-            result = SubmitResolvedCast(roundState, patternResult);
             return true;
         }
 
@@ -216,12 +252,41 @@ namespace Tessera.Core
             }
         }
 
-        private CastSubmitResult SubmitResolvedCast(RoundState roundState, PatternResult patternResult)
+        /// <summary>선택 Cast의 PatternResult와 기본 TableRule 결과를 계산한다.</summary>
+        private bool TryResolvePatternAndTableRule(
+            RoundState roundState,
+            RollPatternType patternType,
+            out PatternResult patternResult,
+            out TableRuleEvaluationResult tableRuleResult)
+        {
+            patternResult = null;
+            tableRuleResult = null;
+
+            if (!roundState.CanUseCastThisRound(patternType))
+                return false;
+
+            List<int> diceValues = roundState.GetCurrentDiceValues();
+
+            if (!_patternEvaluator.TryEvaluateSpecificPattern(diceValues, patternType, out patternResult))
+                return false;
+
+            tableRuleResult = TableRuleEvaluator.Evaluate(roundState.RuleContext, patternResult);
+
+            if (tableRuleResult.IsCastBlocked)
+                return false;
+
+            return true;
+        }
+
+        /// <summary>해결된 Cast 계산 결과를 Round에 실제 적용한다.</summary>
+        private CastSubmitResult SubmitResolvedCast(
+            RoundState roundState,
+            PatternResult patternResult,
+            SlotPairDamagePreview slotPairDamagePreview,
+            TableRuleEvaluationResult tableRuleResult)
         {
             if (roundState.CurrentAttempt.IsSubmitted)
                 throw new InvalidOperationException("이미 제출된 Attempt입니다.");
-
-            TableRuleEvaluationResult tableRuleResult = TableRuleEvaluator.Evaluate(roundState.RuleContext, patternResult);
 
             if (tableRuleResult.IsCastBlocked)
                 throw new InvalidOperationException($"테이블 규칙으로 인해 제출할 수 없는 Cast입니다. PatternType: {patternResult.PatternType}");
@@ -267,12 +332,14 @@ namespace Tessera.Core
                 enemyIntentResult,
                 outcomeType,
                 canStartNextAttempt,
-                message);
+                message,
+                slotPairDamagePreview);
 
             roundState.AddSubmitResult(result);
             return result;
         }
 
+        /// <summary>현재 상대 Intent를 실행한다.</summary>
         private static EnemyIntentResult ExecuteEnemyIntent(RoundState roundState)
         {
             EnemyIntent intent = roundState.CurrentEnemyIntent;
@@ -295,6 +362,7 @@ namespace Tessera.Core
             return EnemyIntentResult.NotExecuted(roundState.Encounter.PlayerCurrentHp);
         }
 
+        /// <summary>제출 가능한 Cast 중 테이블 규칙 적용 후 피해가 가장 높은 결과를 찾는다.</summary>
         private static PatternResult FindBestSubmittableResult(RoundState roundState, IReadOnlyList<PatternResult> availablePatterns)
         {
             if (availablePatterns == null || availablePatterns.Count == 0)
@@ -325,6 +393,7 @@ namespace Tessera.Core
             return availablePatterns[0];
         }
 
+        /// <summary>Attempt 상태를 생성하고 다음 Attempt 무료 리롤 토큰을 적용한다.</summary>
         private static AttemptState CreateAttempt(RoundRuleContext ruleContext, OverchargeState overcharge, int attemptNumber)
         {
             int freeRerollTokens = overcharge.DrainNextAttemptFreeRerollTokens();
@@ -335,6 +404,7 @@ namespace Tessera.Core
                 freeRerollTokens);
         }
 
+        /// <summary>Broken Cast 보상을 적용한다.</summary>
         private static void ApplyBrokenCastReward(
             RoundState roundState,
             out bool didGrantOvercharge,
@@ -361,6 +431,7 @@ namespace Tessera.Core
             }
         }
 
+        /// <summary>현재 전투 상태를 기준으로 Round 결과를 계산한다.</summary>
         private static RoundOutcomeType ResolveRoundOutcome(RoundState roundState)
         {
             if (roundState.Encounter.IsOpponentDefeated)
@@ -375,6 +446,7 @@ namespace Tessera.Core
             return RoundOutcomeType.Ongoing;
         }
 
+        /// <summary>RoundState가 조작 가능한 상태인지 검증한다.</summary>
         private static void ValidatePlayableRound(RoundState roundState)
         {
             if (roundState == null)
@@ -384,6 +456,7 @@ namespace Tessera.Core
                 throw new InvalidOperationException("이미 종료된 Round입니다.");
         }
 
+        /// <summary>제출 결과에 맞는 디버그 메시지를 생성한다.</summary>
         private static string BuildSubmitMessage(
             PatternResult patternResult,
             RoundOutcomeType outcomeType,

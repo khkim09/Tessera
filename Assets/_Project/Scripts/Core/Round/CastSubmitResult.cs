@@ -9,6 +9,9 @@
         /// <summary>선택된 Cast 판정 결과.</summary>
         public PatternResult PatternResult { get; }
 
+        /// <summary>SlotPair 기반 피해 계산 결과.</summary>
+        public SlotPairDamagePreview SlotPairDamagePreview { get; }
+
         /// <summary>테이블 규칙 적용 결과.</summary>
         public TableRuleEvaluationResult TableRuleEvaluationResult { get; }
 
@@ -65,10 +68,12 @@
             EnemyIntentResult enemyIntentResult,
             RoundOutcomeType outcomeType,
             bool canStartNextAttempt,
-            string message)
+            string message,
+            SlotPairDamagePreview slotPairDamagePreview = null)
         {
             AttemptNumber = attemptNumber;
             PatternResult = patternResult;
+            SlotPairDamagePreview = slotPairDamagePreview;
             TableRuleEvaluationResult = tableRuleEvaluationResult;
             DamageApplied = damageApplied;
             OpponentHpAfterDamage = opponentHpAfterDamage;

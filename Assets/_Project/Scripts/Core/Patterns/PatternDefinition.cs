@@ -3,53 +3,59 @@ using System.Collections.Generic;
 
 namespace Tessera.Core
 {
-    /// <summary>Cast 카테고리의 피해 보정값과 표시 정보를 정의한다.</summary>
+    /// <summary>Cast 카테고리의 Cast Score 보정값과 기본 Force를 정의한다.</summary>
     public class PatternDefinition
     {
         /// <summary>이 정의가 가리키는 Cast 카테고리.</summary>
         public RollPatternType PatternType { get; }
 
-        /// <summary>Raw Cast Score에 더해지는 고정 보너스.</summary>
+        /// <summary>Cast Score에 더해지는 고정 보너스.</summary>
         public int FlatBonus { get; }
 
-        /// <summary>Raw Cast Score와 Flat Bonus 합에 곱해지는 피해 배율.</summary>
-        public int DamageMultiplier { get; }
+        /// <summary>Cast Score에 적용되는 기본 Force 값.</summary>
+        public int BaseForce { get; }
 
-        /// <summary>배율 계산 이후 추가되는 최종 고정 보너스.</summary>
+        /// <summary>기존 코드 호환용 피해 배율 값이며 BaseForce와 동일하다.</summary>
+        public int DamageMultiplier => BaseForce;
+
+        /// <summary>Force 계산 이후 추가되는 고정 피해 보너스.</summary>
         public int ExtraBonus { get; }
 
-        /// <summary>Cast 카테고리 피해 보정 정의를 생성한다.</summary>
-        public PatternDefinition(RollPatternType patternType, int flatBonus, int damageMultiplier, int extraBonus = 0)
+        /// <summary>Cast 카테고리 계산 정의를 생성한다.</summary>
+        public PatternDefinition(RollPatternType patternType, int flatBonus, int baseForce, int extraBonus = 0)
         {
-            if (damageMultiplier < 0)
-                throw new ArgumentOutOfRangeException(nameof(damageMultiplier), "피해 배율은 음수가 될 수 없습니다.");
+            if (baseForce < 0)
+                throw new ArgumentOutOfRangeException(nameof(baseForce), "Base Force는 음수가 될 수 없습니다.");
 
             PatternType = patternType;
             FlatBonus = flatBonus;
-            DamageMultiplier = damageMultiplier;
+            BaseForce = baseForce;
             ExtraBonus = extraBonus;
         }
 
-        /// <summary>초기 Core 테스트용 Cast 카테고리 보정값을 생성한다.</summary>
+        /// <summary>전투 계산 규칙의 기본 Cast 정의표를 생성</summary>
         public static IReadOnlyDictionary<RollPatternType, PatternDefinition> CreateDefaultDefinitions()
         {
             return new Dictionary<RollPatternType, PatternDefinition>
             {
-                { RollPatternType.Aces, new PatternDefinition(RollPatternType.Aces, 0, 1) },
-                { RollPatternType.Twos, new PatternDefinition(RollPatternType.Twos, 0, 1) },
-                { RollPatternType.Threes, new PatternDefinition(RollPatternType.Threes, 0, 1) },
-                { RollPatternType.Fours, new PatternDefinition(RollPatternType.Fours, 0, 1) },
-                { RollPatternType.Fives, new PatternDefinition(RollPatternType.Fives, 0, 1) },
-                { RollPatternType.Sixes, new PatternDefinition(RollPatternType.Sixes, 0, 1) },
+                // 숫자 Cast는 기본 점수가 낮기 때문에 Force x2로 최소 전투 가치를 보장한다.
+                { RollPatternType.Aces, new PatternDefinition(RollPatternType.Aces, 0, 2) },
+                { RollPatternType.Twos, new PatternDefinition(RollPatternType.Twos, 0, 2) },
+                { RollPatternType.Threes, new PatternDefinition(RollPatternType.Threes, 0, 2) },
+                { RollPatternType.Fours, new PatternDefinition(RollPatternType.Fours, 0, 2) },
+                { RollPatternType.Fives, new PatternDefinition(RollPatternType.Fives, 0, 2) },
+                { RollPatternType.Sixes, new PatternDefinition(RollPatternType.Sixes, 0, 2) },
 
-                { RollPatternType.ThreeOfAKind, new PatternDefinition(RollPatternType.ThreeOfAKind, 0, 1) },
-                { RollPatternType.FourOfAKind, new PatternDefinition(RollPatternType.FourOfAKind, 0, 1) },
-                { RollPatternType.FullHouse, new PatternDefinition(RollPatternType.FullHouse, 0, 1) },
-                { RollPatternType.SmallStraight, new PatternDefinition(RollPatternType.SmallStraight, 0, 1) },
-                { RollPatternType.LargeStraight, new PatternDefinition(RollPatternType.LargeStraight, 0, 1) },
+                // 조합 Cast는 제작 난이도와 폭발력을 반영해 Force를 차등 적용한다.
+                { RollPatternType.ThreeOfAKind, new PatternDefinition(RollPatternType.ThreeOfAKind, 0, 2) },
+                { RollPatternType.FourOfAKind, new PatternDefinition(RollPatternType.FourOfAKind, 0, 3) },
+                { RollPatternType.FullHouse, new PatternDefinition(RollPatternType.FullHouse, 0, 3) },
+                { RollPatternType.SmallStraight, new PatternDefinition(RollPatternType.SmallStraight, 0, 3) },
+                { RollPatternType.LargeStraight, new PatternDefinition(RollPatternType.LargeStraight, 0, 4) },
                 { RollPatternType.Chance, new PatternDefinition(RollPatternType.Chance, 0, 1) },
-                { RollPatternType.Tessera, new PatternDefinition(RollPatternType.Tessera, 0, 1) },
+                { RollPatternType.Tessera, new PatternDefinition(RollPatternType.Tessera, 0, 5) },
 
+                // Broken Cast는 피해 0이며 Overcharge/리롤 보상용 Cast로 유지한다.
                 { RollPatternType.BrokenCast, new PatternDefinition(RollPatternType.BrokenCast, 0, 0) }
             };
         }
