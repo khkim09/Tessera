@@ -1,0 +1,5 @@
+﻿<Solution>
+  <Project Path="Tessera.UI.csproj" />
+  <Project Path="Tessera.Core.csproj" />
+  <Project Path="Tessera.Runtime.csproj" />
+</Solution>

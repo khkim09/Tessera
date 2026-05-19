@@ -1,0 +1,17 @@
+{
+    "name": "Tessera.Runtime",
+    "rootNamespace": "Tessera.Runtime",
+    "references": [
+        "Tessera.Core",
+        "Tessera.Data"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
