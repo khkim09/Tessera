@@ -8,7 +8,7 @@ using UnityEngine.UI;
 namespace Tessera.UI
 {
     /// <summary>실제 플레이형 Round 진행 UI와 Core Round 상태를 연결한다.</summary>
-    public class TesseraGameplayBattlePresenter : MonoBehaviour
+    public class TesseraGameplayBattlePresenter : MonoBehaviour, IDeviceSlotReorderHandler
     {
         [Header("Round Rule")]
         [SerializeField] private bool useBossRule = true;
@@ -23,13 +23,6 @@ namespace Tessera.UI
         [SerializeField] private int die3 = 2;
         [SerializeField] private int die4 = 5;
         [SerializeField] private int die5 = 5;
-
-        // [Header("Debug Devices")]
-        // [SerializeField] private SlotPairDeviceType[] debugDeviceTypes = new SlotPairDeviceType[5];
-        // [SerializeField] private int[] debugDeviceIntValues = new int[5];
-        // [SerializeField] private float[] debugDeviceFloatValues = new float[5];
-        // [SerializeField] private float[] debugDeviceForceThresholds = new float[5];
-        // [SerializeField] private RollPatternType[] debugDeviceRequiredPatterns = new RollPatternType[5];
 
         [Header("Slot Pair Devices")]
         [SerializeField] private SlotPairDeviceDefinitionSO[] slotPairDevices = new SlotPairDeviceDefinitionSO[5];
@@ -89,6 +82,9 @@ namespace Tessera.UI
 
             // 슬롯 클릭 콜백은 한 번만 연결하고 이후에는 내부 매핑만 갱신한다.
             InitializeDiceSlots();
+
+            // Device 슬롯 드래그 재정렬을 위해 각 슬롯에 인덱스와 핸들러를 전달한다.
+            InitializeDeviceSlots();
         }
 
         /// <summary>버튼 이벤트를 연결한다.</summary>
@@ -277,14 +273,50 @@ namespace Tessera.UI
             }
         }
 
-        /// <summary>주사위 Lock 상태를 전환하고 Lock 슬롯 매핑을 갱신한다.</summary>
-        private void ToggleDiceLock(int diceIndex)
+        /// <summary>Device 슬롯 드래그 재정렬을 위해 각 슬롯에 인덱스와 핸들러를 전달한다.</summary>
+        private void InitializeDeviceSlots()
         {
-            if (!CanActInCurrentAttempt())
+            if (deviceSlotViews == null)
                 return;
 
-            if (diceIndex < 0 || diceIndex >= roundState.Dice.Count)
+            for (int i = 0; i < deviceSlotViews.Length; i++)
+            {
+                if (deviceSlotViews[i] != null)
+                    deviceSlotViews[i].Initialize(i, this);
+            }
+        }
+
+        /// <summary>IDeviceSlotReorderHandler: 두 Device 슬롯의 SlotPairDeviceDefinitionSO를 교체한다.</summary>
+        public void RequestDeviceSlotSwap(int sourceSlotIndex, int targetSlotIndex)
+        {
+            if (slotPairDevices == null)
                 return;
+
+            if (sourceSlotIndex < 0 || sourceSlotIndex >= slotPairDevices.Length)
+                return;
+
+            if (targetSlotIndex < 0 || targetSlotIndex >= slotPairDevices.Length)
+                return;
+
+            if (sourceSlotIndex == targetSlotIndex)
+                return;
+
+            // 두 슬롯의 Device SO를 맞바꾼다.
+            SlotPairDeviceDefinitionSO temp = slotPairDevices[sourceSlotIndex];
+            slotPairDevices[sourceSlotIndex] = slotPairDevices[targetSlotIndex];
+            slotPairDevices[targetSlotIndex] = temp;
+
+            // Swap 이후 전체 UI를 현재 데이터 기준으로 다시 그린다.
+            // Round, Dice Lock, Cast 선택 상태는 변경하지 않는다.
+            RefreshAll("Device order changed.");
+        }
+
+        /// <summary>주사위 Lock 상태를 전환하고 Lock 슬롯 매핑을 갱신한다.</summary>
+        private void ToggleDiceLock(int diceIndex)
+
+        {
+            if (!CanActInCurrentAttempt()) return;
+            if (diceIndex < 0 || diceIndex >= roundState.Dice.Count) return;
 
             bool willLock = !roundState.Dice[diceIndex].IsLocked;
 
@@ -309,8 +341,7 @@ namespace Tessera.UI
         /// <summary>전체 UI 표시를 현재 Round 상태 기준으로 다시 그린다.</summary>
         private void RefreshAll(string optionalMessage)
         {
-            if (roundState == null)
-                return;
+            if (roundState == null) return;
 
             currentCastBoardViewModel = castBoardModelBuilder.Build(roundState);
 
@@ -406,8 +437,7 @@ namespace Tessera.UI
 
             for (int i = 0; i < trayDiceSlots.Length; i++)
             {
-                if (trayDiceSlots[i] == null)
-                    continue;
+                if (trayDiceSlots[i] == null) continue;
 
                 bool isLocked = i < roundState.Dice.Count && roundState.Dice[i].IsLocked;
 
@@ -421,16 +451,19 @@ namespace Tessera.UI
         /// <summary>상단 Device Slot View 5개를 현재 slotPairDevices 배열 기준으로 갱신한다.</summary>
         private void RefreshDeviceSlotViews()
         {
-            if (deviceSlotViews == null)
-                return;
+            if (deviceSlotViews == null) return;
 
             for (int i = 0; i < deviceSlotViews.Length; i++)
             {
                 if (deviceSlotViews[i] == null)
                     continue;
 
-                // i번째 DeviceSlotView에 slotPairDevices[i] 전달 (null-safe)
-                SlotPairDeviceDefinitionSO device = (i >= 0 && i < slotPairDevices.Length) ? slotPairDevices[i] : null;
+                // slotPairDevices가 없거나 범위를 벗어나면 Empty 슬롯으로 표시한다.
+                SlotPairDeviceDefinitionSO device = null;
+
+                if (slotPairDevices != null && i >= 0 && i < slotPairDevices.Length)
+                    device = slotPairDevices[i];
+
                 deviceSlotViews[i].SetDevice(device);
             }
         }
