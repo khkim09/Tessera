@@ -1,6 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Tessera.Core;
 using Tessera.Data;
+using Tessera.Runtime;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -73,6 +75,18 @@ namespace Tessera.UI
         private TableRuleEvaluationResult currentPreviewTableRuleResult;
         private RollPatternType selectedPatternType = RollPatternType.None;
         private int earnedParts;
+        private TesseraRunSession runSession;
+        private bool roundEndNotified;
+
+        #region Event
+
+        /// <summary>Round 승리 확정</summary>
+        public event Action<CastSubmitResult> RoundWon;
+
+        /// <summary>Round 패배 확정</summary>
+        public event Action<CastSubmitResult> RoundLost;
+
+        #endregion
 
         /// <summary>Core 시뮬레이터와 ViewModel 빌더를 준비한다.</summary>
         private void Awake()
@@ -113,7 +127,10 @@ namespace Tessera.UI
                 : RoundRuleContext.CreateDefault();
 
             roundState = simulator.StartRound(ruleContext);
-            earnedParts = 0;
+            roundEndNotified = false;
+
+            if (runSession == null) earnedParts = 0;
+
             selectedPatternType = RollPatternType.None;
             currentSlotPairPreview = null;
             currentPreviewTableRuleResult = null;
@@ -124,7 +141,21 @@ namespace Tessera.UI
             if (useManualDiceValuesOnStart)
                 simulator.SetCurrentDiceValuesForTest(roundState, CreateManualDiceValues());
 
+            SyncDevicesFromRunSession();
             RefreshAll("Round started.");
+        }
+
+        /// <summary>외부 RunSession을 연결하고 장착 Device/Parts 상태를 동기화한다.</summary>
+        public void BindRunSession(TesseraRunSession runSession)
+        {
+            this.runSession = runSession;
+
+            SyncDevicesFromRunSession();
+
+            if (roundState != null)
+                RefreshAll(null);
+            else
+                RefreshDeviceSlotViews();
         }
 
         /// <summary>잠기지 않은 주사위를 다시 굴린다.</summary>
@@ -181,6 +212,7 @@ namespace Tessera.UI
             currentPreviewTableRuleResult = result.TableRuleEvaluationResult;
 
             RefreshAll(BuildSubmitMessage(result));
+            NotifyRoundEndIfNeeded(result);
         }
 
         /// <summary>Broken Cast를 SlotPair 계산값으로 제출한다.</summary>
@@ -214,6 +246,7 @@ namespace Tessera.UI
             currentPreviewTableRuleResult = result.TableRuleEvaluationResult;
 
             RefreshAll(BuildSubmitMessage(result));
+            NotifyRoundEndIfNeeded(result);
         }
 
         /// <summary>다음 Attempt 시작을 시도한다.</summary>
@@ -289,26 +322,36 @@ namespace Tessera.UI
         /// <summary>IDeviceSlotReorderHandler: 두 Device 슬롯의 SlotPairDeviceDefinitionSO를 교체한다.</summary>
         public void RequestDeviceSlotSwap(int sourceSlotIndex, int targetSlotIndex)
         {
-            if (slotPairDevices == null)
-                return;
-
-            if (sourceSlotIndex < 0 || sourceSlotIndex >= slotPairDevices.Length)
-                return;
-
-            if (targetSlotIndex < 0 || targetSlotIndex >= slotPairDevices.Length)
-                return;
-
             if (sourceSlotIndex == targetSlotIndex)
                 return;
 
-            // 두 슬롯의 Device SO를 맞바꾼다.
-            SlotPairDeviceDefinitionSO temp = slotPairDevices[sourceSlotIndex];
-            slotPairDevices[sourceSlotIndex] = slotPairDevices[targetSlotIndex];
-            slotPairDevices[targetSlotIndex] = temp;
+            if (runSession != null)
+            {
+                // 정식 Run에서는 RunSession이 장착 Device의 원본 데이터다.
+                if (!runSession.SwapEquippedDevices(sourceSlotIndex, targetSlotIndex))
+                    return;
 
-            // Swap 이후 전체 UI를 현재 데이터 기준으로 다시 그린다.
-            // Round, Dice Lock, Cast 선택 상태는 변경하지 않는다.
-            RefreshAll("Device order changed.");
+                SyncDevicesFromRunSession();
+            }
+            else
+            {
+                // Debug 단독 실행에서는 Presenter 내부 배열만 교체한다.
+                if (slotPairDevices == null) return;
+                if (sourceSlotIndex < 0 || sourceSlotIndex >= slotPairDevices.Length) return;
+                if (targetSlotIndex < 0 || targetSlotIndex >= slotPairDevices.Length) return;
+
+                SlotPairDeviceDefinitionSO temp = slotPairDevices[sourceSlotIndex];
+                slotPairDevices[sourceSlotIndex] = slotPairDevices[targetSlotIndex];
+                slotPairDevices[targetSlotIndex] = temp;
+            }
+
+            RefreshDeviceSlotViews();
+
+            if (roundState != null && !roundState.IsRoundEnded && !roundState.CurrentAttempt.IsSubmitted)
+            {
+                BuildCurrentSlotPairPreview();
+                RefreshSelectedCastTexts();
+            }
         }
 
         /// <summary>주사위 Lock 상태를 전환하고 Lock 슬롯 매핑을 갱신한다.</summary>
@@ -403,7 +446,7 @@ namespace Tessera.UI
             SetText(rollText, $"Rolls {roundState.RemainingRoundRolls}/{roundState.RuleContext.RoundRollPool}");
             SetText(overchargeText, $"Overcharge {roundState.Overcharge.CurrentOvercharge}");
             SetText(enemyIntentText, $"Intent {roundState.CurrentEnemyIntent.IntentType} {roundState.CurrentEnemyIntent.Damage}");
-            SetText(partsText, $"Parts {earnedParts}");
+            SetText(partsText, $"Parts {GetCurrentParts()}");
 
             RefreshSelectedCastTexts();
         }
@@ -746,13 +789,80 @@ namespace Tessera.UI
             return slotPairDevices[index].ToCoreDefinition();
         }
 
+        /// <summary>RunSession의 장착 Device 배열을 Presenter 내부 배열로 복사한다.</summary>
+        private void SyncDevicesFromRunSession()
+        {
+            if (runSession == null)
+                return;
+
+            EnsureSlotPairDeviceArraySize();
+
+            for (int i = 0; i < slotPairDevices.Length; i++)
+            {
+                slotPairDevices[i] = i < runSession.EquippedSlotPairDevices.Count
+                    ? runSession.EquippedSlotPairDevices[i]
+                    : null;
+            }
+        }
+
+        /// <summary>slotPairDevices 배열 크기를 SlotPairCount 기준으로 보정한다.</summary>
+        private void EnsureSlotPairDeviceArraySize()
+        {
+            if (slotPairDevices != null && slotPairDevices.Length == SlotPairDamageCalculator.SlotPairCount)
+                return;
+
+            SlotPairDeviceDefinitionSO[] resizedDevices = new SlotPairDeviceDefinitionSO[SlotPairDamageCalculator.SlotPairCount];
+
+            if (slotPairDevices != null)
+            {
+                int copyCount = Mathf.Min(slotPairDevices.Length, resizedDevices.Length);
+
+                for (int i = 0; i < copyCount; i++)
+                    resizedDevices[i] = slotPairDevices[i];
+            }
+
+            slotPairDevices = resizedDevices;
+        }
+
+        /// <summary>현재 표시할 Parts 값을 반환한다.</summary>
+        private int GetCurrentParts()
+        {
+            if (runSession != null)
+                return runSession.Parts;
+
+            return earnedParts;
+        }
+
+        /// <summary>Round 종료 결과 이벤트를 중복 없이 외부 Root로 전달한다.</summary>
+        private void NotifyRoundEndIfNeeded(CastSubmitResult result)
+        {
+            if (result == null)
+                return;
+
+            if (roundEndNotified)
+                return;
+
+            if (result.IsRoundWon)
+            {
+                roundEndNotified = true;
+                RoundWon?.Invoke(result);
+                return;
+            }
+
+            if (result.IsRoundLost)
+            {
+                roundEndNotified = true;
+                RoundLost?.Invoke(result);
+            }
+        }
+
         /// <summary>제출 결과 메시지를 생성한다.</summary>
         private string BuildSubmitMessage(CastSubmitResult result)
         {
             if (result == null)
                 return "Submit failed.";
 
-            if (result.IsRoundWon)
+            if (result.IsRoundWon && runSession == null)
                 earnedParts += 20;
 
             string enemyMessage = result.EnemyIntentResult.DidExecute

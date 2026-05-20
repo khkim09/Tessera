@@ -15,6 +15,7 @@ MonoBehaviour:
   deviceId: device.force.same_previous_1
   displayName: Echo Gear
   description: Adds Force +1 if this dice matches the previous slot dice.
+  icon: {fileID: 0}
   deviceType: 3
   intValue: 1
   floatValue: 1

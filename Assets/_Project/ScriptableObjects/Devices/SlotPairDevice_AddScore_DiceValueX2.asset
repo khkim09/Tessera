@@ -15,7 +15,7 @@ MonoBehaviour:
   deviceId: device.add_score.dice_value_x2
   displayName: Dice Value Doubler
   description: Adds current dice value x2 to Score.
-  icon: {fileID: 10915, guid: 0000000000000000f000000000000000, type: 0}
+  icon: {fileID: 0}
   deviceType: 1
   intValue: 2
   floatValue: 1
