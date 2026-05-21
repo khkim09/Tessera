@@ -5,7 +5,9 @@
         "Tessera.Core",
         "Tessera.Data",
         "Tessera.Runtime",
-        "Tessera.UI"
+        "Tessera.UI",
+        "Unity.TextMeshPro",
+        "Unity.RenderPipelines.Core.Runtime"
     ],
     "includePlatforms": [
         "Editor"
