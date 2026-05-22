@@ -6,7 +6,8 @@
         "Tessera.Data",
         "Tessera.Runtime",
         "Unity.TextMeshPro",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "UniTask"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
