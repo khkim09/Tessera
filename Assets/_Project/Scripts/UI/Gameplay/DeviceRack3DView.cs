@@ -113,5 +113,131 @@ namespace Tessera.UI
                 slots[i].SetHighlighted(false);
             }
         }
+
+        /// <summary>지정 슬롯의 DeviceSlot Transform을 반환한다.</summary>
+        public Transform GetSlotTransform(int slotIndex)
+        {
+            if (slots == null)
+                return null;
+
+            if (slotIndex < 0 || slotIndex >= slots.Length)
+                return null;
+
+            if (slots[slotIndex] == null)
+                return null;
+
+            return slots[slotIndex].transform;
+        }
+
+        /// <summary>지정 슬롯의 시각 중심 월드 좌표를 반환한다.</summary>
+        public bool TryGetSlotVisualCenter(int slotIndex, out Vector3 center)
+        {
+            center = Vector3.zero;
+
+            Transform slotTransform = GetSlotTransform(slotIndex);
+
+            if (slotTransform == null)
+                return false;
+
+            Renderer slotRenderer = slotTransform.GetComponentInChildren<Renderer>(true);
+
+            if (slotRenderer != null)
+            {
+                // 실제 화면에 보이는 Mesh bounds 중심을 기준점으로 사용한다.
+                center = slotRenderer.bounds.center;
+                return true;
+            }
+
+            Collider slotCollider = slotTransform.GetComponentInChildren<Collider>(true);
+
+            if (slotCollider != null)
+            {
+                // Renderer가 없으면 Collider bounds 중심을 대체 기준점으로 사용한다.
+                center = slotCollider.bounds.center;
+                return true;
+            }
+
+            // 둘 다 없으면 Transform 위치를 fallback 기준점으로 사용한다.
+            center = slotTransform.position;
+            return true;
+        }
+
+
+        /// <summary>지정 슬롯의 Presentation 좌표계 기준 벡터를 반환한다.</summary>
+        public bool TryGetSlotPresentationBasis(
+            int slotIndex,
+            Camera targetCamera,
+            out Vector3 center,
+            out Vector3 right,
+            out Vector3 up,
+            out Vector3 towardPlayer)
+        {
+            center = Vector3.zero;
+            right = Vector3.right;
+            up = Vector3.up;
+            towardPlayer = Vector3.back;
+
+            Transform slotTransform = GetSlotTransform(slotIndex);
+
+            if (slotTransform == null)
+                return false;
+
+            if (!TryGetSlotVisualCenter(slotIndex, out center))
+                return false;
+
+            // 슬롯 Transform 기준의 로컬 축을 Presentation 좌표계의 기준으로 사용한다.
+            up = SafeNormalized(slotTransform.up, Vector3.up);
+            right = Vector3.ProjectOnPlane(slotTransform.right, up);
+            right = SafeNormalized(right, slotTransform.right);
+
+            towardPlayer = BuildTowardPlayerDirection(slotTransform, targetCamera, up);
+            return true;
+        }
+
+        /// <summary>카메라 방향을 슬롯 평면에 투영해 플레이어 쪽 방향을 계산한다.</summary>
+        private static Vector3 BuildTowardPlayerDirection(Transform slotTransform, Camera targetCamera, Vector3 slotUp)
+        {
+            if (targetCamera != null)
+            {
+                Vector3 projectedCameraForward = Vector3.ProjectOnPlane(targetCamera.transform.forward, slotUp);
+
+                if (projectedCameraForward.sqrMagnitude > 0.0001f)
+                {
+                    // 카메라 forward의 반대 방향이 테이블 평면상 플레이어 쪽이다.
+                    return -projectedCameraForward.normalized;
+                }
+            }
+
+            Vector3 projectedSlotForward = Vector3.ProjectOnPlane(slotTransform.forward, slotUp);
+
+            if (projectedSlotForward.sqrMagnitude > 0.0001f)
+                return projectedSlotForward.normalized;
+
+            Vector3 fallback = Vector3.ProjectOnPlane(Vector3.back, slotUp);
+            return SafeNormalized(fallback, Vector3.back);
+        }
+
+        /// <summary>벡터가 너무 작으면 대체 벡터를 정규화해 반환한다.</summary>
+        private static Vector3 SafeNormalized(Vector3 value, Vector3 fallback)
+        {
+            if (value.sqrMagnitude > 0.0001f)
+                return value.normalized;
+
+            if (fallback.sqrMagnitude > 0.0001f)
+                return fallback.normalized;
+
+            return Vector3.up;
+        }
+
+        /// <summary>지정 슬롯의 시각 중심 기준 Transform 회전을 반환한다.</summary>
+        public Quaternion GetSlotRotation(int slotIndex)
+        {
+            Transform slotTransform = GetSlotTransform(slotIndex);
+
+            if (slotTransform == null)
+                return Quaternion.identity;
+
+            return slotTransform.rotation;
+        }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
-using System.Collections;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -19,7 +20,7 @@ namespace Tessera.UI
         [SerializeField] private Color hoverColor = new Color(0.95f, 0.92f, 0.70f, 1f);
 
         private Material runtimeMaterial;
-        private Coroutine moveCoroutine;
+        private CancellationTokenSource moveCts;
         private Action<int> clickedCallback;
         private int diceIndex = -1;
         private int diceValue = 1;
@@ -46,6 +47,13 @@ namespace Tessera.UI
         {
             // 주사위별 색상 변경이 독립적으로 동작하도록 Material 인스턴스를 준비한다.
             EnsureRuntimeMaterial();
+        }
+
+        /// <summary>오브젝트가 제거될 때 진행 중인 이동 작업을 정리한다.</summary>
+        private void OnDestroy()
+        {
+            // UniTask 이동 연출이 남아 있으면 안전하게 취소한다.
+            CancelMoveTask();
         }
 
         /// <summary>클릭 콜백을 초기화한다.</summary>
@@ -79,7 +87,7 @@ namespace Tessera.UI
         public void MoveImmediate(Vector3 targetPosition, Quaternion targetRotation)
         {
             // 초기 배치나 즉시 복구가 필요할 때 사용한다.
-            StopMoveCoroutine();
+            CancelMoveTask();
             transform.position = targetPosition;
             transform.rotation = targetRotation;
         }
@@ -93,9 +101,12 @@ namespace Tessera.UI
                 return;
             }
 
-            // 기존 이동 중이면 중복 코루틴을 정리한다.
-            StopMoveCoroutine();
-            moveCoroutine = StartCoroutine(MoveCoroutine(targetPosition, targetRotation, duration));
+            // 기존 이동 중이면 중복 이동을 취소하고 새 이동을 시작한다.
+            CancelMoveTask();
+
+            CancellationTokenSource currentCts = new CancellationTokenSource();
+            moveCts = currentCts;
+            MoveToAsync(targetPosition, targetRotation, duration, currentCts).Forget();
         }
 
         /// <summary>마우스 클릭 시 Dice Lock/Unlock 요청을 전달한다.</summary>
@@ -128,40 +139,62 @@ namespace Tessera.UI
             SetDiceColor(GetBaseColor());
         }
 
-        /// <summary>부드러운 위치 이동을 처리한다.</summary>
-        private IEnumerator MoveCoroutine(Vector3 targetPosition, Quaternion targetRotation, float duration)
+        /// <summary>주사위 이동을 UniTask로 처리한다.</summary>
+        private async UniTaskVoid MoveToAsync(
+            Vector3 targetPosition,
+            Quaternion targetRotation,
+            float duration,
+            CancellationTokenSource currentCts)
         {
             Vector3 startPosition = transform.position;
             Quaternion startRotation = transform.rotation;
             float elapsed = 0f;
+            CancellationToken cancellationToken = currentCts.Token;
 
-            while (elapsed < duration)
+            try
             {
-                elapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(elapsed / duration);
-                float easedT = 1f - Mathf.Pow(1f - t, 3f);
+                while (elapsed < duration)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
 
-                // Ease-out으로 슬롯에 자연스럽게 안착시킨다.
-                transform.position = Vector3.Lerp(startPosition, targetPosition, easedT);
-                transform.rotation = Quaternion.Slerp(startRotation, targetRotation, easedT);
+                    elapsed += Time.deltaTime;
+                    float t = Mathf.Clamp01(elapsed / duration);
+                    float easedT = 1f - Mathf.Pow(1f - t, 3f);
 
-                yield return null;
+                    // Ease-out으로 슬롯에 자연스럽게 안착시킨다.
+                    transform.position = Vector3.Lerp(startPosition, targetPosition, easedT);
+                    transform.rotation = Quaternion.Slerp(startRotation, targetRotation, easedT);
+
+                    await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
+                }
+
+                transform.position = targetPosition;
+                transform.rotation = targetRotation;
             }
-
-            transform.position = targetPosition;
-            transform.rotation = targetRotation;
-            moveCoroutine = null;
+            catch (OperationCanceledException)
+            {
+                // 새 이동 요청이나 오브젝트 제거 시 정상 취소된다.
+            }
+            finally
+            {
+                if (moveCts == currentCts)
+                {
+                    moveCts = null;
+                    currentCts.Dispose();
+                }
+            }
         }
 
-        /// <summary>진행 중인 이동 코루틴을 중지한다.</summary>
-        private void StopMoveCoroutine()
+        /// <summary>진행 중인 이동 작업을 취소한다.</summary>
+        private void CancelMoveTask()
         {
-            if (moveCoroutine == null)
+            if (moveCts == null)
                 return;
 
-            // 새 이동 요청 전에 기존 이동을 중단한다.
-            StopCoroutine(moveCoroutine);
-            moveCoroutine = null;
+            // 기존 이동 UniTask를 안전하게 중단한다.
+            moveCts.Cancel();
+            moveCts.Dispose();
+            moveCts = null;
         }
 
         /// <summary>현재 상태 기준 기본 색상을 반환한다.</summary>

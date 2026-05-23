@@ -18,6 +18,9 @@ namespace Tessera.UI
         [SerializeField] private float moveDuration = 0.18f;
         [SerializeField] private bool useAnimatedMovement = true;
 
+        [Header("Evaluation Movement")]
+        [SerializeField] private Camera evaluationCamera;
+
         private Action<int> diceClickedCallback;
         private bool hasInitializedPlacement;
 
@@ -86,6 +89,37 @@ namespace Tessera.UI
 
                 diceViews[i].Hide();
             }
+        }
+
+        /// <summary>지정 DiceView를 연산 중인 DeviceSlot 기준 위치로 이동시킨다.</summary>
+        public void MoveDiceToEvaluationTarget(
+            int diceIndex,
+            Vector3 targetPosition,
+            Quaternion targetRotation,
+            float duration)
+        {
+            if (diceViews == null)
+                return;
+
+            if (diceIndex < 0 || diceIndex >= diceViews.Length)
+                return;
+
+            if (diceViews[diceIndex] == null)
+                return;
+
+            // Presenter에서 계산한 DeviceSlot 기준 위치와 회전을 그대로 적용한다.
+            diceViews[diceIndex].MoveTo(targetPosition, targetRotation, duration);
+        }
+
+        /// <summary>현재 Core 상태 기준으로 모든 DiceView 위치를 다시 정렬한다.</summary>
+        public void RestoreDicePlacement(
+            IReadOnlyList<int> diceValues,
+            IReadOnlyList<bool> lockStates,
+            IReadOnlyList<int> lockedDiceIndexBySlot,
+            LockSlotRack3DView lockSlotRack3DView)
+        {
+            // Lock 상태면 LockSlot으로, Unlock 상태면 DicePoint로 복귀한다.
+            SetDice(diceValues, lockStates, lockedDiceIndexBySlot, lockSlotRack3DView);
         }
 
         /// <summary>모든 DiceView에 클릭 콜백을 전달한다.</summary>
@@ -224,5 +258,6 @@ namespace Tessera.UI
             // 런타임 Lock/Unlock은 짧은 이동 연출로 처리한다.
             diceViews[diceIndex].MoveTo(targetPosition, targetRotation, moveDuration);
         }
+
     }
 }

@@ -46,9 +46,26 @@ namespace Tessera.UI
 
         [Header("SlotPair Evaluation Presentation")]
         [SerializeField] private bool playSlotPairSequenceOnSubmit = true;
-        [SerializeField] private float slotPairSequenceStartDelay = 0.12f;
-        [SerializeField] private float slotPairHighlightDuration = 0.18f;
-        [SerializeField] private float slotPairHighlightGap = 0.04f;
+        [SerializeField] private float slotPairSequenceStartDelay = 0.25f;
+        [SerializeField] private float slotPairHighlightDuration = 0.6f;
+        [SerializeField] private float slotPairHighlightGap = 0.15f;
+        [SerializeField] private bool showLegacyScoreForceStepText = false;
+
+        [Header("SlotPair Floating Text")]
+        [SerializeField] private bool playSlotPairFloatingText = true;
+        [SerializeField] private SlotPairStepFloatingTextView slotPairStepFloatingTextView;
+        [SerializeField] private RectTransform slotPairFloatingTextRoot;
+        [SerializeField] private Camera battleCamera;
+        [SerializeField] private Vector3 slotPairFloatingWorldOffset = new Vector3(0f, 0f, -0.3f);
+
+        [Header("SlotPair Evaluation Dice Movement")]
+        [SerializeField] private bool moveDiceToDeviceSlotDuringEvaluation = true;
+        [SerializeField] private Vector3 evaluationDiceWorldOffset = new Vector3(0f, 0f, 0.25f);
+        [SerializeField] private Vector3 evaluationDiceTiltEuler = new Vector3(0f, 45f, 0f);
+        [SerializeField] private float evaluationDiceMoveDuration = 0.16f;
+
+        [Header("SlotPair Debug")]
+        [SerializeField] private bool logSlotPairEvaluationSteps = true;
 
         [Header("Popup")]
         [SerializeField] private bool showCastCandidatePopup = true;
@@ -550,6 +567,182 @@ namespace Tessera.UI
             SetText(previewDamageText, $"Damage {damageAfterRules}");
         }
 
+        /// <summary>SlotPair 계산 단계 하나를 ScoreForcePopup 텍스트에 표시한다.</summary>
+        private void RefreshSlotPairStepTexts(CastSubmitResult result, SlotPairDamageStep step)
+        {
+            if (result == null || step == null)
+                return;
+
+            string castName = CastBoardCatalog.GetDisplayName(result.PatternResult.PatternType);
+            string deviceName = GetSlotPairDeviceDisplayName(step.SlotIndex);
+            string stateText = step.DidApply ? "APPLY" : "SKIP";
+
+            // 현재 SlotPair 계산 단계를 팝업 텍스트에 표시한다.
+            SetText(selectedCastText, $"Slot {step.SlotIndex + 1} / {SlotPairDamageCalculator.SlotPairCount} · {castName}");
+            SetText(scoreText, $"Score {step.ScoreBefore} → {step.ScoreAfter}");
+            SetText(forceText, $"Force x{FormatForce(step.ForceBefore)} → x{FormatForce(step.ForceAfter)}");
+            SetText(previewDamageText, $"{stateText} · {deviceName}");
+        }
+
+        /// <summary>지정 SlotPair 인덱스의 Device 표시 이름을 반환한다.</summary>
+        private string GetSlotPairDeviceDisplayName(int slotIndex)
+        {
+            if (slotPairDevices == null)
+                return "No Device";
+
+            if (slotIndex < 0 || slotIndex >= slotPairDevices.Length)
+                return "No Device";
+
+            SlotPairDeviceDefinitionSO device = slotPairDevices[slotIndex];
+
+            if (device == null)
+                return "No Device";
+
+            if (string.IsNullOrWhiteSpace(device.DisplayName))
+                return device.DeviceType.ToString();
+
+            return device.DisplayName;
+        }
+
+        /// <summary>주사위 값을 표시용 문자열로 변환한다.</summary>
+        private static string FormatDiceValue(SlotPairDamageStep step)
+        {
+            if (step.DiceIndex < 0 || step.DiceValue <= 0)
+                return "-";
+
+            return step.DiceValue.ToString();
+        }
+
+        /// <summary>Force 값을 표시용 문자열로 변환한다.</summary>
+        private static string FormatForce(float force)
+        {
+            if (Math.Abs(force - (int)force) < 0.001f)
+                return ((int)force).ToString();
+
+            return force.ToString("0.##");
+        }
+
+        /// <summary>현재 SlotPair 단계의 변화량을 Floating Text로 표시한다.</summary>
+        private async UniTaskVoid PlaySlotPairFloatingTextAsync(SlotPairDamageStep step, CancellationToken cancellationToken)
+        {
+            if (!playSlotPairFloatingText) return;
+            if (step == null) return;
+            if (slotPairStepFloatingTextView == null) return;
+            if (!TryGetSlotPairFloatingAnchoredPosition(step.SlotIndex, out Vector2 anchoredPosition)) return;
+
+            string message = BuildSlotPairFloatingMessage(step);
+
+            if (string.IsNullOrWhiteSpace(message)) return;
+
+            // 현재 Highlight 중인 DeviceSlot 위에 Balatro식 짧은 변화량 텍스트를 띄운다.
+            await slotPairStepFloatingTextView.PlayAsync(message, anchoredPosition, cancellationToken);
+        }
+
+        /// <summary>SlotPair Floating Text를 띄울 DeviceSlot 기준 Overlay 좌표를 계산한다.</summary>
+        private bool TryGetSlotPairFloatingAnchoredPosition(int slotIndex, out Vector2 anchoredPosition)
+        {
+            anchoredPosition = Vector2.zero;
+
+            if (playerDeviceRack3DView == null)
+                return false;
+
+            RectTransform root = slotPairFloatingTextRoot;
+
+            if (root == null && slotPairStepFloatingTextView != null)
+                root = slotPairStepFloatingTextView.transform.parent as RectTransform;
+
+            if (root == null)
+                return false;
+
+            Camera targetCamera = battleCamera != null ? battleCamera : Camera.main;
+
+            if (targetCamera == null)
+                return false;
+
+            if (!TryGetDeviceSlotPresentationPose(
+                    slotIndex,
+                    slotPairFloatingWorldOffset,
+                    Quaternion.identity,
+                    out Vector3 worldPosition,
+                    out Quaternion _))
+                return false;
+
+            // Transform pivot이 아니라 Renderer/Collider 중심 + 슬롯 로컬 Presentation offset 기준으로 Overlay 좌표를 만든다.
+            Vector3 screenPosition = targetCamera.WorldToScreenPoint(worldPosition);
+
+            if (screenPosition.z < 0f)
+                return false;
+
+            // UIRoot가 Screen Space Overlay이므로 camera 인자는 null을 사용한다.
+            return RectTransformUtility.ScreenPointToLocalPointInRectangle(root, screenPosition, null, out anchoredPosition);
+        }
+
+        /// <summary>SlotPair Step의 Score/Force 변화량을 짧은 Floating Text 문구로 변환한다.</summary>
+        private string BuildSlotPairFloatingMessage(SlotPairDamageStep step)
+        {
+            if (step == null)
+                return string.Empty;
+
+            if (!step.DidApply)
+                return "SKIP";
+
+            List<string> messages = new List<string>();
+
+            int scoreDelta = step.ScoreAfter - step.ScoreBefore;
+            float forceDelta = step.ForceAfter - step.ForceBefore;
+
+            if (scoreDelta != 0)
+                messages.Add(FormatSignedScoreDelta(scoreDelta));
+
+            if (Mathf.Abs(forceDelta) > 0.001f)
+                messages.Add(FormatForceDelta(step.ForceBefore, step.ForceAfter));
+
+            if (messages.Count <= 0)
+                messages.Add("OK");
+
+            return string.Join("\n", messages);
+        }
+
+        /// <summary>Score 변화량을 표시용 문자열로 변환한다.</summary>
+        private static string FormatSignedScoreDelta(int scoreDelta)
+        {
+            if (scoreDelta > 0)
+                return $"+{scoreDelta}";
+
+            return scoreDelta.ToString();
+        }
+
+        /// <summary>Force 변화량을 표시용 문자열로 변환한다.</summary>
+        private static string FormatForceDelta(float before, float after)
+        {
+            if (before > 0.001f)
+            {
+                float ratio = after / before;
+
+                if (Mathf.Abs(ratio - 1f) > 0.001f && Mathf.Abs(after - before) > 0.001f)
+                {
+                    if (ratio > 1.01f)
+                        return $"x{FormatCompactFloat(ratio)}";
+                }
+            }
+
+            float delta = after - before;
+
+            if (delta > 0f)
+                return $"+{FormatCompactFloat(delta)}F";
+
+            return $"{FormatCompactFloat(delta)}F";
+        }
+
+        /// <summary>float 값을 짧은 표시용 문자열로 변환한다.</summary>
+        private static string FormatCompactFloat(float value)
+        {
+            if (Mathf.Abs(value - Mathf.Round(value)) < 0.001f)
+                return Mathf.RoundToInt(value).ToString();
+
+            return value.ToString("0.##");
+        }
+
         /// <summary>Tray 주사위와 Lock 슬롯 표시를 갱신한다.</summary>
         private void RefreshDiceViews()
         {
@@ -968,14 +1161,9 @@ namespace Tessera.UI
         /// <summary>Cast 제출 후 SlotPair 계산 순서 연출을 비동기로 시작한다.</summary>
         private async UniTaskVoid PlaySlotPairEvaluationSequenceAsync(CastSubmitResult result)
         {
-            if (!playSlotPairSequenceOnSubmit)
-                return;
-
-            if (result == null)
-                return;
-
-            if (result.SlotPairDamagePreview == null)
-                return;
+            if (!playSlotPairSequenceOnSubmit) return;
+            if (result == null) return;
+            if (result.SlotPairDamagePreview == null) return;
 
             // 이전 SlotPair 연출이 남아 있으면 중단하고 새 연출을 시작한다.
             CancelSlotPairEvaluationSequence();
@@ -983,42 +1171,68 @@ namespace Tessera.UI
             CancellationTokenSource currentCts = new CancellationTokenSource();
             slotPairSequenceCts = currentCts;
 
+            bool completed = false;
+
             try
             {
-                await PlaySlotPairEvaluationSequenceInternalAsync(currentCts.Token);
+                LogSlotPairSequenceStarted(result);
+
+                await PlaySlotPairEvaluationSequenceInternalAsync(result, currentCts.Token);
+                completed = true;
+                LogSlotPairSequenceCompleted(result);
             }
             catch (OperationCanceledException)
             {
                 // 새 라운드/시도 전환 시 정상 취소된다.
+                LogSlotPairSequenceCanceled();
             }
             finally
             {
                 if (slotPairSequenceCts == currentCts)
                 {
                     slotPairSequenceCts = null;
+                    RestoreEvaluationDicePlacement();
                     ClearSlotPairEvaluationHighlights();
+
+                    if (completed)
+                        RefreshSelectedCastTexts();
                 }
 
                 currentCts.Dispose();
             }
         }
 
-        /// <summary>LockSlot과 DeviceSlot을 0번부터 4번까지 순서대로 강조한다.</summary>
-        private async UniTask PlaySlotPairEvaluationSequenceInternalAsync(CancellationToken cancellationToken)
+        /// <summary>SlotPairDamagePreview의 Step 목록을 기준으로 LockSlot, DeviceSlot, Dice 이동 연산 연출을 순차 재생한다.</summary>
+        private async UniTask PlaySlotPairEvaluationSequenceInternalAsync(
+            CastSubmitResult result,
+            CancellationToken cancellationToken)
         {
             ClearSlotPairEvaluationHighlights();
+
+            SlotPairDamagePreview preview = result.SlotPairDamagePreview;
 
             if (slotPairSequenceStartDelay > 0f)
                 await UniTask.Delay(TimeSpan.FromSeconds(slotPairSequenceStartDelay), cancellationToken: cancellationToken);
 
-            int slotCount = SlotPairDamageCalculator.SlotPairCount;
+            IReadOnlyList<SlotPairDamageStep> steps = preview.Steps;
+            int stepCount = steps != null ? steps.Count : 0;
 
-            for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
+            for (int i = 0; i < stepCount; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                SlotPairDamageStep step = steps[i];
+
                 // 현재 계산 중인 LockSlot과 대응 DeviceSlot을 동시에 강조한다.
-                HighlightSlotPair(slotIndex);
+                HighlightSlotPair(step.SlotIndex);
+
+                if (showLegacyScoreForceStepText)
+                    RefreshSlotPairStepTexts(result, step);
+
+                LogSlotPairStep(result, step);
+
+                MoveEvaluationDiceToDeviceSlot(step);
+                PlaySlotPairFloatingTextAsync(step, cancellationToken).Forget();
 
                 if (slotPairHighlightDuration > 0f)
                     await UniTask.Delay(TimeSpan.FromSeconds(slotPairHighlightDuration), cancellationToken: cancellationToken);
@@ -1053,6 +1267,81 @@ namespace Tessera.UI
 
             if (opponentDeviceRack3DView != null)
                 opponentDeviceRack3DView.ClearHighlight();
+        }
+
+        /// <summary>현재 SlotPair 단계의 DiceView를 대응 DeviceSlot 위로 이동시킨다.</summary>
+        private void MoveEvaluationDiceToDeviceSlot(SlotPairDamageStep step)
+        {
+            if (!moveDiceToDeviceSlotDuringEvaluation) return;
+            if (step == null) return;
+            if (step.DiceIndex < 0) return;
+            if (diceTray3DView == null) return;
+
+            if (!TryGetDeviceSlotPresentationPose(
+                    step.SlotIndex,
+                    evaluationDiceWorldOffset,
+                    Quaternion.Euler(evaluationDiceTiltEuler),
+                    out Vector3 targetPosition,
+                    out Quaternion targetRotation))
+                return;
+
+            // DeviceSlot의 Renderer/Collider 중심과 플레이어 방향 기준 좌표에 주사위를 정렬한다.
+            diceTray3DView.MoveDiceToEvaluationTarget(
+                step.DiceIndex,
+                targetPosition,
+                targetRotation,
+                evaluationDiceMoveDuration);
+        }
+
+        /// <summary>DeviceSlot 기준 Presentation 위치와 회전을 계산한다.</summary>
+        private bool TryGetDeviceSlotPresentationPose(
+            int slotIndex,
+            Vector3 localPresentationOffset,
+            Quaternion localRotationOffset,
+            out Vector3 worldPosition,
+            out Quaternion worldRotation)
+        {
+            worldPosition = Vector3.zero;
+            worldRotation = Quaternion.identity;
+
+            if (playerDeviceRack3DView == null)
+                return false;
+
+            Camera targetCamera = battleCamera != null ? battleCamera : Camera.main;
+
+            if (!playerDeviceRack3DView.TryGetSlotPresentationBasis(
+                    slotIndex,
+                    targetCamera,
+                    out Vector3 slotCenter,
+                    out Vector3 slotRight,
+                    out Vector3 slotUp,
+                    out Vector3 towardPlayer))
+                return false;
+
+            // 기존 WorldOffset 필드명을 유지하되 x=slotRight, y=slotUp, z=towardPlayer 로컬 offset으로 해석한다.
+            worldPosition = slotCenter
+                            + slotRight * localPresentationOffset.x
+                            + slotUp * localPresentationOffset.y
+                            + towardPlayer * localPresentationOffset.z;
+
+            worldRotation = Quaternion.LookRotation(towardPlayer, slotUp) * localRotationOffset;
+            return true;
+        }
+
+        /// <summary>SlotPair 연산 연출 후 DiceView들을 현재 Lock 상태 위치로 복귀시킨다.</summary>
+        private void RestoreEvaluationDicePlacement()
+        {
+            if (diceTray3DView == null) return;
+            if (roundState == null) return;
+
+            IReadOnlyList<int> diceValues = roundState.GetCurrentDiceValues();
+
+            // 연산 위치로 이동했던 주사위를 다시 LockSlot 또는 DicePoint 위치로 정렬한다.
+            diceTray3DView.RestoreDicePlacement(
+                diceValues,
+                CreateDiceLockStates(),
+                lockedDiceIndexBySlot,
+                lockSlotRack3DView);
         }
 
         /// <summary>진행 중인 SlotPair 계산 연출을 중단한다.</summary>
@@ -1183,5 +1472,73 @@ namespace Tessera.UI
 
             targetButton.interactable = isInteractable;
         }
+
+        #region Debug
+
+        /// <summary>SlotPair 계산 시작 로그를 출력한다.</summary>
+        private void LogSlotPairSequenceStarted(CastSubmitResult result)
+        {
+            if (!logSlotPairEvaluationSteps)
+                return;
+
+            if (result == null || result.SlotPairDamagePreview == null)
+                return;
+
+            Debug.Log(
+                $"[Tessera][SlotPair] Sequence Start | Cast={result.PatternResult.PatternType} | " +
+                $"FinalScore={result.SlotPairDamagePreview.FinalScore} | " +
+                $"FinalForce={result.SlotPairDamagePreview.FormatFinalForce()} | " +
+                $"DamageBeforeRules={result.SlotPairDamagePreview.DamageBeforeTableRules} | " +
+                $"DamageApplied={result.DamageApplied}");
+        }
+
+        /// <summary>SlotPair 계산 Step 로그를 출력한다.</summary>
+        private void LogSlotPairStep(CastSubmitResult result, SlotPairDamageStep step)
+        {
+            if (!logSlotPairEvaluationSteps)
+                return;
+
+            if (result == null || step == null)
+                return;
+
+            string deviceName = GetSlotPairDeviceDisplayName(step.SlotIndex);
+            string applyState = step.DidApply ? "APPLY" : "SKIP";
+
+            Debug.Log(
+                $"[Tessera][SlotPair] Step {step.SlotIndex + 1}/{SlotPairDamageCalculator.SlotPairCount} | " +
+                $"State={applyState} | Cast={result.PatternResult.PatternType} | " +
+                $"DiceIndex={step.DiceIndex} | DiceValue={step.DiceValue} | " +
+                $"Device={deviceName} | DeviceType={step.DeviceType} | " +
+                $"Score {step.ScoreBefore}->{step.ScoreAfter} | " +
+                $"Force {FormatForce(step.ForceBefore)}->{FormatForce(step.ForceAfter)} | " +
+                $"Message={step.Message}");
+        }
+
+        /// <summary>SlotPair 계산 종료 로그를 출력한다.</summary>
+        private void LogSlotPairSequenceCompleted(CastSubmitResult result)
+        {
+            if (!logSlotPairEvaluationSteps)
+                return;
+
+            if (result == null || result.SlotPairDamagePreview == null)
+                return;
+
+            Debug.Log(
+                $"[Tessera][SlotPair] Sequence Complete | Cast={result.PatternResult.PatternType} | " +
+                $"FinalScore={result.SlotPairDamagePreview.FinalScore} | " +
+                $"FinalForce={result.SlotPairDamagePreview.FormatFinalForce()} | " +
+                $"DamageApplied={result.DamageApplied}");
+        }
+
+        /// <summary>SlotPair 계산 취소 로그를 출력한다.</summary>
+        private void LogSlotPairSequenceCanceled()
+        {
+            if (!logSlotPairEvaluationSteps)
+                return;
+
+            Debug.Log("[Tessera][SlotPair] Sequence Canceled");
+        }
+
+        #endregion
     }
 }
