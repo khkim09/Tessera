@@ -47,7 +47,7 @@ namespace Tessera.UI
         [Header("SlotPair Evaluation Presentation")]
         [SerializeField] private bool playSlotPairSequenceOnSubmit = true;
         [SerializeField] private float slotPairSequenceStartDelay = 0.25f;
-        [SerializeField] private float slotPairHighlightDuration = 0.6f;
+        [SerializeField] private float slotPairHighlightDuration = 0.65f;
         [SerializeField] private float slotPairHighlightGap = 0.15f;
         [SerializeField] private bool showLegacyScoreForceStepText = false;
 
@@ -66,6 +66,10 @@ namespace Tessera.UI
 
         [Header("SlotPair Debug")]
         [SerializeField] private bool logSlotPairEvaluationSteps = true;
+
+        [Header("Table Hologram View")]
+        [SerializeField] private bool useTableHologramView = true;
+        [SerializeField] private BattleTableHologramView tableHologramView;
 
         [Header("Popup")]
         [SerializeField] private bool showCastCandidatePopup = true;
@@ -99,6 +103,9 @@ namespace Tessera.UI
         [SerializeField] private Button nextAttemptButton;
         [SerializeField] private Button resetRoundButton;
         [SerializeField] private Button togglePopupButton;
+
+        [Header("Money Overlay")]
+        [SerializeField] private TMP_Text moneyText;
 
         private readonly int[] lockedDiceIndexBySlot = { -1, -1, -1, -1, -1 };
 
@@ -542,7 +549,13 @@ namespace Tessera.UI
             SetText(enemyIntentText, $"Intent {roundState.CurrentEnemyIntent.IntentType} {roundState.CurrentEnemyIntent.Damage}");
             SetText(partsText, $"Parts {GetCurrentParts()}");
 
+            RefreshTableHologramBattleMeta();
             RefreshSelectedCastTexts();
+        }
+
+        private void RefreshMoneyOverlay()
+        {
+
         }
 
         /// <summary>선택 Cast와 SlotPair 계산 미리보기 텍스트를 갱신한다.</summary>
@@ -554,6 +567,8 @@ namespace Tessera.UI
                 SetText(scoreText, "Score -");
                 SetText(forceText, "Force -");
                 SetText(previewDamageText, "Damage -");
+
+                ClearTableHologramCastPreview();
                 return;
             }
 
@@ -561,10 +576,18 @@ namespace Tessera.UI
                 ? currentPreviewTableRuleResult.ModifiedDamage
                 : currentSlotPairPreview.DamageBeforeTableRules;
 
-            SetText(selectedCastText, $"Cast {CastBoardCatalog.GetDisplayName(selectedPatternType)}");
+            string castName = CastBoardCatalog.GetDisplayName(selectedPatternType);
+            string forceValue = currentSlotPairPreview.FormatFinalForce();
+
+            SetText(selectedCastText, $"Cast {castName}");
             SetText(scoreText, $"Score {currentSlotPairPreview.FinalScore}");
-            SetText(forceText, $"Force x{currentSlotPairPreview.FormatFinalForce()}");
+            SetText(forceText, $"Force x{forceValue}");
             SetText(previewDamageText, $"Damage {damageAfterRules}");
+
+            RefreshTableHologramCastPreview(
+                castName,
+                currentSlotPairPreview.FinalScore,
+                forceValue);
         }
 
         /// <summary>SlotPair 계산 단계 하나를 ScoreForcePopup 텍스트에 표시한다.</summary>
@@ -582,6 +605,72 @@ namespace Tessera.UI
             SetText(scoreText, $"Score {step.ScoreBefore} → {step.ScoreAfter}");
             SetText(forceText, $"Force x{FormatForce(step.ForceBefore)} → x{FormatForce(step.ForceAfter)}");
             SetText(previewDamageText, $"{stateText} · {deviceName}");
+        }
+
+        /// <summary>테이블 홀로그램의 제한 자원 정보를 갱신한다.</summary>
+        private void RefreshTableHologramBattleMeta()
+        {
+            if (!useTableHologramView) return;
+            if (tableHologramView == null) return;
+            if (roundState == null) return;
+
+            // Attempt는 현재 번호가 아니라 남은 시도 횟수로 표시한다.
+            int remainingAttempts = CalculateRemainingAttempts();
+
+            tableHologramView.RefreshBattleMeta(
+                remainingAttempts,
+                roundState.RuleContext.MaxAttempts,
+                roundState.RemainingRoundRolls,
+                roundState.RuleContext.RoundRollPool,
+                roundState.Overcharge.CurrentOvercharge);
+        }
+
+        /// <summary>현재 Round에서 남은 Attempt 횟수를 계산한다.</summary>
+        private int CalculateRemainingAttempts()
+        {
+            if (roundState == null)
+                return 0;
+
+            // 현재 Attempt도 아직 제출 전이면 사용 가능한 횟수에 포함한다.
+            int remainingAttempts = roundState.RuleContext.MaxAttempts - roundState.CurrentAttempt.AttemptNumber + 1;
+
+            return Mathf.Max(remainingAttempts, 0);
+        }
+
+        /// <summary>테이블 홀로그램의 Cast 미리보기를 비운다.</summary>
+        private void ClearTableHologramCastPreview()
+        {
+            if (!useTableHologramView) return;
+            if (tableHologramView == null) return;
+
+            // 선택 Cast가 없으면 Hologram의 Cast/Score/Force만 기본값으로 되돌린다.
+            tableHologramView.ClearCastPreview();
+        }
+
+        /// <summary>테이블 홀로그램의 Cast / Score / Force 미리보기를 갱신한다.</summary>
+        private void RefreshTableHologramCastPreview(string castName, int score, string forceValue)
+        {
+            if (!useTableHologramView) return;
+            if (tableHologramView == null) return;
+
+            // 선택된 Cast의 핵심 계산값만 Hologram에 표시한다.
+            tableHologramView.RefreshCastPreview(castName, score, forceValue);
+        }
+
+        /// <summary>테이블 홀로그램에 현재 SlotPair 계산 단계를 표시한다.</summary>
+        private void RefreshTableHologramSlotPairStep(CastSubmitResult result, SlotPairDamageStep step)
+        {
+            if (!useTableHologramView) return;
+            if (tableHologramView == null) return;
+            if (result == null || step == null) return;
+
+            // SlotPair 계산 중에는 현재 단계 이후의 Score / Force 값을 표시한다.
+            tableHologramView.RefreshSlotPairStep(
+                step.SlotIndex,
+                SlotPairDamageCalculator.SlotPairCount,
+                CastBoardCatalog.GetDisplayName(result.PatternResult.PatternType),
+                step.ScoreAfter,
+                FormatForce(step.ForceAfter));
         }
 
         /// <summary>지정 SlotPair 인덱스의 Device 표시 이름을 반환한다.</summary>
@@ -1229,6 +1318,7 @@ namespace Tessera.UI
                 if (showLegacyScoreForceStepText)
                     RefreshSlotPairStepTexts(result, step);
 
+                RefreshTableHologramSlotPairStep(result, step);
                 LogSlotPairStep(result, step);
 
                 MoveEvaluationDiceToDeviceSlot(step);
