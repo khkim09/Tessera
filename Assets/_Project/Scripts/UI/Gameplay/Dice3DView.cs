@@ -109,6 +109,59 @@ namespace Tessera.UI
             MoveToAsync(targetPosition, targetRotation, duration, currentCts).Forget();
         }
 
+        /// <summary>현재 위치에서 살짝 점프하며 한 바퀴 구르는 연출을 재생한다.</summary>
+        public async UniTask PlayJumpRollAsync(
+            float jumpHeight,
+            Vector3 rollEuler,
+            float duration,
+            CancellationToken cancellationToken)
+        {
+            if (duration <= 0f)
+                return;
+
+            // 이동 연출과 겹치지 않도록 기존 이동 작업을 먼저 중단한다.
+            CancelMoveTask();
+
+            Vector3 basePosition = transform.position;
+            Quaternion baseRotation = transform.rotation;
+            float elapsed = 0f;
+
+            try
+            {
+                while (elapsed < duration)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    elapsed += Time.deltaTime;
+                    float t = Mathf.Clamp01(elapsed / duration);
+                    float heightT = Mathf.Sin(t * Mathf.PI);
+
+                    // 360도 회전은 Slerp로 보간하면 같은 회전으로 취급될 수 있으므로 프레임별 회전량을 직접 적용한다.
+                    Vector3 currentRollEuler = rollEuler * t;
+                    Quaternion rollRotation = Quaternion.Euler(currentRollEuler);
+
+                    transform.position = basePosition + Vector3.up * (heightT * jumpHeight);
+                    transform.rotation = baseRotation * rollRotation;
+
+                    await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
+                }
+
+                transform.position = basePosition;
+                transform.rotation = baseRotation;
+            }
+            catch (OperationCanceledException)
+            {
+                // SlotPair 연출 취소나 Attempt 전환 시 정상 취소된다.
+            }
+        }
+
+        // /// <summary>계산 대상 주사위 강조 상태를 변경한다.</summary>
+        // public void SetHighlighted(bool isHighlighted)
+        // {
+        //     // Highlight 상태는 Hover 색상과 기본 색상 전환으로 표현한다.
+        //     SetDiceColor(isHighlighted ? hoverColor : GetBaseColor());
+        // }
+
         /// <summary>마우스 클릭 시 Dice Lock/Unlock 요청을 전달한다.</summary>
         public void OnPointerClick(PointerEventData eventData)
         {

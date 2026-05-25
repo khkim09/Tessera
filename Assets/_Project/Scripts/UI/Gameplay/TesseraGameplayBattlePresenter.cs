@@ -38,18 +38,21 @@ namespace Tessera.UI
         [SerializeField] private DeviceRack3DView playerDeviceRack3DView; // 플레이어 device slot
         [SerializeField] private DeviceRack3DView opponentDeviceRack3DView; // 상대 device slot
 
-        [Header("3D LockSlot Views")]
-        [SerializeField] private LockSlotRack3DView lockSlotRack3DView; // 주사위 lock 이후 올려둘 rack
-
         [Header("3D Dice Tray Views")]
         [SerializeField] private DiceTray3DView diceTray3DView; // 주사위 굴리는 tray
+
+        [Header("Dice Cup Roll Input")]
+        [SerializeField] private DiceCup3DView diceCup3DView;
+        [SerializeField] private bool useDiceCupRollInput = true;
+        [SerializeField] private float diceCupShakeDuration = 0.35f;
+        [SerializeField] private float diceCupShakeAngle = 10f;
+        [SerializeField] private float diceCupShakeFrequency = 8f;
 
         [Header("SlotPair Evaluation Presentation")]
         [SerializeField] private bool playSlotPairSequenceOnSubmit = true;
         [SerializeField] private float slotPairSequenceStartDelay = 0.25f;
         [SerializeField] private float slotPairHighlightDuration = 0.65f;
         [SerializeField] private float slotPairHighlightGap = 0.15f;
-        [SerializeField] private bool showLegacyScoreForceStepText = false;
 
         [Header("SlotPair Floating Text")]
         [SerializeField] private bool playSlotPairFloatingText = true;
@@ -58,11 +61,17 @@ namespace Tessera.UI
         [SerializeField] private Camera battleCamera;
         [SerializeField] private Vector3 slotPairFloatingWorldOffset = new Vector3(0f, 0f, -0.3f);
 
-        [Header("SlotPair Evaluation Dice Movement")]
-        [SerializeField] private bool moveDiceToDeviceSlotDuringEvaluation = true;
-        [SerializeField] private Vector3 evaluationDiceWorldOffset = new Vector3(0f, 0f, 0.25f);
-        [SerializeField] private Vector3 evaluationDiceTiltEuler = new Vector3(0f, 45f, 0f);
-        [SerializeField] private float evaluationDiceMoveDuration = 0.16f;
+        [Header("DeviceSlot Lock Dice Presentation")]
+        [SerializeField] private Vector3 lockedDiceDeviceSlotLocalOffset = new Vector3(0f, 0f, 0.25f);
+        [SerializeField] private Vector3 lockedDiceTiltEuler = new Vector3(0f, 45f, 0f);
+        [SerializeField] private float lockedDiceMoveDuration = 0.16f;
+        [SerializeField] private bool restoreDiceToTrayAfterEvaluation = true;
+
+        [Header("SlotPair Dice Jump Roll")]
+        [SerializeField] private bool playDiceJumpRollDuringEvaluation = true;
+        [SerializeField] private float slotPairDiceJumpHeight = 0.16f;
+        [SerializeField] private float slotPairDiceJumpRollDuration = 0.42f;
+        [SerializeField] private Vector3 slotPairDiceJumpRollEuler = new Vector3(180f, 180f, 0f);
 
         [Header("SlotPair Debug")]
         [SerializeField] private bool logSlotPairEvaluationSteps = true;
@@ -78,31 +87,20 @@ namespace Tessera.UI
         [SerializeField] private TMP_Text roundTitleText;
         [SerializeField] private TMP_Text opponentHpText;
         [SerializeField] private TMP_Text playerHpText;
-        [SerializeField] private TMP_Text attemptText;
-        [SerializeField] private TMP_Text rollText;
-        [SerializeField] private TMP_Text overchargeText;
-        [SerializeField] private TMP_Text enemyIntentText;
-        [SerializeField] private TMP_Text partsText;
-        [SerializeField] private TMP_Text selectedCastText;
-        [SerializeField] private TMP_Text scoreText;
-        [SerializeField] private TMP_Text forceText;
-        [SerializeField] private TMP_Text previewDamageText;
-        [SerializeField] private TMP_Text messageText;
 
         [Header("Dice Views")]
         [SerializeField] private DiceSlotView[] trayDiceSlots = new DiceSlotView[5];
-        [SerializeField] private DiceSlotView[] lockDiceSlots = new DiceSlotView[5];
 
         [Header("Cast Popup")]
         [SerializeField] private CastCandidatePopupView castCandidatePopupView;
 
         [Header("Buttons")]
-        [SerializeField] private Button rollButton;
         [SerializeField] private Button submitSelectedButton;
-        [SerializeField] private Button submitBrokenCastButton;
-        [SerializeField] private Button nextAttemptButton;
-        [SerializeField] private Button resetRoundButton;
         [SerializeField] private Button togglePopupButton;
+
+        [Header("Turn Flow")]
+        [SerializeField] private bool autoStartNextAttemptAfterCast = true;
+        [SerializeField] private float autoNextAttemptDelay = 0.35f;
 
         [Header("Money Overlay")]
         [SerializeField] private TMP_Text moneyText;
@@ -120,6 +118,7 @@ namespace Tessera.UI
         private TesseraRunSession runSession;
         private bool roundEndNotified;
         private CancellationTokenSource slotPairSequenceCts;
+        private bool isDiceCupRollSequencePlaying;
 
         #region Event
 
@@ -213,18 +212,102 @@ namespace Tessera.UI
         /// <summary>잠기지 않은 주사위를 다시 굴린다.</summary>
         public void RollUnlockedDice()
         {
-            if (!CanActInCurrentAttempt())
+            if (!TryCanRollUnlockedDice(out string failureMessage))
             {
-                SetMessage("Cannot roll now.");
+                SetMessage(failureMessage);
                 return;
             }
 
+            RollUnlockedDiceCore("Unlocked dice rolled.");
+        }
+
+        /// <summary>DiceCup 클릭으로 Roll 연출과 Core Roll을 순차 실행한다.</summary>
+        private async UniTaskVoid PlayDiceCupRollSequenceAsync()
+        {
+            if (isDiceCupRollSequencePlaying)
+                return;
+
+            if (!TryCanRollUnlockedDice(out string failureMessage))
+            {
+                SetMessage(failureMessage);
+                return;
+            }
+
+            isDiceCupRollSequencePlaying = true;
+            RefreshButtonStates();
+
+            try
+            {
+                SetMessage("Dice cup rolling...");
+
+                if (diceCup3DView != null)
+                {
+                    await diceCup3DView.PlayShakeAsync(
+                        diceCupShakeDuration,
+                        diceCupShakeAngle,
+                        diceCupShakeFrequency,
+                        this.GetCancellationTokenOnDestroy());
+                }
+
+                if (!TryCanRollUnlockedDice(out failureMessage))
+                {
+                    SetMessage(failureMessage);
+                    return;
+                }
+
+                RollUnlockedDiceCore("Dice cup rolled unlocked dice.");
+            }
+            catch (OperationCanceledException)
+            {
+                SetMessage("Dice cup roll canceled.");
+            }
+            finally
+            {
+                isDiceCupRollSequencePlaying = false;
+                RefreshButtonStates();
+            }
+        }
+
+        /// <summary>DiceCup 클릭 입력을 Roll 흐름으로 연결한다.</summary>
+        private void OnDiceCupClicked()
+        {
+            if (!useDiceCupRollInput)
+                return;
+
+            PlayDiceCupRollSequenceAsync().Forget();
+        }
+
+        /// <summary>현재 상태에서 Roll 가능한지 검사한다.</summary>
+        private bool TryCanRollUnlockedDice(out string failureMessage)
+        {
+            failureMessage = string.Empty;
+
+            if (!CanActInCurrentAttempt())
+            {
+                failureMessage = "Cannot roll now.";
+                return false;
+            }
+
+            if (roundState.RemainingRoundRolls <= 0)
+            {
+                failureMessage = "No rolls left.";
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>Core Roll을 실행하고 전체 표시를 갱신한다.</summary>
+        private bool RollUnlockedDiceCore(string successMessage)
+        {
             bool rerolled = simulator.TryRerollUnlockedDice(roundState);
 
             if (rerolled)
-                RefreshAll("Unlocked dice rolled.");
+                RefreshAll(successMessage);
             else
                 RefreshAll("No rolls left.");
+
+            return rerolled;
         }
 
         /// <summary>현재 선택한 Cast를 SlotPair 계산값으로 제출한다.</summary>
@@ -263,9 +346,12 @@ namespace Tessera.UI
             currentSlotPairPreview = result.SlotPairDamagePreview;
             currentPreviewTableRuleResult = result.TableRuleEvaluationResult;
 
+            // RefreshAll(BuildSubmitMessage(result));
+            // PlaySlotPairEvaluationSequenceAsync(result).Forget();
+            // NotifyRoundEndIfNeeded(result);
+
             RefreshAll(BuildSubmitMessage(result));
-            PlaySlotPairEvaluationSequenceAsync(result).Forget();
-            NotifyRoundEndIfNeeded(result);
+            PlaySubmittedCastFlowAsync(result).Forget();
         }
 
         /// <summary>Broken Cast를 SlotPair 계산값으로 제출한다.</summary>
@@ -298,9 +384,12 @@ namespace Tessera.UI
             currentSlotPairPreview = result.SlotPairDamagePreview;
             currentPreviewTableRuleResult = result.TableRuleEvaluationResult;
 
+            // RefreshAll(BuildSubmitMessage(result));
+            // PlaySlotPairEvaluationSequenceAsync(result).Forget();
+            // NotifyRoundEndIfNeeded(result);
+
             RefreshAll(BuildSubmitMessage(result));
-            PlaySlotPairEvaluationSequenceAsync(result).Forget();
-            NotifyRoundEndIfNeeded(result);
+            PlaySubmittedCastFlowAsync(result).Forget();
         }
 
         /// <summary>다음 Attempt 시작을 시도한다.</summary>
@@ -324,15 +413,21 @@ namespace Tessera.UI
             currentSlotPairPreview = null;
             currentPreviewTableRuleResult = null;
 
-            // 새 Attempt의 주사위는 새 객체이므로 Lock 슬롯 매핑을 초기화한다.
             ClearLockSlotMapping();
+
+            for (int diceIndex = 0; diceIndex < roundState.Dice.Count; diceIndex++)
+                simulator.SetDiceLocked(roundState, diceIndex, false);
 
             if (useManualDiceValuesOnNextAttempt)
                 simulator.SetCurrentDiceValuesForTest(roundState, CreateManualDiceValues());
 
             CancelSlotPairEvaluationSequence();
             ClearSlotPairEvaluationHighlights();
-            RefreshAll("Next attempt started.");
+
+            if (diceTray3DView != null)
+                diceTray3DView.RestoreAllDiceToTray(roundState.GetCurrentDiceValues(), lockedDiceMoveDuration);
+
+            RefreshAll("Next attempt started. Roll the dice.");
         }
 
         /// <summary>Cast 후보 Popup 표시 여부를 토글한다.</summary>
@@ -346,7 +441,7 @@ namespace Tessera.UI
             RefreshAll(showCastCandidatePopup ? "Cast popup ON." : "Cast popup OFF.");
         }
 
-        /// <summary>주사위 슬롯 클릭 콜백과 3D Dice/LockSlot 표시 인덱스를 초기화한다.</summary>
+        /// <summary>주사위 슬롯 클릭 콜백과 3D Dice 표시 인덱스를 초기화한다.</summary>
         private void InitializeDiceSlots()
         {
             if (trayDiceSlots != null)
@@ -358,22 +453,9 @@ namespace Tessera.UI
                 }
             }
 
-            if (lockDiceSlots != null)
-            {
-                for (int i = 0; i < lockDiceSlots.Length; i++)
-                {
-                    if (lockDiceSlots[i] != null)
-                        lockDiceSlots[i].Initialize(-1, ToggleDiceLock);
-                }
-            }
-
             // 3D DiceView 클릭도 기존 ToggleDiceLock 흐름으로 연결한다.
             if (diceTray3DView != null)
                 diceTray3DView.Initialize(ToggleDiceLock);
-
-            // 3D LockSlot은 현재 표시 순서만 초기화한다.
-            if (lockSlotRack3DView != null)
-                lockSlotRack3DView.InitializeSlots(UnlockDiceFromLockSlot);
         }
 
         /// <summary>Device 슬롯 드래그 재정렬과 3D 표시 인덱스를 초기화한다.</summary>
@@ -431,24 +513,37 @@ namespace Tessera.UI
             }
         }
 
-        /// <summary>주사위 Lock 상태를 전환하고 Lock 슬롯 매핑을 갱신한다.</summary>
+        /// <summary>지정 Dice의 Lock 상태를 토글하고, Lock 순서 기반 SlotPair 매핑을 갱신한다.</summary>
         private void ToggleDiceLock(int diceIndex)
-
         {
-            if (!CanActInCurrentAttempt()) return;
-            if (diceIndex < 0 || diceIndex >= roundState.Dice.Count) return;
+            if (!CanActInCurrentAttempt())
+                return;
+
+            if (diceIndex < 0 || diceIndex >= roundState.Dice.Count)
+                return;
 
             bool willLock = !roundState.Dice[diceIndex].IsLocked;
 
-            // Core Lock 상태를 먼저 갱신한다.
-            simulator.ToggleDiceLock(roundState, diceIndex);
-
             if (willLock)
-                AssignDiceToFirstEmptyLockSlot(diceIndex);
-            else
-                RemoveDiceFromLockSlot(diceIndex);
+            {
+                int emptySlotIndex = FindFirstEmptyLockSlotIndex();
 
-            RefreshAll("Dice lock changed.");
+                if (emptySlotIndex < 0)
+                {
+                    SetMessage("No empty device slot.");
+                    return;
+                }
+
+                simulator.SetDiceLocked(roundState, diceIndex, true);
+                AssignDiceToFirstEmptyLockSlot(diceIndex);
+            }
+            else
+            {
+                simulator.SetDiceLocked(roundState, diceIndex, false);
+                RemoveDiceFromLockSlot(diceIndex);
+            }
+
+            RefreshAll(willLock ? "Dice locked." : "Dice unlocked.");
         }
 
         /// <summary>3D LockSlot 클릭으로 해당 슬롯에 배치된 Dice를 Unlock한다.</summary>
@@ -543,11 +638,6 @@ namespace Tessera.UI
             SetText(roundTitleText, useBossRule ? "Boss Round" : "Round");
             SetText(opponentHpText, $"Opponent HP {roundState.Encounter.OpponentCurrentHp}/{roundState.Encounter.OpponentMaxHp}");
             SetText(playerHpText, $"Player HP {roundState.Encounter.PlayerCurrentHp}/{roundState.Encounter.PlayerMaxHp}");
-            SetText(attemptText, $"Attempt {roundState.CurrentAttempt.AttemptNumber}/{roundState.RuleContext.MaxAttempts}");
-            SetText(rollText, $"Rolls {roundState.RemainingRoundRolls}/{roundState.RuleContext.RoundRollPool}");
-            SetText(overchargeText, $"Overcharge {roundState.Overcharge.CurrentOvercharge}");
-            SetText(enemyIntentText, $"Intent {roundState.CurrentEnemyIntent.IntentType} {roundState.CurrentEnemyIntent.Damage}");
-            SetText(partsText, $"Parts {GetCurrentParts()}");
 
             RefreshTableHologramBattleMeta();
             RefreshSelectedCastTexts();
@@ -558,53 +648,22 @@ namespace Tessera.UI
 
         }
 
-        /// <summary>선택 Cast와 SlotPair 계산 미리보기 텍스트를 갱신한다.</summary>
+        /// <summary>선택 Cast와 SlotPair 계산 미리보기 표시를 갱신한다.</summary>
         private void RefreshSelectedCastTexts()
         {
             if (selectedPatternType == RollPatternType.None || currentSlotPairPreview == null)
             {
-                SetText(selectedCastText, "Cast -");
-                SetText(scoreText, "Score -");
-                SetText(forceText, "Force -");
-                SetText(previewDamageText, "Damage -");
-
                 ClearTableHologramCastPreview();
                 return;
             }
 
-            int damageAfterRules = currentPreviewTableRuleResult != null
-                ? currentPreviewTableRuleResult.ModifiedDamage
-                : currentSlotPairPreview.DamageBeforeTableRules;
-
             string castName = CastBoardCatalog.GetDisplayName(selectedPatternType);
             string forceValue = currentSlotPairPreview.FormatFinalForce();
-
-            SetText(selectedCastText, $"Cast {castName}");
-            SetText(scoreText, $"Score {currentSlotPairPreview.FinalScore}");
-            SetText(forceText, $"Force x{forceValue}");
-            SetText(previewDamageText, $"Damage {damageAfterRules}");
 
             RefreshTableHologramCastPreview(
                 castName,
                 currentSlotPairPreview.FinalScore,
                 forceValue);
-        }
-
-        /// <summary>SlotPair 계산 단계 하나를 ScoreForcePopup 텍스트에 표시한다.</summary>
-        private void RefreshSlotPairStepTexts(CastSubmitResult result, SlotPairDamageStep step)
-        {
-            if (result == null || step == null)
-                return;
-
-            string castName = CastBoardCatalog.GetDisplayName(result.PatternResult.PatternType);
-            string deviceName = GetSlotPairDeviceDisplayName(step.SlotIndex);
-            string stateText = step.DidApply ? "APPLY" : "SKIP";
-
-            // 현재 SlotPair 계산 단계를 팝업 텍스트에 표시한다.
-            SetText(selectedCastText, $"Slot {step.SlotIndex + 1} / {SlotPairDamageCalculator.SlotPairCount} · {castName}");
-            SetText(scoreText, $"Score {step.ScoreBefore} → {step.ScoreAfter}");
-            SetText(forceText, $"Force x{FormatForce(step.ForceBefore)} → x{FormatForce(step.ForceAfter)}");
-            SetText(previewDamageText, $"{stateText} · {deviceName}");
         }
 
         /// <summary>테이블 홀로그램의 제한 자원 정보를 갱신한다.</summary>
@@ -832,7 +891,7 @@ namespace Tessera.UI
             return value.ToString("0.##");
         }
 
-        /// <summary>Tray 주사위와 Lock 슬롯 표시를 갱신한다.</summary>
+        /// <summary>Tray 주사위와 Lock 표시를 갱신한다.</summary>
         private void RefreshDiceViews()
         {
             IReadOnlyList<int> diceValues = roundState.GetCurrentDiceValues();
@@ -851,11 +910,17 @@ namespace Tessera.UI
                 }
             }
 
-            // 3D DiceTray에는 현재 값과 Lock 상태를 함께 전달한다.
             if (diceTray3DView != null)
-                diceTray3DView.SetDice(diceValues, CreateDiceLockStates(), lockedDiceIndexBySlot, lockSlotRack3DView);
+            {
+                IReadOnlyList<bool> lockStates = CreateDiceLockStates();
 
-            RefreshLockSlotViews(diceValues);
+                diceTray3DView.SetDiceForDeviceSlotLockPresentation(
+                    diceValues,
+                    lockStates,
+                    lockedDiceMoveDuration);
+
+                RefreshDeviceSlotLockedDicePresentation(false);
+            }
         }
 
         /// <summary>Device Slot View 5개를 현재 slotPairDevices 배열 기준으로 갱신한다.</summary>
@@ -881,36 +946,60 @@ namespace Tessera.UI
             // 상대 Device는 아직 Core 계산과 연결하지 않았으므로 현재는 비어 있는 상태로 표시한다.
             if (opponentDeviceRack3DView != null)
                 opponentDeviceRack3DView.SetDevices((SlotPairDeviceDefinitionSO[])null);
+
+            RefreshDeviceSlotLockedDicePresentation();
         }
 
-        /// <summary>Lock 슬롯을 현재 매핑 순서대로 갱신한다.</summary>
-        private void RefreshLockSlotViews(IReadOnlyList<int> diceValues)
+        /// <summary>Lock된 DiceView를 Lock 순서에 따라 PlayerDeviceSlot 하단 위치에 배치한다.</summary>
+        private void RefreshDeviceSlotLockedDicePresentation(bool forceMoveAllLockedDice = false)
         {
+            if (roundState == null) return;
+            if (diceTray3DView == null) return;
+
             RepairInvalidLockSlotMapping();
 
-            if (lockDiceSlots != null)
+            for (int slotIndex = 0; slotIndex < lockedDiceIndexBySlot.Length; slotIndex++)
             {
-                for (int slotIndex = 0; slotIndex < lockDiceSlots.Length; slotIndex++)
+                int diceIndex = lockedDiceIndexBySlot[slotIndex];
+
+                if (diceIndex < 0 || diceIndex >= roundState.Dice.Count)
+                    continue;
+
+                if (!roundState.Dice[diceIndex].IsLocked)
+                    continue;
+
+                if (!TryGetLockedDiceDeviceSlotPose(
+                        slotIndex,
+                        out Vector3 targetPosition,
+                        out Quaternion targetRotation))
+                    continue;
+
+                if (!forceMoveAllLockedDice &&
+                    diceTray3DView.IsDiceNearPosition(diceIndex, targetPosition, 0.02f))
                 {
-                    if (lockDiceSlots[slotIndex] == null)
-                        continue;
-
-                    int diceIndex = lockedDiceIndexBySlot[slotIndex];
-
-                    if (diceIndex < 0)
-                    {
-                        lockDiceSlots[slotIndex].BindEmpty();
-                        continue;
-                    }
-
-                    // Legacy Canvas Lock 슬롯은 원본 DiceIndex를 보관해야 클릭 시 정확히 Unlock된다.
-                    lockDiceSlots[slotIndex].BindLockedDice(diceIndex, diceValues[diceIndex]);
+                    continue;
                 }
-            }
 
-            // 3D LockSlot은 같은 Core 매핑을 테이블 위 슬롯 색상/값으로 표시한다.
-            if (lockSlotRack3DView != null)
-                lockSlotRack3DView.SetLockedDiceSlots(lockedDiceIndexBySlot, diceValues);
+                diceTray3DView.MoveDiceToLockedDeviceSlot(
+                    diceIndex,
+                    targetPosition,
+                    targetRotation,
+                    lockedDiceMoveDuration);
+            }
+        }
+
+        /// <summary>DeviceSlot 하단 Lock Dice 표시 위치와 회전을 계산한다.</summary>
+        private bool TryGetLockedDiceDeviceSlotPose(
+            int slotIndex,
+            out Vector3 worldPosition,
+            out Quaternion worldRotation)
+        {
+            return TryGetDeviceSlotPresentationPose(
+                slotIndex,
+                lockedDiceDeviceSlotLocalOffset,
+                Quaternion.Euler(lockedDiceTiltEuler),
+                out worldPosition,
+                out worldRotation);
         }
 
         /// <summary>Cast 후보 Popup을 갱신한다.</summary>
@@ -937,13 +1026,10 @@ namespace Tessera.UI
         {
             bool hasRound = roundState != null;
             bool canAct = hasRound && !roundState.IsRoundEnded && !roundState.CurrentAttempt.IsSubmitted;
-            bool canNext = hasRound && !roundState.IsRoundEnded && roundState.CurrentAttempt.IsSubmitted;
+            bool canRoll = canAct && roundState.RemainingRoundRolls > 0 && !isDiceCupRollSequencePlaying;
 
-            SetButtonInteractable(rollButton, canAct && roundState.RemainingRoundRolls > 0);
+            // Roll 입력은 DiceCup으로 이전한다. Legacy RollButton은 전환 기간용으로만 유지한다.
             SetButtonInteractable(submitSelectedButton, canAct && selectedPatternType != RollPatternType.None);
-            SetButtonInteractable(submitBrokenCastButton, canAct);
-            SetButtonInteractable(nextAttemptButton, canNext);
-            SetButtonInteractable(resetRoundButton, true);
             SetButtonInteractable(togglePopupButton, hasRound);
         }
 
@@ -957,7 +1043,7 @@ namespace Tessera.UI
                 return false;
 
             return currentCastBoardViewModel.TryGetEntry(selectedPatternType, out CastBoardEntryModel entry)
-                   && entry.Status == CastBoardEntryStatus.Available;
+                    && entry.Status == CastBoardEntryStatus.Available;
         }
 
         /// <summary>현재 Attempt에서 플레이어 조작이 가능한지 확인한다.</summary>
@@ -972,13 +1058,16 @@ namespace Tessera.UI
             return !roundState.CurrentAttempt.IsSubmitted;
         }
 
-        /// <summary>제출 직전 모든 주사위를 LockSlot 5칸에 배치한다.</summary>
+        /// <summary>제출 직전 모든 주사위를 SlotPair 5칸에 Lock 순서 유지 + 남은 DiceIndex 오름차순으로 배치한다.</summary>
         private void EnsureAllDiceAssignedToLockSlots()
         {
             RepairInvalidLockSlotMapping();
 
             for (int diceIndex = 0; diceIndex < roundState.Dice.Count; diceIndex++)
             {
+                if (diceIndex < 0 || diceIndex >= lockedDiceIndexBySlot.Length)
+                    continue;
+
                 if (FindLockSlotIndexByDiceIndex(diceIndex) >= 0)
                     continue;
 
@@ -987,8 +1076,16 @@ namespace Tessera.UI
                 if (emptySlotIndex < 0)
                     break;
 
-                // 비어 있는 슬롯은 DiceIndex 오름차순으로 자동 채운다.
                 lockedDiceIndexBySlot[emptySlotIndex] = diceIndex;
+            }
+
+            for (int slotIndex = 0; slotIndex < lockedDiceIndexBySlot.Length; slotIndex++)
+            {
+                int diceIndex = lockedDiceIndexBySlot[slotIndex];
+
+                if (diceIndex < 0 || diceIndex >= roundState.Dice.Count)
+                    continue;
+
                 simulator.SetDiceLocked(roundState, diceIndex, true);
             }
 
@@ -1002,9 +1099,12 @@ namespace Tessera.UI
                 lockedDiceIndexBySlot[i] = -1;
         }
 
-        /// <summary>주사위를 첫 번째 빈 Lock 슬롯에 배치한다.</summary>
+        /// <summary>주사위를 첫 번째 빈 SlotPair 슬롯에 배치한다.</summary>
         private void AssignDiceToFirstEmptyLockSlot(int diceIndex)
         {
+            if (diceIndex < 0 || diceIndex >= lockedDiceIndexBySlot.Length)
+                return;
+
             if (FindLockSlotIndexByDiceIndex(diceIndex) >= 0)
                 return;
 
@@ -1016,15 +1116,24 @@ namespace Tessera.UI
             lockedDiceIndexBySlot[emptySlotIndex] = diceIndex;
         }
 
-        /// <summary>주사위가 들어가 있는 Lock 슬롯만 비운다.</summary>
+        /// <summary>지정 주사위의 SlotPair 매핑을 해제한다.</summary>
         private void RemoveDiceFromLockSlot(int diceIndex)
         {
+            if (diceIndex >= 0 && diceIndex < lockedDiceIndexBySlot.Length)
+            {
+                if (lockedDiceIndexBySlot[diceIndex] == diceIndex)
+                {
+                    lockedDiceIndexBySlot[diceIndex] = -1;
+                    return;
+                }
+            }
+
             int slotIndex = FindLockSlotIndexByDiceIndex(diceIndex);
 
             if (slotIndex < 0)
                 return;
 
-            // 슬롯은 당겨지지 않고 해당 자리만 빈 칸으로 남는다.
+            // 예전 매핑이 남아 있는 경우까지 정리한다.
             lockedDiceIndexBySlot[slotIndex] = -1;
         }
 
@@ -1052,25 +1161,41 @@ namespace Tessera.UI
             return -1;
         }
 
-        /// <summary>Core의 Lock 상태와 UI Lock 슬롯 매핑이 어긋난 경우를 정리한다.</summary>
+        /// <summary>Core Lock 상태와 SlotPair DiceIndex 매핑이 어긋난 경우를 정리하되, 기존 Lock 순서는 보존한다.</summary>
         private void RepairInvalidLockSlotMapping()
         {
+            if (roundState == null)
+            {
+                ClearLockSlotMapping();
+                return;
+            }
+
+            bool[] usedDiceIndexes = new bool[lockedDiceIndexBySlot.Length];
+
             for (int slotIndex = 0; slotIndex < lockedDiceIndexBySlot.Length; slotIndex++)
             {
                 int diceIndex = lockedDiceIndexBySlot[slotIndex];
 
-                if (diceIndex < 0)
-                    continue;
-
-                if (diceIndex >= roundState.Dice.Count)
+                if (diceIndex < 0 || diceIndex >= roundState.Dice.Count)
                 {
                     lockedDiceIndexBySlot[slotIndex] = -1;
                     continue;
                 }
 
-                // Core 기준으로 Unlock된 주사위는 UI 슬롯에서도 제거한다.
                 if (!roundState.Dice[diceIndex].IsLocked)
+                {
                     lockedDiceIndexBySlot[slotIndex] = -1;
+                    continue;
+                }
+
+                if (diceIndex < usedDiceIndexes.Length && usedDiceIndexes[diceIndex])
+                {
+                    lockedDiceIndexBySlot[slotIndex] = -1;
+                    continue;
+                }
+
+                if (diceIndex < usedDiceIndexes.Length)
+                    usedDiceIndexes[diceIndex] = true;
             }
 
             for (int diceIndex = 0; diceIndex < roundState.Dice.Count; diceIndex++)
@@ -1078,11 +1203,19 @@ namespace Tessera.UI
                 if (!roundState.Dice[diceIndex].IsLocked)
                     continue;
 
-                if (FindLockSlotIndexByDiceIndex(diceIndex) >= 0)
+                if (diceIndex >= usedDiceIndexes.Length)
                     continue;
 
-                // Core에는 Lock인데 UI 매핑이 없으면 가장 앞 빈 슬롯에 복구한다.
-                AssignDiceToFirstEmptyLockSlot(diceIndex);
+                if (usedDiceIndexes[diceIndex])
+                    continue;
+
+                int emptySlotIndex = FindFirstEmptyLockSlotIndex();
+
+                if (emptySlotIndex < 0)
+                    break;
+
+                lockedDiceIndexBySlot[emptySlotIndex] = diceIndex;
+                usedDiceIndexes[diceIndex] = true;
             }
         }
 
@@ -1097,22 +1230,41 @@ namespace Tessera.UI
             return result;
         }
 
-        /// <summary>미리보기용으로 자동 채움까지 반영한 LockSlot 매핑을 반환한다.</summary>
+        /// <summary>미리보기용 SlotPair DiceIndex 매핑을 반환한다.</summary>
         private List<int> CreatePreviewResolvedLockSlotDiceIndexList()
         {
-            List<int> result = CreateLockSlotDiceIndexList();
+            List<int> result = new List<int>(lockedDiceIndexBySlot.Length);
+            bool[] usedDiceIndexes = new bool[lockedDiceIndexBySlot.Length];
 
-            for (int diceIndex = 0; diceIndex < roundState.Dice.Count; diceIndex++)
+            for (int slotIndex = 0; slotIndex < lockedDiceIndexBySlot.Length; slotIndex++)
             {
-                if (ContainsDiceIndex(result, diceIndex))
+                int diceIndex = lockedDiceIndexBySlot[slotIndex];
+
+                if (diceIndex >= 0 && diceIndex < lockedDiceIndexBySlot.Length)
+                {
+                    result.Add(diceIndex);
+                    usedDiceIndexes[diceIndex] = true;
+                }
+                else
+                {
+                    result.Add(-1);
+                }
+            }
+
+            for (int slotIndex = 0; slotIndex < result.Count; slotIndex++)
+            {
+                if (result[slotIndex] >= 0)
                     continue;
 
-                int emptySlotIndex = FindFirstEmptyIndex(result);
+                for (int diceIndex = 0; diceIndex < lockedDiceIndexBySlot.Length; diceIndex++)
+                {
+                    if (usedDiceIndexes[diceIndex])
+                        continue;
 
-                if (emptySlotIndex < 0)
+                    result[slotIndex] = diceIndex;
+                    usedDiceIndexes[diceIndex] = true;
                     break;
-
-                result[emptySlotIndex] = diceIndex;
+                }
             }
 
             return result;
@@ -1247,8 +1399,123 @@ namespace Tessera.UI
             }
         }
 
-        /// <summary>Cast 제출 후 SlotPair 계산 순서 연출을 비동기로 시작한다.</summary>
-        private async UniTaskVoid PlaySlotPairEvaluationSequenceAsync(CastSubmitResult result)
+        /// <summary>Cast 제출 이후 SlotPair 연출, Round 종료 확인, 다음 Attempt 자동 진행을 순서대로 처리한다.</summary>
+        private async UniTaskVoid PlaySubmittedCastFlowAsync(CastSubmitResult result)
+        {
+            if (result == null)
+                return;
+
+            // Cast 제출 후 계산 연출이 끝난 뒤 후속 흐름을 진행한다.
+            await PlaySlotPairEvaluationSequenceAsync(result);
+
+            NotifyRoundEndIfNeeded(result);
+
+            if (IsRoundEndResult(result))
+            {
+                ForceRoundEndDiceTrayState(result);
+                return;
+            }
+
+            await TryAutoStartNextAttemptAfterCastAsync(result);
+        }
+
+        /// <summary>Cast 결과 또는 현재 RoundState 기준으로 Round 종료 여부를 확인한다.</summary>
+        private bool IsRoundEndResult(CastSubmitResult result)
+        {
+            if (result == null)
+                return false;
+
+            if (result.IsRoundWon || result.IsRoundLost)
+                return true;
+
+            return roundState != null && roundState.IsRoundEnded;
+        }
+
+        /// <summary>Round 종료 후 Dice를 Tray에 고정하고 후속 전환 대기 상태로 만든다.</summary>
+        private void ForceRoundEndDiceTrayState(CastSubmitResult result)
+        {
+            if (roundState == null)
+                return;
+
+            CancelSlotPairEvaluationSequence();
+            ClearSlotPairEvaluationHighlights();
+            ClearLockSlotMapping();
+
+            for (int diceIndex = 0; diceIndex < roundState.Dice.Count; diceIndex++)
+                simulator.SetDiceLocked(roundState, diceIndex, false);
+
+            if (diceTray3DView != null)
+                diceTray3DView.RestoreAllDiceToTray(roundState.GetCurrentDiceValues(), lockedDiceMoveDuration);
+
+            string message = result.IsRoundWon
+                ? "Round won. Dice fixed to tray. Shop transition is pending."
+                : "Round lost. Dice fixed to tray. Result UI is pending.";
+
+            Debug.Log(
+                $"[Tessera][RoundEnd] {message} " +
+                $"OpponentHP={roundState.Encounter.OpponentCurrentHp}/{roundState.Encounter.OpponentMaxHp} | " +
+                $"PlayerHP={roundState.Encounter.PlayerCurrentHp}/{roundState.Encounter.PlayerMaxHp} | " +
+                $"DamageApplied={result.DamageApplied}");
+
+            RefreshAll(message);
+        }
+
+        /// <summary>Round가 끝나지 않았으면 상대 턴 표시 후 다음 Attempt를 자동으로 시작한다.</summary>
+        private async UniTask TryAutoStartNextAttemptAfterCastAsync(CastSubmitResult result)
+        {
+            if (!autoStartNextAttemptAfterCast)
+                return;
+
+            if (result == null)
+                return;
+
+            if (roundState == null)
+                return;
+
+            if (result.IsRoundWon)
+            {
+                RefreshAll("Round won.");
+                return;
+            }
+
+            if (result.IsRoundLost)
+            {
+                RefreshAll("Round lost.");
+                return;
+            }
+
+            if (roundState.IsRoundEnded)
+            {
+                RefreshAll("Round ended.");
+                return;
+            }
+
+            if (!roundState.CurrentAttempt.IsSubmitted)
+                return;
+
+            if (result.EnemyIntentResult.DidExecute)
+                SetMessage($"Enemy turn: player took {result.EnemyIntentResult.DamageToPlayer} damage.");
+            else
+                SetMessage("Enemy turn: no action.");
+
+            if (autoNextAttemptDelay > 0f)
+            {
+                await UniTask.Delay(
+                    TimeSpan.FromSeconds(autoNextAttemptDelay),
+                    cancellationToken: this.GetCancellationTokenOnDestroy());
+            }
+
+            if (roundState == null || roundState.IsRoundEnded)
+                return;
+
+            if (!roundState.CurrentAttempt.IsSubmitted)
+                return;
+
+            StartNextAttempt();
+        }
+
+        /// <summary>Cast 제출 후 SlotPair 계산 순서 연출을 비동기로 재생한다.</summary>
+        private async UniTask PlaySlotPairEvaluationSequenceAsync(CastSubmitResult result)
         {
             if (!playSlotPairSequenceOnSubmit) return;
             if (result == null) return;
@@ -1280,7 +1547,12 @@ namespace Tessera.UI
                 if (slotPairSequenceCts == currentCts)
                 {
                     slotPairSequenceCts = null;
-                    RestoreEvaluationDicePlacement();
+
+                    if (completed)
+                        RestoreAllDiceToTrayAfterEvaluation();
+                    else
+                        RefreshDeviceSlotLockedDicePresentation();
+
                     ClearSlotPairEvaluationHighlights();
 
                     if (completed)
@@ -1291,7 +1563,7 @@ namespace Tessera.UI
             }
         }
 
-        /// <summary>SlotPairDamagePreview의 Step 목록을 기준으로 LockSlot, DeviceSlot, Dice 이동 연산 연출을 순차 재생한다.</summary>
+        /// <summary>SlotPairDamagePreview의 Step 목록을 기준으로 DeviceSlot과 Dice 반응 연출을 순차 재생한다.</summary>
         private async UniTask PlaySlotPairEvaluationSequenceInternalAsync(
             CastSubmitResult result,
             CancellationToken cancellationToken)
@@ -1312,16 +1584,13 @@ namespace Tessera.UI
 
                 SlotPairDamageStep step = steps[i];
 
-                // 현재 계산 중인 LockSlot과 대응 DeviceSlot을 동시에 강조한다.
+                // 현재 DiceIndex와 대응 PlayerDeviceSlot을 계산 대상으로 강조한다.
                 HighlightSlotPair(step.SlotIndex);
-
-                if (showLegacyScoreForceStepText)
-                    RefreshSlotPairStepTexts(result, step);
 
                 RefreshTableHologramSlotPairStep(result, step);
                 LogSlotPairStep(result, step);
 
-                MoveEvaluationDiceToDeviceSlot(step);
+                PlayEvaluationDiceJumpRollAsync(step, cancellationToken).Forget();
                 PlaySlotPairFloatingTextAsync(step, cancellationToken).Forget();
 
                 if (slotPairHighlightDuration > 0f)
@@ -1334,13 +1603,10 @@ namespace Tessera.UI
             }
         }
 
-        /// <summary>지정 SlotPair 인덱스의 LockSlot과 Player DeviceSlot을 강조한다.</summary>
+        /// <summary>지정 SlotPair 인덱스의 Player DeviceSlot을 강조한다.</summary>
         private void HighlightSlotPair(int slotIndex)
         {
-            // SlotPair는 LockSlot N과 DeviceSlot N의 1:1 대응으로 표시한다.
-            if (lockSlotRack3DView != null)
-                lockSlotRack3DView.HighlightSlot(slotIndex);
-
+            // 새 구조에서는 DeviceSlot 하단 Dice와 DeviceSlot 자체가 LockSlot 역할을 겸한다.
             if (playerDeviceRack3DView != null)
                 playerDeviceRack3DView.HighlightSlot(slotIndex);
         }
@@ -1348,10 +1614,6 @@ namespace Tessera.UI
         /// <summary>SlotPair 계산 연출 Highlight를 모두 해제한다.</summary>
         private void ClearSlotPairEvaluationHighlights()
         {
-            // 진행 중인 계산 표시를 초기화한다.
-            if (lockSlotRack3DView != null)
-                lockSlotRack3DView.ClearHighlight();
-
             if (playerDeviceRack3DView != null)
                 playerDeviceRack3DView.ClearHighlight();
 
@@ -1359,28 +1621,23 @@ namespace Tessera.UI
                 opponentDeviceRack3DView.ClearHighlight();
         }
 
-        /// <summary>현재 SlotPair 단계의 DiceView를 대응 DeviceSlot 위로 이동시킨다.</summary>
-        private void MoveEvaluationDiceToDeviceSlot(SlotPairDamageStep step)
+        /// <summary>현재 SlotPair 단계의 DiceView를 제자리에서 점프/회전시킨다.</summary>
+        private async UniTaskVoid PlayEvaluationDiceJumpRollAsync(
+            SlotPairDamageStep step,
+            CancellationToken cancellationToken)
         {
-            if (!moveDiceToDeviceSlotDuringEvaluation) return;
+            if (!playDiceJumpRollDuringEvaluation) return;
             if (step == null) return;
             if (step.DiceIndex < 0) return;
             if (diceTray3DView == null) return;
 
-            if (!TryGetDeviceSlotPresentationPose(
-                    step.SlotIndex,
-                    evaluationDiceWorldOffset,
-                    Quaternion.Euler(evaluationDiceTiltEuler),
-                    out Vector3 targetPosition,
-                    out Quaternion targetRotation))
-                return;
-
-            // DeviceSlot의 Renderer/Collider 중심과 플레이어 방향 기준 좌표에 주사위를 정렬한다.
-            diceTray3DView.MoveDiceToEvaluationTarget(
+            // 이미 DeviceSlot 하단에 배치된 DiceView를 제자리에서 반응시킨다.
+            await diceTray3DView.PlayDiceJumpRollAsync(
                 step.DiceIndex,
-                targetPosition,
-                targetRotation,
-                evaluationDiceMoveDuration);
+                slotPairDiceJumpHeight,
+                slotPairDiceJumpRollEuler,
+                slotPairDiceJumpRollDuration,
+                cancellationToken);
         }
 
         /// <summary>DeviceSlot 기준 Presentation 위치와 회전을 계산한다.</summary>
@@ -1418,20 +1675,28 @@ namespace Tessera.UI
             return true;
         }
 
-        /// <summary>SlotPair 연산 연출 후 DiceView들을 현재 Lock 상태 위치로 복귀시킨다.</summary>
+        /// <summary>SlotPair 연산 연출 후 모든 DiceView를 DiceTray 위치로 복귀시킨다.</summary>
         private void RestoreEvaluationDicePlacement()
         {
-            if (diceTray3DView == null) return;
-            if (roundState == null) return;
+            RestoreAllDiceToTrayAfterEvaluation();
+        }
+
+        /// <summary>연산 완료 후 모든 DiceView를 DiceTray 원래 위치로 복귀시킨다.</summary>
+        private void RestoreAllDiceToTrayAfterEvaluation()
+        {
+            if (!restoreDiceToTrayAfterEvaluation)
+                return;
+
+            if (diceTray3DView == null)
+                return;
+
+            if (roundState == null)
+                return;
 
             IReadOnlyList<int> diceValues = roundState.GetCurrentDiceValues();
 
-            // 연산 위치로 이동했던 주사위를 다시 LockSlot 또는 DicePoint 위치로 정렬한다.
-            diceTray3DView.RestoreDicePlacement(
-                diceValues,
-                CreateDiceLockStates(),
-                lockedDiceIndexBySlot,
-                lockSlotRack3DView);
+            // 상대 턴/다음 흐름으로 넘어가기 전 Dice를 모두 Tray에 정리한다.
+            diceTray3DView.RestoreAllDiceToTray(diceValues, lockedDiceMoveDuration);
         }
 
         /// <summary>진행 중인 SlotPair 계산 연출을 중단한다.</summary>
@@ -1465,29 +1730,23 @@ namespace Tessera.UI
             return $"{result.PatternResult.PatternType} dealt {result.DamageApplied}.{enemyMessage}";
         }
 
-        /// <summary>좌측 메시지 텍스트를 갱신한다.</summary>
+        /// <summary>전투 진행 메시지를 로그로 남긴다.</summary>
         private void SetMessage(string message)
         {
-            SetText(messageText, message);
+            if (string.IsNullOrWhiteSpace(message))
+                return;
+
+            Debug.Log($"[Tessera][Message] {message}");
         }
 
         /// <summary>버튼 클릭 이벤트를 등록한다.</summary>
         private void AddButtonListeners()
         {
-            if (rollButton != null)
-                rollButton.onClick.AddListener(RollUnlockedDice);
+            if (diceCup3DView != null)
+                diceCup3DView.Clicked += OnDiceCupClicked;
 
             if (submitSelectedButton != null)
                 submitSelectedButton.onClick.AddListener(SubmitSelectedCast);
-
-            if (submitBrokenCastButton != null)
-                submitBrokenCastButton.onClick.AddListener(SubmitBrokenCast);
-
-            if (nextAttemptButton != null)
-                nextAttemptButton.onClick.AddListener(StartNextAttempt);
-
-            if (resetRoundButton != null)
-                resetRoundButton.onClick.AddListener(StartDebugRound);
 
             if (togglePopupButton != null)
                 togglePopupButton.onClick.AddListener(ToggleCastCandidatePopup);
@@ -1496,20 +1755,11 @@ namespace Tessera.UI
         /// <summary>버튼 클릭 이벤트를 해제한다.</summary>
         private void RemoveButtonListeners()
         {
-            if (rollButton != null)
-                rollButton.onClick.RemoveListener(RollUnlockedDice);
+            if (diceCup3DView != null)
+                diceCup3DView.Clicked -= OnDiceCupClicked;
 
             if (submitSelectedButton != null)
                 submitSelectedButton.onClick.RemoveListener(SubmitSelectedCast);
-
-            if (submitBrokenCastButton != null)
-                submitBrokenCastButton.onClick.RemoveListener(SubmitBrokenCast);
-
-            if (nextAttemptButton != null)
-                nextAttemptButton.onClick.RemoveListener(StartNextAttempt);
-
-            if (resetRoundButton != null)
-                resetRoundButton.onClick.RemoveListener(StartDebugRound);
 
             if (togglePopupButton != null)
                 togglePopupButton.onClick.RemoveListener(ToggleCastCandidatePopup);

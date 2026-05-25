@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 namespace Tessera.UI
@@ -12,11 +14,6 @@ namespace Tessera.UI
 
         [Header("Spawn Points")]
         [SerializeField] private Transform[] dicePoints = new Transform[5];
-
-        [Header("Lock Movement")]
-        [SerializeField] private Vector3 lockSlotWorldOffset = new Vector3(0f, 0.11f, 0f);
-        [SerializeField] private float moveDuration = 0.18f;
-        [SerializeField] private bool useAnimatedMovement = true;
 
         [Header("Evaluation Movement")]
         [SerializeField] private Camera evaluationCamera;
@@ -42,16 +39,6 @@ namespace Tessera.UI
         /// <summary>현재 Core 주사위 값과 Lock 상태를 3D 주사위에 반영한다.</summary>
         public void SetDice(IReadOnlyList<int> diceValues, IReadOnlyList<bool> lockStates)
         {
-            SetDice(diceValues, lockStates, null, null);
-        }
-
-        /// <summary>현재 Core 주사위 값, Lock 상태, LockSlot 매핑을 3D 주사위에 반영한다.</summary>
-        public void SetDice(
-            IReadOnlyList<int> diceValues,
-            IReadOnlyList<bool> lockStates,
-            IReadOnlyList<int> lockedDiceIndexBySlot,
-            LockSlotRack3DView lockSlotRack3DView)
-        {
             if (diceViews == null)
                 return;
 
@@ -69,13 +56,17 @@ namespace Tessera.UI
                 bool isLocked = IsDiceLocked(lockStates, diceIndex);
                 diceViews[diceIndex].SetDice(diceIndex, diceValues[diceIndex], isLocked);
 
-                // Lock 상태면 LockSlot 위로, 아니면 DicePoint 위치로 이동한다.
-                MoveDiceByState(diceIndex, isLocked, lockedDiceIndexBySlot, lockSlotRack3DView);
+                if (isLocked)
+                    continue;
+
+                if (!TryGetDicePointPose(diceIndex, out Vector3 trayPosition, out Quaternion trayRotation))
+                    continue;
+
+                diceViews[diceIndex].MoveImmediate(trayPosition, trayRotation);
             }
 
             hasInitializedPlacement = true;
         }
-
         /// <summary>모든 주사위 표시를 숨긴다.</summary>
         public void HideAll()
         {
@@ -111,15 +102,131 @@ namespace Tessera.UI
             diceViews[diceIndex].MoveTo(targetPosition, targetRotation, duration);
         }
 
-        /// <summary>현재 Core 상태 기준으로 모든 DiceView 위치를 다시 정렬한다.</summary>
-        public void RestoreDicePlacement(
+        /// <summary>지정 DiceView를 DeviceSlot 하단 Lock 표시 위치로 이동시킨다.</summary>
+        public void MoveDiceToLockedDeviceSlot(
+            int diceIndex,
+            Vector3 targetPosition,
+            Quaternion targetRotation,
+            float duration)
+        {
+            if (diceViews == null)
+                return;
+
+            if (diceIndex < 0 || diceIndex >= diceViews.Length)
+                return;
+
+            if (diceViews[diceIndex] == null)
+                return;
+
+            // Lock된 주사위를 DeviceSlot 하단 표시 위치로 이동한다.
+            diceViews[diceIndex].MoveTo(targetPosition, targetRotation, duration);
+        }
+
+        /// <summary>DeviceSlot 하단 Lock Dice 구조에서 DiceView 표시값을 갱신한다.</summary>
+        public void SetDiceForDeviceSlotLockPresentation(
             IReadOnlyList<int> diceValues,
             IReadOnlyList<bool> lockStates,
-            IReadOnlyList<int> lockedDiceIndexBySlot,
-            LockSlotRack3DView lockSlotRack3DView)
+            float unlockedMoveDuration)
         {
-            // Lock 상태면 LockSlot으로, Unlock 상태면 DicePoint로 복귀한다.
-            SetDice(diceValues, lockStates, lockedDiceIndexBySlot, lockSlotRack3DView);
+            if (diceViews == null)
+                return;
+
+            for (int diceIndex = 0; diceIndex < diceViews.Length; diceIndex++)
+            {
+                if (diceViews[diceIndex] == null)
+                    continue;
+
+                if (diceValues == null || diceIndex >= diceValues.Count)
+                {
+                    diceViews[diceIndex].Hide();
+                    continue;
+                }
+
+                bool isLocked = lockStates != null && diceIndex < lockStates.Count && lockStates[diceIndex];
+
+                // Dice 값과 Lock 시각 상태는 갱신하되, Lock된 Dice의 위치는 건드리지 않는다.
+                diceViews[diceIndex].SetDice(diceIndex, diceValues[diceIndex], isLocked);
+
+                if (isLocked)
+                    continue;
+
+                if (!TryGetDicePointPose(diceIndex, out Vector3 trayPosition, out Quaternion trayRotation))
+                    continue;
+
+                // Unlock된 Dice만 DiceTray 원래 위치로 정렬한다.
+                diceViews[diceIndex].MoveTo(trayPosition, trayRotation, unlockedMoveDuration);
+            }
+        }
+
+        /// <summary>지정 DiceView가 목표 위치 근처에 있는지 확인한다.</summary>
+        public bool IsDiceNearPosition(int diceIndex, Vector3 targetPosition, float threshold)
+        {
+            if (diceViews == null)
+                return false;
+
+            if (diceIndex < 0 || diceIndex >= diceViews.Length)
+                return false;
+
+            if (diceViews[diceIndex] == null)
+                return false;
+
+            // 이미 목표 위치에 가까우면 불필요한 재이동을 막는다.
+            float sqrDistance = (diceViews[diceIndex].transform.position - targetPosition).sqrMagnitude;
+            return sqrDistance <= threshold * threshold;
+        }
+
+        /// <summary>지정 DiceView에 제자리 점프/회전 연출을 재생한다.</summary>
+        public UniTask PlayDiceJumpRollAsync(
+            int diceIndex,
+            float jumpHeight,
+            Vector3 rollEuler,
+            float duration,
+            CancellationToken cancellationToken)
+        {
+            if (diceViews == null)
+                return UniTask.CompletedTask;
+
+            if (diceIndex < 0 || diceIndex >= diceViews.Length)
+                return UniTask.CompletedTask;
+
+            if (diceViews[diceIndex] == null)
+                return UniTask.CompletedTask;
+
+            // 현재 위치에서 SlotPair 계산 반응 연출을 재생한다.
+            return diceViews[diceIndex].PlayJumpRollAsync(jumpHeight, rollEuler, duration, cancellationToken);
+        }
+
+        /// <summary>모든 DiceView를 DiceTray의 원래 DicePoint 위치로 복귀시킨다.</summary>
+        public void RestoreAllDiceToTray(IReadOnlyList<int> diceValues, float duration)
+        {
+            if (diceViews == null)
+                return;
+
+            for (int diceIndex = 0; diceIndex < diceViews.Length; diceIndex++)
+            {
+                if (diceViews[diceIndex] == null)
+                    continue;
+
+                if (diceValues == null || diceIndex < 0 || diceIndex >= diceValues.Count)
+                {
+                    diceViews[diceIndex].Hide();
+                    continue;
+                }
+
+                diceViews[diceIndex].SetDice(diceIndex, diceValues[diceIndex], false);
+
+                if (!TryGetDicePointPose(diceIndex, out Vector3 trayPosition, out Quaternion trayRotation))
+                    continue;
+
+                // Lock 상태와 무관하게 원래 DicePoint 위치로 복귀시킨다.
+                diceViews[diceIndex].MoveTo(trayPosition, trayRotation, duration);
+            }
+        }
+
+        /// <summary>현재 Core 상태 기준으로 모든 DiceView 위치를 다시 정렬한다.</summary>
+        public void RestoreDicePlacement(IReadOnlyList<int> diceValues, IReadOnlyList<bool> lockStates)
+        {
+            SetDice(diceValues, lockStates);
         }
 
         /// <summary>모든 DiceView에 클릭 콜백을 전달한다.</summary>
@@ -135,27 +242,6 @@ namespace Tessera.UI
 
                 // 각 DiceView가 클릭되면 원본 DiceIndex를 Presenter로 전달한다.
                 diceViews[i].Initialize(diceClickedCallback);
-            }
-        }
-
-        /// <summary>Lock 상태에 따라 주사위 목표 위치를 결정하고 이동한다.</summary>
-        private void MoveDiceByState(
-            int diceIndex,
-            bool isLocked,
-            IReadOnlyList<int> lockedDiceIndexBySlot,
-            LockSlotRack3DView lockSlotRack3DView)
-        {
-            if (isLocked && TryGetLockSlotPose(diceIndex, lockedDiceIndexBySlot, lockSlotRack3DView, out Vector3 lockPosition, out Quaternion lockRotation))
-            {
-                // Lock된 주사위는 해당 LockSlot 위에 올려둔다.
-                MoveDiceTo(diceIndex, lockPosition, lockRotation);
-                return;
-            }
-
-            if (TryGetDicePointPose(diceIndex, out Vector3 trayPosition, out Quaternion trayRotation))
-            {
-                // Unlock된 주사위는 원래 Tray 위치로 복귀한다.
-                MoveDiceTo(diceIndex, trayPosition, trayRotation);
             }
         }
 
@@ -179,51 +265,6 @@ namespace Tessera.UI
             return true;
         }
 
-        /// <summary>지정 DiceIndex가 배치된 LockSlot의 위치와 회전을 반환한다.</summary>
-        private bool TryGetLockSlotPose(
-            int diceIndex,
-            IReadOnlyList<int> lockedDiceIndexBySlot,
-            LockSlotRack3DView lockSlotRack3DView,
-            out Vector3 position,
-            out Quaternion rotation)
-        {
-            position = Vector3.zero;
-            rotation = Quaternion.identity;
-
-            if (lockSlotRack3DView == null)
-                return false;
-
-            int slotIndex = FindSlotIndexByDiceIndex(diceIndex, lockedDiceIndexBySlot);
-
-            if (slotIndex < 0)
-                return false;
-
-            Transform slotTransform = lockSlotRack3DView.GetSlotTransform(slotIndex);
-
-            if (slotTransform == null)
-                return false;
-
-            // 슬롯 표면 위로 약간 띄운 위치를 계산한다.
-            position = slotTransform.position + lockSlotWorldOffset;
-            rotation = slotTransform.rotation;
-            return true;
-        }
-
-        /// <summary>특정 DiceIndex가 들어간 LockSlot 인덱스를 찾는다.</summary>
-        private static int FindSlotIndexByDiceIndex(int diceIndex, IReadOnlyList<int> lockedDiceIndexBySlot)
-        {
-            if (lockedDiceIndexBySlot == null)
-                return -1;
-
-            for (int slotIndex = 0; slotIndex < lockedDiceIndexBySlot.Count; slotIndex++)
-            {
-                if (lockedDiceIndexBySlot[slotIndex] == diceIndex)
-                    return slotIndex;
-            }
-
-            return -1;
-        }
-
         /// <summary>지정 DiceIndex의 Lock 상태를 안전하게 반환한다.</summary>
         private static bool IsDiceLocked(IReadOnlyList<bool> lockStates, int diceIndex)
         {
@@ -235,29 +276,5 @@ namespace Tessera.UI
 
             return lockStates[diceIndex];
         }
-
-        /// <summary>지정 DiceView를 목표 위치와 회전으로 이동시킨다.</summary>
-        private void MoveDiceTo(int diceIndex, Vector3 targetPosition, Quaternion targetRotation)
-        {
-            if (diceViews == null)
-                return;
-
-            if (diceIndex < 0 || diceIndex >= diceViews.Length)
-                return;
-
-            if (diceViews[diceIndex] == null)
-                return;
-
-            if (!useAnimatedMovement || !Application.isPlaying || !hasInitializedPlacement)
-            {
-                // 최초 배치나 에디터 상태에서는 즉시 이동한다.
-                diceViews[diceIndex].MoveImmediate(targetPosition, targetRotation);
-                return;
-            }
-
-            // 런타임 Lock/Unlock은 짧은 이동 연출로 처리한다.
-            diceViews[diceIndex].MoveTo(targetPosition, targetRotation, moveDuration);
-        }
-
     }
 }
