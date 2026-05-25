@@ -44,9 +44,26 @@ namespace Tessera.UI
         [Header("Dice Cup Roll Input")]
         [SerializeField] private DiceCup3DView diceCup3DView;
         [SerializeField] private bool useDiceCupRollInput = true;
-        [SerializeField] private float diceCupShakeDuration = 0.35f;
-        [SerializeField] private float diceCupShakeAngle = 10f;
-        [SerializeField] private float diceCupShakeFrequency = 8f;
+
+        [Header("Dice Cup Roll - Dice Enter")]
+        [SerializeField] private float diceCupEnterDuration = 0.22f;
+        [SerializeField] private float diceCupEnterStagger = 0.04f;
+        [SerializeField] private float diceCupEnterArcHeight = 0.18f;
+        [SerializeField] private Vector3 diceCupEnterRollEuler = new Vector3(210f, 120f, 160f);
+
+        [Header("Dice Cup Roll - Cup Motion")]
+        [SerializeField] private float diceCupLiftHeight = 0.38f;
+        [SerializeField] private float diceCupLiftDuration = 0.16f;
+        [SerializeField] private float diceCupShakeDuration = 0.58f;
+        [SerializeField] private float diceCupDropDuration = 0.18f;
+        [SerializeField] private float diceCupShakeAngle = 12f;
+        [SerializeField] private float diceCupShakeFrequency = 9f;
+
+        [Header("Dice Cup Roll - Dice Scatter")]
+        [SerializeField] private float diceCupScatterDuration = 0.34f;
+        [SerializeField] private float diceCupScatterStagger = 0.035f;
+        [SerializeField] private float diceCupScatterArcHeight = 0.28f;
+        [SerializeField] private Vector3 diceCupScatterRollEuler = new Vector3(360f, 240f, 180f);
 
         [Header("SlotPair Evaluation Presentation")]
         [SerializeField] private bool playSlotPairSequenceOnSubmit = true;
@@ -221,7 +238,7 @@ namespace Tessera.UI
             RollUnlockedDiceCore("Unlocked dice rolled.");
         }
 
-        /// <summary>DiceCup 클릭으로 Roll 연출과 Core Roll을 순차 실행한다.</summary>
+        /// <summary>DiceCup 클릭으로 Dice 진입, 컵 공중 흔들림, Core Roll, Dice 분사 연출을 순차 실행한다.</summary>
         private async UniTaskVoid PlayDiceCupRollSequenceAsync()
         {
             if (isDiceCupRollSequencePlaying)
@@ -236,17 +253,39 @@ namespace Tessera.UI
             isDiceCupRollSequencePlaying = true;
             RefreshButtonStates();
 
+            CancellationToken cancellationToken = this.GetCancellationTokenOnDestroy();
+
             try
             {
                 SetMessage("Dice cup rolling...");
 
+                IReadOnlyList<int> beforeDiceValues = new List<int>(roundState.GetCurrentDiceValues());
+                IReadOnlyList<bool> beforeLockStates = CreateDiceLockStates();
+
+                if (diceTray3DView != null && diceCup3DView != null)
+                {
+                    await diceTray3DView.PlayUnlockedDiceEnterCupAsync(
+                        beforeDiceValues,
+                        beforeLockStates,
+                        diceCup3DView.DiceEntryPosition,
+                        diceCup3DView.DiceEntryRotation,
+                        diceCupEnterDuration,
+                        diceCupEnterStagger,
+                        diceCupEnterArcHeight,
+                        diceCupEnterRollEuler,
+                        cancellationToken);
+                }
+
                 if (diceCup3DView != null)
                 {
-                    await diceCup3DView.PlayShakeAsync(
+                    await diceCup3DView.PlayLiftShakeAsync(
+                        diceCupLiftHeight,
+                        diceCupLiftDuration,
                         diceCupShakeDuration,
+                        diceCupDropDuration,
                         diceCupShakeAngle,
                         diceCupShakeFrequency,
-                        this.GetCancellationTokenOnDestroy());
+                        cancellationToken);
                 }
 
                 if (!TryCanRollUnlockedDice(out failureMessage))
@@ -255,7 +294,31 @@ namespace Tessera.UI
                     return;
                 }
 
-                RollUnlockedDiceCore("Dice cup rolled unlocked dice.");
+                bool rerolled = simulator.TryRerollUnlockedDice(roundState);
+
+                if (!rerolled)
+                {
+                    RefreshAll("No rolls left.");
+                    return;
+                }
+
+                IReadOnlyList<int> afterDiceValues = roundState.GetCurrentDiceValues();
+
+                if (diceTray3DView != null && diceCup3DView != null)
+                {
+                    await diceTray3DView.PlayUnlockedDiceScatterFromCupAsync(
+                        afterDiceValues,
+                        beforeLockStates,
+                        diceCup3DView.DiceEntryPosition,
+                        diceCup3DView.DiceEntryRotation,
+                        diceCupScatterDuration,
+                        diceCupScatterStagger,
+                        diceCupScatterArcHeight,
+                        diceCupScatterRollEuler,
+                        cancellationToken);
+                }
+
+                RefreshAll("Unlocked dice rolled.");
             }
             catch (OperationCanceledException)
             {
@@ -1026,8 +1089,6 @@ namespace Tessera.UI
         {
             bool hasRound = roundState != null;
             bool canAct = hasRound && !roundState.IsRoundEnded && !roundState.CurrentAttempt.IsSubmitted;
-            bool canRoll = canAct && roundState.RemainingRoundRolls > 0 && !isDiceCupRollSequencePlaying;
-
             // Roll 입력은 DiceCup으로 이전한다. Legacy RollButton은 전환 기간용으로만 유지한다.
             SetButtonInteractable(submitSelectedButton, canAct && selectedPatternType != RollPatternType.None);
             SetButtonInteractable(togglePopupButton, hasRound);

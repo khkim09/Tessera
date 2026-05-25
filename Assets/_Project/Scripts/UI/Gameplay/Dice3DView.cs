@@ -7,7 +7,7 @@ using UnityEngine.EventSystems;
 
 namespace Tessera.UI
 {
-    /// <summary>테이블 위 3D 주사위 하나의 임시 표시, 클릭 입력, 위치 이동을 관리한다.</summary>
+    /// <summary>테이블 위 3D 주사위 하나의 표시, 클릭 입력, 이동/굴림 연출을 관리한다.</summary>
     public class Dice3DView : MonoBehaviour, IPointerClickHandler
     {
         [Header("References")]
@@ -122,6 +122,9 @@ namespace Tessera.UI
             // 이동 연출과 겹치지 않도록 기존 이동 작업을 먼저 중단한다.
             CancelMoveTask();
 
+            CancellationTokenSource currentCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            moveCts = currentCts;
+
             Vector3 basePosition = transform.position;
             Quaternion baseRotation = transform.rotation;
             float elapsed = 0f;
@@ -130,7 +133,7 @@ namespace Tessera.UI
             {
                 while (elapsed < duration)
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
+                    currentCts.Token.ThrowIfCancellationRequested();
 
                     elapsed += Time.deltaTime;
                     float t = Mathf.Clamp01(elapsed / duration);
@@ -143,7 +146,7 @@ namespace Tessera.UI
                     transform.position = basePosition + Vector3.up * (heightT * jumpHeight);
                     transform.rotation = baseRotation * rollRotation;
 
-                    await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
+                    await UniTask.Yield(PlayerLoopTiming.Update, currentCts.Token);
                 }
 
                 transform.position = basePosition;
@@ -153,14 +156,74 @@ namespace Tessera.UI
             {
                 // SlotPair 연출 취소나 Attempt 전환 시 정상 취소된다.
             }
+            finally
+            {
+                CompleteMoveTask(currentCts);
+            }
         }
 
-        // /// <summary>계산 대상 주사위 강조 상태를 변경한다.</summary>
-        // public void SetHighlighted(bool isHighlighted)
-        // {
-        //     // Highlight 상태는 Hover 색상과 기본 색상 전환으로 표현한다.
-        //     SetDiceColor(isHighlighted ? hoverColor : GetBaseColor());
-        // }
+        /// <summary>목표 위치까지 포물선 이동과 회전을 동시에 재생한다.</summary>
+        public async UniTask PlayArcMoveRollAsync(
+            Vector3 targetPosition,
+            Quaternion targetRotation,
+            float duration,
+            float arcHeight,
+            Vector3 rollEuler,
+            CancellationToken cancellationToken)
+        {
+            if (duration <= 0f)
+            {
+                MoveImmediate(targetPosition, targetRotation);
+                return;
+            }
+
+            // 컵 진입/분사 연출은 기존 이동보다 우선한다.
+            CancelMoveTask();
+
+            CancellationTokenSource currentCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            moveCts = currentCts;
+
+            Vector3 startPosition = transform.position;
+            Quaternion startRotation = transform.rotation;
+            float elapsed = 0f;
+
+            try
+            {
+                while (elapsed < duration)
+                {
+                    currentCts.Token.ThrowIfCancellationRequested();
+
+                    elapsed += Time.deltaTime;
+                    float t = Mathf.Clamp01(elapsed / duration);
+                    float easedT = 1f - Mathf.Pow(1f - t, 3f);
+                    float arcT = Mathf.Sin(t * Mathf.PI);
+
+                    // 이동 경로는 ease-out + 수직 포물선으로 컵/트레이에 가볍게 튀듯 이동한다.
+                    Vector3 position = Vector3.Lerp(startPosition, targetPosition, easedT);
+                    position += Vector3.up * (arcT * arcHeight);
+
+                    // 회전은 목표 회전 위에 추가 roll을 곱해 굴러가는 느낌을 만든다.
+                    Quaternion baseRotation = Quaternion.Slerp(startRotation, targetRotation, easedT);
+                    Quaternion rollRotation = Quaternion.Euler(rollEuler * t);
+
+                    transform.position = position;
+                    transform.rotation = baseRotation * rollRotation;
+
+                    await UniTask.Yield(PlayerLoopTiming.Update, currentCts.Token);
+                }
+
+                transform.position = targetPosition;
+                transform.rotation = targetRotation;
+            }
+            catch (OperationCanceledException)
+            {
+                // 새 이동 요청, Attempt 전환, 오브젝트 제거 시 정상 취소된다.
+            }
+            finally
+            {
+                CompleteMoveTask(currentCts);
+            }
+        }
 
         /// <summary>마우스 클릭 시 Dice Lock/Unlock 요청을 전달한다.</summary>
         public void OnPointerClick(PointerEventData eventData)
@@ -230,12 +293,18 @@ namespace Tessera.UI
             }
             finally
             {
-                if (moveCts == currentCts)
-                {
-                    moveCts = null;
-                    currentCts.Dispose();
-                }
+                CompleteMoveTask(currentCts);
             }
+        }
+
+        /// <summary>진행 중인 이동 작업을 완료 처리한다.</summary>
+        private void CompleteMoveTask(CancellationTokenSource currentCts)
+        {
+            if (moveCts != currentCts)
+                return;
+
+            moveCts = null;
+            currentCts.Dispose();
         }
 
         /// <summary>진행 중인 이동 작업을 취소한다.</summary>
