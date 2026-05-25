@@ -14,6 +14,18 @@ namespace Tessera.UI
     /// <summary>실제 플레이형 Round 진행 UI와 Core Round 상태를 연결한다.</summary>
     public class TesseraGameplayBattlePresenter : MonoBehaviour, IDeviceSlotReorderHandler
     {
+        /// <summary>Battle Presenter가 허용할 플레이어 입력 상태를 명시적으로 관리한다.</summary>
+        private enum BattleInteractionState
+        {
+            None,
+            PlayerIdle,
+            DiceRolling,
+            CastResolving,
+            EnemyTurn,
+            AttemptTransition,
+            RoundEnded
+        }
+
         [Header("Round Rule")]
         [SerializeField] private bool useBossRule = true;
         [SerializeField] private bool useFixedSeed = true;
@@ -135,7 +147,7 @@ namespace Tessera.UI
         private TesseraRunSession runSession;
         private bool roundEndNotified;
         private CancellationTokenSource slotPairSequenceCts;
-        private bool isDiceCupRollSequencePlaying;
+        private BattleInteractionState interactionState = BattleInteractionState.None;
 
         #region Event
 
@@ -194,6 +206,7 @@ namespace Tessera.UI
 
             roundState = simulator.StartRound(ruleContext);
             roundEndNotified = false;
+            SetInteractionState(BattleInteractionState.PlayerIdle);
 
             if (runSession == null) earnedParts = 0;
 
@@ -238,87 +251,76 @@ namespace Tessera.UI
             RollUnlockedDiceCore("Unlocked dice rolled.");
         }
 
-        /// <summary>DiceCup 클릭으로 Dice 진입, 컵 공중 흔들림, Core Roll, Dice 분사 연출을 순차 실행한다.</summary>
+        /// <summary>DiceCup 클릭으로 Roll 연출과 Core Roll을 순차 실행한다.</summary>
         private async UniTaskVoid PlayDiceCupRollSequenceAsync()
         {
-            if (isDiceCupRollSequencePlaying)
-                return;
-
             if (!TryCanRollUnlockedDice(out string failureMessage))
             {
                 SetMessage(failureMessage);
                 return;
             }
 
-            isDiceCupRollSequencePlaying = true;
-            RefreshButtonStates();
+            List<int> beforeDiceValues = new List<int>(roundState.GetCurrentDiceValues());
+            List<bool> lockStates = CreateDiceLockStates();
 
-            CancellationToken cancellationToken = this.GetCancellationTokenOnDestroy();
+            SetInteractionState(BattleInteractionState.DiceRolling);
+            RefreshButtonStates();
 
             try
             {
                 SetMessage("Dice cup rolling...");
 
-                IReadOnlyList<int> beforeDiceValues = new List<int>(roundState.GetCurrentDiceValues());
-                IReadOnlyList<bool> beforeLockStates = CreateDiceLockStates();
+                bool rerolled = simulator.TryRerollUnlockedDice(roundState);
 
-                if (diceTray3DView != null && diceCup3DView != null)
+                if (!rerolled)
+                {
+                    RefreshTableHologramBattleMeta();
+                    SetMessage("No rolls left.");
+                    return;
+                }
+
+                // Roll 자원은 Core Roll 소모 즉시 감소시킨다. Dice 값 표시는 컵 연출 후 갱신한다.
+                RefreshTableHologramBattleMeta();
+                RefreshButtonStates();
+
+                if (diceCup3DView != null && diceTray3DView != null)
                 {
                     await diceTray3DView.PlayUnlockedDiceEnterCupAsync(
                         beforeDiceValues,
-                        beforeLockStates,
+                        lockStates,
                         diceCup3DView.DiceEntryPosition,
                         diceCup3DView.DiceEntryRotation,
                         diceCupEnterDuration,
                         diceCupEnterStagger,
                         diceCupEnterArcHeight,
                         diceCupEnterRollEuler,
-                        cancellationToken);
-                }
+                        this.GetCancellationTokenOnDestroy());
 
-                if (diceCup3DView != null)
-                {
-                    await diceCup3DView.PlayLiftShakeAsync(
+                    await diceCup3DView.PlayLiftShakeDropAsync(
                         diceCupLiftHeight,
                         diceCupLiftDuration,
                         diceCupShakeDuration,
                         diceCupDropDuration,
                         diceCupShakeAngle,
                         diceCupShakeFrequency,
-                        cancellationToken);
-                }
+                        this.GetCancellationTokenOnDestroy());
 
-                if (!TryCanRollUnlockedDice(out failureMessage))
-                {
-                    SetMessage(failureMessage);
-                    return;
-                }
+                    List<int> afterDiceValues = new List<int>(roundState.GetCurrentDiceValues());
+                    diceTray3DView.SetDiceValuesOnly(afterDiceValues, lockStates);
 
-                bool rerolled = simulator.TryRerollUnlockedDice(roundState);
-
-                if (!rerolled)
-                {
-                    RefreshAll("No rolls left.");
-                    return;
-                }
-
-                IReadOnlyList<int> afterDiceValues = roundState.GetCurrentDiceValues();
-
-                if (diceTray3DView != null && diceCup3DView != null)
-                {
                     await diceTray3DView.PlayUnlockedDiceScatterFromCupAsync(
                         afterDiceValues,
-                        beforeLockStates,
+                        lockStates,
                         diceCup3DView.DiceEntryPosition,
                         diceCup3DView.DiceEntryRotation,
                         diceCupScatterDuration,
                         diceCupScatterStagger,
                         diceCupScatterArcHeight,
                         diceCupScatterRollEuler,
-                        cancellationToken);
+                        this.GetCancellationTokenOnDestroy());
                 }
 
-                RefreshAll("Unlocked dice rolled.");
+                RefreshAll("Dice cup rolled unlocked dice.");
             }
             catch (OperationCanceledException)
             {
@@ -326,7 +328,9 @@ namespace Tessera.UI
             }
             finally
             {
-                isDiceCupRollSequencePlaying = false;
+                if (interactionState == BattleInteractionState.DiceRolling)
+                    SetInteractionState(BattleInteractionState.PlayerIdle);
+
                 RefreshButtonStates();
             }
         }
@@ -345,6 +349,12 @@ namespace Tessera.UI
         {
             failureMessage = string.Empty;
 
+            if (interactionState == BattleInteractionState.DiceRolling)
+            {
+                failureMessage = "Roll is already in progress.";
+                return false;
+            }
+
             if (!CanActInCurrentAttempt())
             {
                 failureMessage = "Cannot roll now.";
@@ -357,12 +367,24 @@ namespace Tessera.UI
                 return false;
             }
 
+            if (!HasUnlockedDice())
+            {
+                failureMessage = "No unlocked dice.";
+                return false;
+            }
+
             return true;
         }
 
         /// <summary>Core Roll을 실행하고 전체 표시를 갱신한다.</summary>
         private bool RollUnlockedDiceCore(string successMessage)
         {
+            if (!TryCanRollUnlockedDice(out string failureMessage))
+            {
+                RefreshAll(failureMessage);
+                return false;
+            }
+
             bool rerolled = simulator.TryRerollUnlockedDice(roundState);
 
             if (rerolled)
@@ -371,6 +393,21 @@ namespace Tessera.UI
                 RefreshAll("No rolls left.");
 
             return rerolled;
+        }
+
+        /// <summary>하나 이상 Unlock된 Dice가 있는지 확인한다.</summary>
+        private bool HasUnlockedDice()
+        {
+            if (roundState == null || roundState.Dice == null)
+                return false;
+
+            for (int i = 0; i < roundState.Dice.Count; i++)
+            {
+                if (!roundState.Dice[i].IsLocked)
+                    return true;
+            }
+
+            return false;
         }
 
         /// <summary>현재 선택한 Cast를 SlotPair 계산값으로 제출한다.</summary>
@@ -405,6 +442,7 @@ namespace Tessera.UI
             }
 
             // 제출 후에는 Core 결과를 그대로 보존해야 한다.
+            SetInteractionState(BattleInteractionState.CastResolving);
             selectedPatternType = result.PatternResult.PatternType;
             currentSlotPairPreview = result.SlotPairDamagePreview;
             currentPreviewTableRuleResult = result.TableRuleEvaluationResult;
@@ -443,6 +481,7 @@ namespace Tessera.UI
             }
 
             // 제출 후에는 Core 결과를 그대로 보존해야 한다.
+            SetInteractionState(BattleInteractionState.CastResolving);
             selectedPatternType = result.PatternResult.PatternType;
             currentSlotPairPreview = result.SlotPairDamagePreview;
             currentPreviewTableRuleResult = result.TableRuleEvaluationResult;
@@ -464,10 +503,13 @@ namespace Tessera.UI
                 return;
             }
 
+            SetInteractionState(BattleInteractionState.AttemptTransition);
+
             bool started = simulator.TryStartNextAttempt(roundState);
 
             if (!started)
             {
+                SetInteractionState(BattleInteractionState.PlayerIdle);
                 RefreshAll("Cannot start next attempt.");
                 return;
             }
@@ -490,12 +532,19 @@ namespace Tessera.UI
             if (diceTray3DView != null)
                 diceTray3DView.RestoreAllDiceToTray(roundState.GetCurrentDiceValues(), lockedDiceMoveDuration);
 
+            SetInteractionState(BattleInteractionState.PlayerIdle);
             RefreshAll("Next attempt started. Roll the dice.");
         }
 
         /// <summary>Cast 후보 Popup 표시 여부를 토글한다.</summary>
         public void ToggleCastCandidatePopup()
         {
+            if (!CanTogglePopup())
+            {
+                SetMessage("Cannot toggle popup now.");
+                return;
+            }
+
             showCastCandidatePopup = !showCastCandidatePopup;
 
             if (castCandidatePopupView != null)
@@ -544,6 +593,9 @@ namespace Tessera.UI
         /// <summary>IDeviceSlotReorderHandler: 두 Device 슬롯의 SlotPairDeviceDefinitionSO를 교체한다.</summary>
         public void RequestDeviceSlotSwap(int sourceSlotIndex, int targetSlotIndex)
         {
+            if (!CanActInCurrentAttempt())
+                return;
+
             if (sourceSlotIndex == targetSlotIndex)
                 return;
 
@@ -636,6 +688,9 @@ namespace Tessera.UI
         /// <summary>Popup 후보 클릭으로 제출할 Cast를 선택한다.</summary>
         private void SelectCastCandidate(RollPatternType patternType)
         {
+            if (!CanActInCurrentAttempt())
+                return;
+
             selectedPatternType = patternType;
             RefreshAll(null);
         }
@@ -1088,10 +1143,13 @@ namespace Tessera.UI
         private void RefreshButtonStates()
         {
             bool hasRound = roundState != null;
-            bool canAct = hasRound && !roundState.IsRoundEnded && !roundState.CurrentAttempt.IsSubmitted;
-            // Roll 입력은 DiceCup으로 이전한다. Legacy RollButton은 전환 기간용으로만 유지한다.
+            bool canAct = CanActInCurrentAttempt();
+
             SetButtonInteractable(submitSelectedButton, canAct && selectedPatternType != RollPatternType.None);
-            SetButtonInteractable(togglePopupButton, hasRound);
+            SetButtonInteractable(togglePopupButton, hasRound && CanTogglePopup());
+
+            if (diceCup3DView != null)
+                diceCup3DView.SetInteractable(useDiceCupRollInput && CanRollByDiceCupInput());
         }
 
         /// <summary>현재 선택된 Cast가 아직 제출 가능한 후보인지 확인한다.</summary>
@@ -1116,7 +1174,43 @@ namespace Tessera.UI
             if (roundState.IsRoundEnded)
                 return false;
 
+            if (interactionState != BattleInteractionState.PlayerIdle)
+                return false;
+
             return !roundState.CurrentAttempt.IsSubmitted;
+        }
+
+        /// <summary>DiceCup Roll 입력 가능 여부를 반환한다.</summary>
+        private bool CanRollByDiceCupInput()
+        {
+            if (roundState == null)
+                return false;
+
+            if (!CanActInCurrentAttempt())
+                return false;
+
+            if (roundState.RemainingRoundRolls <= 0)
+                return false;
+
+            return HasUnlockedDice();
+        }
+
+        /// <summary>Cast 후보 Popup 토글 가능 여부를 반환한다.</summary>
+        private bool CanTogglePopup()
+        {
+            if (roundState == null)
+                return false;
+
+            if (roundState.IsRoundEnded)
+                return true;
+
+            return interactionState == BattleInteractionState.PlayerIdle;
+        }
+
+        /// <summary>Presenter 상호작용 상태를 갱신한다.</summary>
+        private void SetInteractionState(BattleInteractionState nextState)
+        {
+            interactionState = nextState;
         }
 
         /// <summary>제출 직전 모든 주사위를 SlotPair 5칸에 Lock 순서 유지 + 남은 DiceIndex 오름차순으로 배치한다.</summary>
@@ -1498,6 +1592,7 @@ namespace Tessera.UI
             if (roundState == null)
                 return;
 
+            SetInteractionState(BattleInteractionState.RoundEnded);
             CancelSlotPairEvaluationSequence();
             ClearSlotPairEvaluationHighlights();
             ClearLockSlotMapping();
@@ -1553,6 +1648,8 @@ namespace Tessera.UI
 
             if (!roundState.CurrentAttempt.IsSubmitted)
                 return;
+
+            SetInteractionState(BattleInteractionState.EnemyTurn);
 
             if (result.EnemyIntentResult.DidExecute)
                 SetMessage($"Enemy turn: player took {result.EnemyIntentResult.DamageToPlayer} damage.");

@@ -7,12 +7,26 @@ using UnityEngine.EventSystems;
 
 namespace Tessera.UI
 {
-    /// <summary>테이블 위 3D 주사위 하나의 표시, 클릭 입력, 이동/굴림 연출을 관리한다.</summary>
+    /// <summary>테이블 위 3D 주사위 하나의 표시, 클릭 입력, 값별 실제 면 회전, 이동/굴림 연출을 관리한다.</summary>
     public class Dice3DView : MonoBehaviour, IPointerClickHandler
     {
         [Header("References")]
         [SerializeField] private MeshRenderer diceRenderer;
+        [SerializeField] private Transform diceVisualRoot;
         [SerializeField] private TMP_Text valueText;
+
+        [Header("Face Rotation Mapping")]
+        [SerializeField] private bool applyFaceRotation = true;
+        [SerializeField]
+        private Vector3[] valueToTopLocalEuler =
+        {
+            new Vector3(0f, 0f, -90f),
+            Vector3.zero,
+            new Vector3(-90f, 0f, 0f),
+            new Vector3(90f, 0f, 0f),
+            new Vector3(180f, 0f, 0f),
+            new Vector3(0f, 0f, 90f)
+        };
 
         [Header("Colors")]
         [SerializeField] private Color normalColor = new Color(0.85f, 0.85f, 0.82f, 1f);
@@ -38,28 +52,32 @@ namespace Tessera.UI
         /// <summary>컴포넌트가 추가될 때 기본 참조를 자동 보정한다.</summary>
         private void Reset()
         {
-            // 같은 오브젝트의 MeshRenderer를 기본 렌더러로 사용한다.
-            diceRenderer = GetComponent<MeshRenderer>();
+            diceRenderer = GetComponentInChildren<MeshRenderer>(true);
+            diceVisualRoot = diceRenderer != null ? diceRenderer.transform : transform;
         }
 
-        /// <summary>런타임 전용 Material을 준비한다.</summary>
+        /// <summary>런타임 전용 Material과 DiceVisualRoot 기본값을 준비한다.</summary>
         private void Awake()
         {
-            // 주사위별 색상 변경이 독립적으로 동작하도록 Material 인스턴스를 준비한다.
+            if (diceRenderer == null)
+                diceRenderer = GetComponentInChildren<MeshRenderer>(true);
+
+            if (diceVisualRoot == null && diceRenderer != null)
+                diceVisualRoot = diceRenderer.transform;
+
             EnsureRuntimeMaterial();
+            ApplyFaceRotation(diceValue);
         }
 
         /// <summary>오브젝트가 제거될 때 진행 중인 이동 작업을 정리한다.</summary>
         private void OnDestroy()
         {
-            // UniTask 이동 연출이 남아 있으면 안전하게 취소한다.
             CancelMoveTask();
         }
 
         /// <summary>클릭 콜백을 초기화한다.</summary>
         public void Initialize(Action<int> clickedCallback)
         {
-            // DiceTray3DView가 전달한 Lock/Unlock 콜백을 저장한다.
             this.clickedCallback = clickedCallback;
         }
 
@@ -67,11 +85,11 @@ namespace Tessera.UI
         public void SetDice(int diceIndex, int diceValue, bool isLocked)
         {
             this.diceIndex = diceIndex;
-            this.diceValue = diceValue;
+            this.diceValue = Mathf.Clamp(diceValue, 1, 6);
             this.isLocked = isLocked;
 
-            // 값 텍스트와 색상을 현재 Core 상태에 맞춘다.
-            SetText(valueText, diceValue.ToString());
+            SetText(valueText, this.diceValue.ToString());
+            ApplyFaceRotation(this.diceValue);
             SetDiceColor(GetBaseColor());
             gameObject.SetActive(true);
         }
@@ -79,17 +97,19 @@ namespace Tessera.UI
         /// <summary>주사위 표시를 숨긴다.</summary>
         public void Hide()
         {
-            // 아직 연결되지 않은 주사위는 비활성화한다.
             gameObject.SetActive(false);
         }
 
         /// <summary>주사위를 지정 위치와 회전으로 즉시 이동한다.</summary>
         public void MoveImmediate(Vector3 targetPosition, Quaternion targetRotation)
         {
-            // 초기 배치나 즉시 복구가 필요할 때 사용한다.
             CancelMoveTask();
+
             transform.position = targetPosition;
             transform.rotation = targetRotation;
+
+            // DiceVisualRoot가 루트 자신인 임시 구조에서도 최종 윗면 보정이 적용되도록 마지막에 호출한다.
+            ApplyFaceRotation(diceValue);
         }
 
         /// <summary>주사위를 지정 위치와 회전으로 부드럽게 이동한다.</summary>
@@ -101,7 +121,6 @@ namespace Tessera.UI
                 return;
             }
 
-            // 기존 이동 중이면 중복 이동을 취소하고 새 이동을 시작한다.
             CancelMoveTask();
 
             CancellationTokenSource currentCts = new CancellationTokenSource();
@@ -119,7 +138,6 @@ namespace Tessera.UI
             if (duration <= 0f)
                 return;
 
-            // 이동 연출과 겹치지 않도록 기존 이동 작업을 먼저 중단한다.
             CancelMoveTask();
 
             CancellationTokenSource currentCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -138,10 +156,7 @@ namespace Tessera.UI
                     elapsed += Time.deltaTime;
                     float t = Mathf.Clamp01(elapsed / duration);
                     float heightT = Mathf.Sin(t * Mathf.PI);
-
-                    // 360도 회전은 Slerp로 보간하면 같은 회전으로 취급될 수 있으므로 프레임별 회전량을 직접 적용한다.
-                    Vector3 currentRollEuler = rollEuler * t;
-                    Quaternion rollRotation = Quaternion.Euler(currentRollEuler);
+                    Quaternion rollRotation = Quaternion.Euler(rollEuler * t);
 
                     transform.position = basePosition + Vector3.up * (heightT * jumpHeight);
                     transform.rotation = baseRotation * rollRotation;
@@ -151,10 +166,11 @@ namespace Tessera.UI
 
                 transform.position = basePosition;
                 transform.rotation = baseRotation;
+                ApplyFaceRotation(diceValue);
             }
             catch (OperationCanceledException)
             {
-                // SlotPair 연출 취소나 Attempt 전환 시 정상 취소된다.
+                ApplyFaceRotation(diceValue);
             }
             finally
             {
@@ -177,7 +193,6 @@ namespace Tessera.UI
                 return;
             }
 
-            // 컵 진입/분사 연출은 기존 이동보다 우선한다.
             CancelMoveTask();
 
             CancellationTokenSource currentCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -198,11 +213,9 @@ namespace Tessera.UI
                     float easedT = 1f - Mathf.Pow(1f - t, 3f);
                     float arcT = Mathf.Sin(t * Mathf.PI);
 
-                    // 이동 경로는 ease-out + 수직 포물선으로 컵/트레이에 가볍게 튀듯 이동한다.
                     Vector3 position = Vector3.Lerp(startPosition, targetPosition, easedT);
                     position += Vector3.up * (arcT * arcHeight);
 
-                    // 회전은 목표 회전 위에 추가 roll을 곱해 굴러가는 느낌을 만든다.
                     Quaternion baseRotation = Quaternion.Slerp(startRotation, targetRotation, easedT);
                     Quaternion rollRotation = Quaternion.Euler(rollEuler * t);
 
@@ -214,10 +227,11 @@ namespace Tessera.UI
 
                 transform.position = targetPosition;
                 transform.rotation = targetRotation;
+                ApplyFaceRotation(diceValue);
             }
             catch (OperationCanceledException)
             {
-                // 새 이동 요청, Attempt 전환, 오브젝트 제거 시 정상 취소된다.
+                ApplyFaceRotation(diceValue);
             }
             finally
             {
@@ -237,21 +251,18 @@ namespace Tessera.UI
             if (diceIndex < 0)
                 return;
 
-            // Presenter의 ToggleDiceLock으로 원본 DiceIndex를 전달한다.
             clickedCallback?.Invoke(diceIndex);
         }
 
         /// <summary>마우스가 올라왔을 때 임시 강조한다.</summary>
         private void OnMouseEnter()
         {
-            // PhysicsRaycaster가 없어도 에디터 테스트에서 시각 피드백을 준다.
             SetDiceColor(hoverColor);
         }
 
         /// <summary>마우스가 벗어났을 때 현재 상태 색상으로 복구한다.</summary>
         private void OnMouseExit()
         {
-            // Hover 해제 시 Lock 상태 기준 색상으로 돌아간다.
             SetDiceColor(GetBaseColor());
         }
 
@@ -277,7 +288,6 @@ namespace Tessera.UI
                     float t = Mathf.Clamp01(elapsed / duration);
                     float easedT = 1f - Mathf.Pow(1f - t, 3f);
 
-                    // Ease-out으로 슬롯에 자연스럽게 안착시킨다.
                     transform.position = Vector3.Lerp(startPosition, targetPosition, easedT);
                     transform.rotation = Quaternion.Slerp(startRotation, targetRotation, easedT);
 
@@ -286,15 +296,38 @@ namespace Tessera.UI
 
                 transform.position = targetPosition;
                 transform.rotation = targetRotation;
+                ApplyFaceRotation(diceValue);
             }
             catch (OperationCanceledException)
             {
-                // 새 이동 요청이나 오브젝트 제거 시 정상 취소된다.
+                ApplyFaceRotation(diceValue);
             }
             finally
             {
                 CompleteMoveTask(currentCts);
             }
+        }
+
+        /// <summary>현재 Dice 값에 맞는 실제 모델 윗면 회전을 적용한다.</summary>
+        private void ApplyFaceRotation(int value)
+        {
+            if (!applyFaceRotation)
+                return;
+
+            Transform rotationRoot = diceVisualRoot;
+
+            if (rotationRoot == null && diceRenderer != null)
+                rotationRoot = diceRenderer.transform;
+
+            if (rotationRoot == null)
+                return;
+
+            int index = Mathf.Clamp(value, 1, 6) - 1;
+
+            if (valueToTopLocalEuler == null || index < 0 || index >= valueToTopLocalEuler.Length)
+                return;
+
+            rotationRoot.localRotation = Quaternion.Euler(valueToTopLocalEuler[index]);
         }
 
         /// <summary>진행 중인 이동 작업을 완료 처리한다.</summary>
@@ -313,7 +346,6 @@ namespace Tessera.UI
             if (moveCts == null)
                 return;
 
-            // 기존 이동 UniTask를 안전하게 중단한다.
             moveCts.Cancel();
             moveCts.Dispose();
             moveCts = null;
@@ -348,7 +380,6 @@ namespace Tessera.UI
             if (runtimeMaterial != null)
                 return;
 
-            // sharedMaterial 대신 material을 사용해 개별 주사위 색상을 독립 처리한다.
             runtimeMaterial = diceRenderer.material;
         }
 

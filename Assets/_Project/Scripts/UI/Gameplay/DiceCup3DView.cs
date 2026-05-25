@@ -6,7 +6,7 @@ using UnityEngine.EventSystems;
 
 namespace Tessera.UI
 {
-    /// <summary>테이블 위 DiceCup 3D 오브젝트의 클릭 입력과 공중 흔들림 연출을 관리한다.</summary>
+    /// <summary>테이블 위 DiceCup 3D 오브젝트의 클릭 입력, 컵 입구 기준점, 공중 흔들림 연출을 관리한다.</summary>
     public class DiceCup3DView : MonoBehaviour, IPointerClickHandler
     {
         [Header("Click")]
@@ -43,7 +43,7 @@ namespace Tessera.UI
                 clickCollider.enabled = true;
         }
 
-        /// <summary>오브젝트 제거 시 진행 중인 컵 연출을 정리한다.</summary>
+        /// <summary>오브젝트 제거 시 진행 중인 흔들림 연출을 정리한다.</summary>
         private void OnDestroy()
         {
             CancelMotion();
@@ -68,7 +68,7 @@ namespace Tessera.UI
             float frequency,
             CancellationToken cancellationToken)
         {
-            await PlayLiftShakeAsync(
+            await PlayLiftShakeDropAsync(
                 0f,
                 0f,
                 duration,
@@ -78,14 +78,14 @@ namespace Tessera.UI
                 cancellationToken);
         }
 
-        /// <summary>DiceCup이 살짝 떠오른 뒤 공중에서 흔들리고 원위치로 내려오는 연출을 재생한다.</summary>
-        public async UniTask PlayLiftShakeAsync(
+        /// <summary>DiceCup을 공중으로 띄운 뒤 흔들고 다시 내려놓는 연출을 재생한다.</summary>
+        public async UniTask PlayLiftShakeDropAsync(
             float liftHeight,
             float liftDuration,
             float shakeDuration,
             float dropDuration,
-            float angle,
-            float frequency,
+            float shakeAngle,
+            float shakeFrequency,
             CancellationToken cancellationToken)
         {
             CancelMotion();
@@ -100,7 +100,7 @@ namespace Tessera.UI
             {
                 if (liftDuration > 0f && liftHeight > 0f)
                 {
-                    await PlayLiftSegmentAsync(
+                    await PlayLiftAsync(
                         baseLocalPosition,
                         baseLocalPosition + Vector3.up * liftHeight,
                         baseLocalRotation,
@@ -108,17 +108,17 @@ namespace Tessera.UI
                         currentCts.Token);
                 }
 
-                await PlayAirShakeSegmentAsync(
-                    baseLocalPosition + Vector3.up * Mathf.Max(0f, liftHeight),
+                await PlayAirShakeAsync(
+                    baseLocalPosition + Vector3.up * liftHeight,
                     baseLocalRotation,
                     shakeDuration,
-                    angle,
-                    frequency,
+                    shakeAngle,
+                    shakeFrequency,
                     currentCts.Token);
 
                 if (dropDuration > 0f && liftHeight > 0f)
                 {
-                    await PlayLiftSegmentAsync(
+                    await PlayLiftAsync(
                         baseLocalPosition + Vector3.up * liftHeight,
                         baseLocalPosition,
                         baseLocalRotation,
@@ -131,7 +131,6 @@ namespace Tessera.UI
             }
             catch (OperationCanceledException)
             {
-                // Attempt 전환/오브젝트 제거/새 Roll 요청으로 정상 취소된다.
                 transform.localPosition = baseLocalPosition;
                 transform.localRotation = baseLocalRotation;
             }
@@ -144,8 +143,17 @@ namespace Tessera.UI
             }
         }
 
-        /// <summary>컵의 상승/하강 구간을 재생한다.</summary>
-        private async UniTask PlayLiftSegmentAsync(
+        /// <summary>컵의 클릭 가능 여부를 변경한다.</summary>
+        public void SetInteractable(bool isInteractable)
+        {
+            if (clickCollider == null)
+                return;
+
+            clickCollider.enabled = isInteractable;
+        }
+
+        /// <summary>컵을 지정 위치까지 부드럽게 이동한다.</summary>
+        private async UniTask PlayLiftAsync(
             Vector3 startLocalPosition,
             Vector3 targetLocalPosition,
             Quaternion baseLocalRotation,
@@ -162,7 +170,6 @@ namespace Tessera.UI
                 float t = Mathf.Clamp01(elapsed / duration);
                 float easedT = 1f - Mathf.Pow(1f - t, 3f);
 
-                // 컵은 수직으로 떠올랐다가 내려온다.
                 transform.localPosition = Vector3.Lerp(startLocalPosition, targetLocalPosition, easedT);
                 transform.localRotation = baseLocalRotation;
 
@@ -173,8 +180,8 @@ namespace Tessera.UI
             transform.localRotation = baseLocalRotation;
         }
 
-        /// <summary>컵이 공중에 떠 있는 상태에서 좌우/전후로 흔들리는 구간을 재생한다.</summary>
-        private async UniTask PlayAirShakeSegmentAsync(
+        /// <summary>공중에서 컵을 흔든다.</summary>
+        private async UniTask PlayAirShakeAsync(
             Vector3 liftedLocalPosition,
             Quaternion baseLocalRotation,
             float duration,
@@ -193,17 +200,14 @@ namespace Tessera.UI
 
                 elapsed += Time.deltaTime;
                 float t = Mathf.Clamp01(elapsed / duration);
-                float fadeIn = Mathf.Clamp01(t / 0.15f);
-                float fadeOut = Mathf.Clamp01((1f - t) / 0.2f);
-                float envelope = fadeIn * fadeOut;
+                float fade = Mathf.Sin(t * Mathf.PI);
                 float wave = Mathf.Sin(elapsed * frequency * Mathf.PI * 2f);
-                float sideWave = Mathf.Cos(elapsed * frequency * Mathf.PI * 2f * 0.72f);
+                float sideWave = Mathf.Cos(elapsed * frequency * Mathf.PI * 2f);
 
-                // 공중에서 살짝 흔들리도록 위치와 회전을 동시에 흔든다.
-                transform.localPosition = liftedLocalPosition + new Vector3(sideWave * 0.035f * envelope, 0f, wave * 0.025f * envelope);
+                transform.localPosition = liftedLocalPosition + new Vector3(sideWave * 0.025f * fade, 0f, wave * 0.015f * fade);
                 transform.localRotation =
                     baseLocalRotation *
-                    Quaternion.Euler(angle * wave * envelope, 0f, angle * 0.55f * sideWave * envelope);
+                    Quaternion.Euler(angle * wave * fade, 0f, angle * 0.45f * sideWave * fade);
 
                 await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
             }
