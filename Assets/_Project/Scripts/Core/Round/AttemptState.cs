@@ -2,7 +2,7 @@
 
 namespace Tessera.Core
 {
-    /// <summary>현재 Attempt 번호, 남은 리롤 수, 무료 리롤 토큰, 제출 여부를 관리한다.</summary>
+    /// <summary>현재 Attempt 번호, 리롤 자원, 제출 가능 상태, 제출 여부를 관리한다.</summary>
     public class AttemptState
     {
         /// <summary>현재 Attempt 번호.</summary>
@@ -16,6 +16,12 @@ namespace Tessera.Core
 
         /// <summary>현재 Attempt에서 사용할 수 있는 무료 리롤 토큰 수.</summary>
         public int FreeRerollTokens { get; private set; }
+
+        /// <summary>이 Attempt가 Cast 제출 가능한 주사위 상태를 확보했는지 확인한다.</summary>
+        public bool CanSubmitCast { get; private set; }
+
+        /// <summary>Cast 제출 가능 상태가 된 원인.</summary>
+        public CastReadinessSource CastReadinessSource { get; private set; }
 
         /// <summary>이 Attempt가 이미 제출되었는지 확인한다.</summary>
         public bool IsSubmitted { get; private set; }
@@ -36,6 +42,8 @@ namespace Tessera.Core
             MaxRegularRerolls = maxRegularRerolls;
             RemainingRegularRerolls = maxRegularRerolls;
             FreeRerollTokens = freeRerollTokens;
+            CanSubmitCast = false;
+            CastReadinessSource = CastReadinessSource.None;
             IsSubmitted = false;
         }
 
@@ -72,6 +80,29 @@ namespace Tessera.Core
                 throw new ArgumentOutOfRangeException(nameof(amount), "무료 리롤 토큰 추가량은 음수가 될 수 없습니다.");
 
             FreeRerollTokens += amount;
+        }
+
+        /// <summary>현재 Attempt를 Cast 제출 가능 상태로 변경한다.</summary>
+        public void MarkCastReady(CastReadinessSource source)
+        {
+            if (IsSubmitted)
+                return;
+
+            if (source == CastReadinessSource.None)
+                throw new ArgumentException("Cast 제출 가능 상태의 원인은 None이 될 수 없습니다.", nameof(source));
+
+            CanSubmitCast = true;
+            CastReadinessSource = source;
+        }
+
+        /// <summary>현재 Attempt의 Cast 제출 가능 상태를 초기화한다.</summary>
+        public void ClearCastReady()
+        {
+            if (IsSubmitted)
+                return;
+
+            CanSubmitCast = false;
+            CastReadinessSource = CastReadinessSource.None;
         }
 
         /// <summary>이 Attempt를 제출 완료 상태로 변경한다.</summary>

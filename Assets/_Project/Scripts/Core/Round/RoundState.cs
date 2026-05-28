@@ -134,6 +134,30 @@ namespace Tessera.Core
             return currentUseCount < maxUses;
         }
 
+        /// <summary>현재 Attempt가 Cast 제출 가능한 상태인지 확인한다.</summary>
+        public bool CanSubmitCastNow()
+        {
+            if (IsRoundEnded)
+                return false;
+
+            if (CurrentAttempt == null)
+                return false;
+
+            if (CurrentAttempt.IsSubmitted)
+                return false;
+
+            return CurrentAttempt.CanSubmitCast;
+        }
+
+        /// <summary>현재 Attempt를 Cast 제출 가능 상태로 변경한다.</summary>
+        public void MarkCurrentAttemptCastReady(CastReadinessSource source)
+        {
+            if (CurrentAttempt == null)
+                throw new InvalidOperationException("현재 Attempt가 없습니다.");
+
+            CurrentAttempt.MarkCastReady(source);
+        }
+
         /// <summary>Round Roll Pool에서 Roll 1회를 소비한다.</summary>
         public bool TrySpendRoundRoll()
         {

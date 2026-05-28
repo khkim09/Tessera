@@ -134,6 +134,9 @@ namespace Tessera.UI
         [Header("Money Overlay")]
         [SerializeField] private TMP_Text moneyText;
 
+        [Header("Debug Start")]
+        [SerializeField] private bool autoStartDebugRoundOnStart = true;
+
         private readonly int[] lockedDiceIndexBySlot = { -1, -1, -1, -1, -1 };
 
         private CoreRoundSimulator simulator;
@@ -145,6 +148,8 @@ namespace Tessera.UI
         private RollPatternType selectedPatternType = RollPatternType.None;
         private int earnedParts;
         private TesseraRunSession runSession;
+        private readonly List<int> lastSubmittedDiceValues = new List<int>();
+        private bool hasLastSubmittedDiceValues;
         private bool roundEndNotified;
         private CancellationTokenSource slotPairSequenceCts;
         private BattleInteractionState interactionState = BattleInteractionState.None;
@@ -156,6 +161,13 @@ namespace Tessera.UI
 
         /// <summary>Round 패배 확정</summary>
         public event Action<CastSubmitResult> RoundLost;
+
+        #endregion
+
+        #region Debug Start
+
+        /// <summary>현재 진행 중인 Core RoundState를 반환한다.</summary>
+        public RoundState CurrentRoundState => roundState;
 
         #endregion
 
@@ -194,7 +206,8 @@ namespace Tessera.UI
         /// <summary>씬 시작 시 테스트 Round를 시작한다.</summary>
         private void Start()
         {
-            StartDebugRound();
+            if (autoStartDebugRoundOnStart)
+                StartDebugRound();
         }
 
         /// <summary>새 테스트 Round를 시작한다.</summary>
@@ -204,7 +217,37 @@ namespace Tessera.UI
                 ? RoundRuleContext.CreateDebugAcesBoss()
                 : RoundRuleContext.CreateDefault();
 
-            roundState = simulator.StartRound(ruleContext);
+            OverchargeState debugOvercharge = runSession != null
+                ? runSession.StageOverchargeState
+                : new OverchargeState();
+
+            int debugPlayerHp = runSession != null
+                ? runSession.PlayerCurrentHp
+                : ruleContext.PlayerMaxHp;
+
+            StartRound(ruleContext, debugPlayerHp, debugOvercharge, "Debug Round");
+        }
+
+        /// <summary>외부 Stage/Bounty Flow에서 지정한 규칙과 이월 HP/Overcharge 상태로 새 Round를 시작한다.</summary>
+        public void StartRound(
+            RoundRuleContext ruleContext,
+            int carriedPlayerHp,
+            OverchargeState stageOverchargeState,
+            string roundDisplayName)
+        {
+            if (ruleContext == null)
+            {
+                Debug.LogWarning("[Tessera][Battle] Cannot start round. RuleContext is null.");
+                return;
+            }
+
+            if (stageOverchargeState == null)
+            {
+                Debug.LogWarning("[Tessera][Battle] Cannot start round. StageOverchargeState is null.");
+                return;
+            }
+
+            roundState = simulator.StartRound(ruleContext, carriedPlayerHp, stageOverchargeState);
             roundEndNotified = false;
             SetInteractionState(BattleInteractionState.PlayerIdle);
 
@@ -214,8 +257,8 @@ namespace Tessera.UI
             currentSlotPairPreview = null;
             currentPreviewTableRuleResult = null;
 
-            // 새 Round에서는 이전 Lock 슬롯 배치를 모두 초기화한다.
             ClearLockSlotMapping();
+            ClearLastSubmittedDiceValues();
 
             if (useManualDiceValuesOnStart)
                 simulator.SetCurrentDiceValuesForTest(roundState, CreateManualDiceValues());
@@ -223,7 +266,12 @@ namespace Tessera.UI
             SyncDevicesFromRunSession();
             CancelSlotPairEvaluationSequence();
             ClearSlotPairEvaluationHighlights();
-            RefreshAll("Round started.");
+
+            string message = string.IsNullOrWhiteSpace(roundDisplayName)
+                ? "Round started."
+                : $"{roundDisplayName} started.";
+
+            RefreshAll(message);
         }
 
         /// <summary>외부 RunSession을 연결하고 장착 Device/Parts 상태를 동기화한다.</summary>
@@ -266,6 +314,8 @@ namespace Tessera.UI
             SetInteractionState(BattleInteractionState.DiceRolling);
             RefreshButtonStates();
 
+            bool rollSucceeded = false;
+
             try
             {
                 SetMessage("Dice cup rolling...");
@@ -278,6 +328,8 @@ namespace Tessera.UI
                     SetMessage("No rolls left.");
                     return;
                 }
+
+                rollSucceeded = true;
 
                 // Roll 자원은 Core Roll 소모 즉시 감소시킨다. Dice 값 표시는 컵 연출 후 갱신한다.
                 RefreshTableHologramBattleMeta();
@@ -319,8 +371,6 @@ namespace Tessera.UI
                         diceCupScatterRollEuler,
                         this.GetCancellationTokenOnDestroy());
                 }
-
-                RefreshAll("Dice cup rolled unlocked dice.");
             }
             catch (OperationCanceledException)
             {
@@ -331,7 +381,10 @@ namespace Tessera.UI
                 if (interactionState == BattleInteractionState.DiceRolling)
                     SetInteractionState(BattleInteractionState.PlayerIdle);
 
-                RefreshButtonStates();
+                if (rollSucceeded)
+                    RefreshAll("Dice cup rolled unlocked dice.");
+                else
+                    RefreshButtonStates();
             }
         }
 
@@ -419,6 +472,12 @@ namespace Tessera.UI
                 return;
             }
 
+            if (!roundState.CanSubmitCastNow())
+            {
+                SetMessage("Roll the dice first.");
+                return;
+            }
+
             if (selectedPatternType == RollPatternType.None)
             {
                 SetMessage("Select a cast first.");
@@ -447,10 +506,6 @@ namespace Tessera.UI
             currentSlotPairPreview = result.SlotPairDamagePreview;
             currentPreviewTableRuleResult = result.TableRuleEvaluationResult;
 
-            // RefreshAll(BuildSubmitMessage(result));
-            // PlaySlotPairEvaluationSequenceAsync(result).Forget();
-            // NotifyRoundEndIfNeeded(result);
-
             RefreshAll(BuildSubmitMessage(result));
             PlaySubmittedCastFlowAsync(result).Forget();
         }
@@ -461,6 +516,12 @@ namespace Tessera.UI
             if (!CanActInCurrentAttempt())
             {
                 SetMessage("Cannot submit Broken Cast now.");
+                return;
+            }
+
+            if (!roundState.CanSubmitCastNow())
+            {
+                SetMessage("Roll the dice first.");
                 return;
             }
 
@@ -485,10 +546,6 @@ namespace Tessera.UI
             selectedPatternType = result.PatternResult.PatternType;
             currentSlotPairPreview = result.SlotPairDamagePreview;
             currentPreviewTableRuleResult = result.TableRuleEvaluationResult;
-
-            // RefreshAll(BuildSubmitMessage(result));
-            // PlaySlotPairEvaluationSequenceAsync(result).Forget();
-            // NotifyRoundEndIfNeeded(result);
 
             RefreshAll(BuildSubmitMessage(result));
             PlaySubmittedCastFlowAsync(result).Forget();
@@ -523,8 +580,7 @@ namespace Tessera.UI
             for (int diceIndex = 0; diceIndex < roundState.Dice.Count; diceIndex++)
                 simulator.SetDiceLocked(roundState, diceIndex, false);
 
-            if (useManualDiceValuesOnNextAttempt)
-                simulator.SetCurrentDiceValuesForTest(roundState, CreateManualDiceValues());
+            ApplyLastSubmittedDiceValuesToNewAttemptIfPossible();
 
             CancelSlotPairEvaluationSequence();
             ClearSlotPairEvaluationHighlights();
@@ -702,8 +758,7 @@ namespace Tessera.UI
 
             currentCastBoardViewModel = castBoardModelBuilder.Build(roundState);
 
-            // 제출 전 조작 가능한 상태에서만 자동 추천 Cast를 갱신한다.
-            if (CanActInCurrentAttempt())
+            if (CanPrepareCastPreviewInCurrentAttempt())
             {
                 if (selectedPatternType == RollPatternType.None)
                     selectedPatternType = currentCastBoardViewModel.RecommendedPatternType;
@@ -713,8 +768,14 @@ namespace Tessera.UI
 
                 BuildCurrentSlotPairPreview();
             }
+            else if (CanActInCurrentAttempt())
+            {
+                selectedPatternType = RollPatternType.None;
+                currentSlotPairPreview = null;
+                currentPreviewTableRuleResult = null;
+                ClearTableHologramCastPreview();
+            }
 
-            // 제출 후이거나 Round 종료 상태라면 방금 제출한 SlotPair 결과를 유지한다.
             RefreshLeftInfoTexts();
             RefreshDiceViews();
             RefreshDeviceSlotViews();
@@ -728,8 +789,10 @@ namespace Tessera.UI
         /// <summary>선택된 Cast 기준 SlotPair 피해 미리보기를 계산한다.</summary>
         private void BuildCurrentSlotPairPreview()
         {
-            // 이미 제출된 Attempt나 종료된 Round에서는 새 Preview를 만들면 안 된다.
             if (roundState == null || roundState.IsRoundEnded || roundState.CurrentAttempt.IsSubmitted)
+                return;
+
+            if (!roundState.CanSubmitCastNow())
                 return;
 
             currentSlotPairPreview = null;
@@ -1129,8 +1192,15 @@ namespace Tessera.UI
 
             if (!showCastCandidatePopup) return;
 
-            if (roundState == null || roundState.IsRoundEnded || roundState.CurrentAttempt.IsSubmitted)
+            if (!CanPrepareCastPreviewInCurrentAttempt())
+            {
+                castCandidatePopupView.Refresh(
+                    null,
+                    RollPatternType.None,
+                    RollPatternType.None,
+                    null);
                 return;
+            }
 
             castCandidatePopupView.Refresh(
                 currentCastBoardViewModel,
@@ -1143,9 +1213,12 @@ namespace Tessera.UI
         private void RefreshButtonStates()
         {
             bool hasRound = roundState != null;
-            bool canAct = CanActInCurrentAttempt();
+            bool canPrepareCast = CanPrepareCastPreviewInCurrentAttempt();
 
-            SetButtonInteractable(submitSelectedButton, canAct && selectedPatternType != RollPatternType.None);
+            SetButtonInteractable(
+                submitSelectedButton,
+                canPrepareCast && selectedPatternType != RollPatternType.None);
+
             SetButtonInteractable(togglePopupButton, hasRound && CanTogglePopup());
 
             if (diceCup3DView != null)
@@ -1178,6 +1251,15 @@ namespace Tessera.UI
                 return false;
 
             return !roundState.CurrentAttempt.IsSubmitted;
+        }
+
+        /// <summary>현재 Attempt에서 Cast 선택, Popup 후보 표시, Preview 계산, 제출 준비가 가능한지 확인한다.</summary>
+        private bool CanPrepareCastPreviewInCurrentAttempt()
+        {
+            if (!CanActInCurrentAttempt())
+                return false;
+
+            return roundState.CanSubmitCastNow();
         }
 
         /// <summary>DiceCup Roll 입력 가능 여부를 반환한다.</summary>
@@ -1934,6 +2016,46 @@ namespace Tessera.UI
                 ClampDiceValue(die4),
                 ClampDiceValue(die5)
             };
+        }
+
+        /// <summary>방금 제출한 Cast의 주사위 값을 기억한다.</summary>
+        private void RememberSubmittedDiceValues(IReadOnlyList<int> diceValues)
+        {
+            lastSubmittedDiceValues.Clear();
+
+            if (diceValues == null)
+            {
+                hasLastSubmittedDiceValues = false;
+                return;
+            }
+
+            for (int i = 0; i < diceValues.Count; i++)
+                lastSubmittedDiceValues.Add(diceValues[i]);
+
+            hasLastSubmittedDiceValues = lastSubmittedDiceValues.Count > 0;
+        }
+
+        /// <summary>기억 중인 직전 Cast 주사위 값을 초기화한다.</summary>
+        private void ClearLastSubmittedDiceValues()
+        {
+            lastSubmittedDiceValues.Clear();
+            hasLastSubmittedDiceValues = false;
+        }
+
+        /// <summary>새 Attempt의 Dice 값을 직전 Cast 주사위 값으로 맞춘다.</summary>
+        private bool ApplyLastSubmittedDiceValuesToNewAttemptIfPossible()
+        {
+            if (!hasLastSubmittedDiceValues)
+                return false;
+
+            if (roundState == null)
+                return false;
+
+            if (lastSubmittedDiceValues.Count != roundState.Dice.Count)
+                return false;
+
+            simulator.SetCurrentDiceValuesForTest(roundState, lastSubmittedDiceValues);
+            return true;
         }
 
         /// <summary>현재 주사위들의 Lock 상태 목록을 생성한다.</summary>

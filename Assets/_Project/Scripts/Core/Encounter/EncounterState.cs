@@ -23,8 +23,8 @@ namespace Tessera.Core
         /// <summary>상대가 패배했는지 확인한다.</summary>
         public bool IsOpponentDefeated => OpponentCurrentHp <= 0;
 
-        /// <summary>플레이어와 상대 HP를 가진 전투 상태를 생성한다.</summary>
-        public EncounterState(int playerMaxHp, int opponentMaxHp)
+        /// <summary>지정 현재 HP를 가진 전투 상태를 생성한다.</summary>
+        public EncounterState(int playerMaxHp, int opponentMaxHp, int playerCurrentHp, int opponentCurrentHp)
         {
             if (playerMaxHp <= 0)
                 throw new ArgumentOutOfRangeException(nameof(playerMaxHp), "플레이어 최대 HP는 1 이상이어야 합니다.");
@@ -34,8 +34,8 @@ namespace Tessera.Core
 
             PlayerMaxHp = playerMaxHp;
             OpponentMaxHp = opponentMaxHp;
-            PlayerCurrentHp = playerMaxHp;
-            OpponentCurrentHp = opponentMaxHp;
+            PlayerCurrentHp = ClampHp(playerCurrentHp, playerMaxHp);
+            OpponentCurrentHp = ClampHp(opponentCurrentHp, opponentMaxHp);
         }
 
         /// <summary>상대에게 피해를 적용한다.</summary>
@@ -72,6 +72,17 @@ namespace Tessera.Core
                 throw new ArgumentOutOfRangeException(nameof(amount), "회복량은 음수가 될 수 없습니다.");
 
             OpponentCurrentHp = Math.Min(OpponentMaxHp, OpponentCurrentHp + amount);
+        }
+
+        private static int ClampHp(int value, int maxHp)
+        {
+            if (value < 0)
+                return 0;
+
+            if (value > maxHp)
+                return maxHp;
+
+            return value;
         }
     }
 }

@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3487ea4abad0e40448995151808b0bc6, type: 3}
+  m_Name: Stage01_Round02_NormalBounty
+  m_EditorClassIdentifier: 
+  roundId: stage01_normal_bounty
+  displayName: Second Bounty
+  roundType: 0
+  tutorialForcedRound: 0
+  initiallyAvailable: 1
+  rewardParts: 20
+  rewardOvercharge: 0
+  rewardDescription: Chain choice test reward.
+  opponentMaxHp: 70
+  enemyStrikeDamage: 3
+  playerMaxHp: 100
+  diceCount: 5
+  maxAttempts: 3
+  roundRollPool: 8
+  maxUsesPerCastPerRound: 1
+  maxBrokenCastUsesPerRound: 3
+  brokenCastGrantsOvercharge: 1
+  brokenCastOverchargeAmount: 1
+  brokenCastGrantsNextAttemptFreeReroll: 1
+  brokenCastFreeRerollTokenAmount: 1
+  applyNonAcesDamagePenalty: 0
+  nonAcesDamagePercent: 50
+  disableChance: 0
+  disableBrokenCastReward: 0

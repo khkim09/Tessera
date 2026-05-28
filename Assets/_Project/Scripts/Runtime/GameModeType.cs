@@ -6,6 +6,9 @@
         None = 0,
         RoundSelect = 1,
         Gameplay = 2,
-        Shop = 3
+        Shop = 3,
+        BountyBoard = 4,
+        RewardDecision = 5,
+        Result = 6
     }
 }

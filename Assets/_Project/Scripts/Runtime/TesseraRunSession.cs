@@ -1,32 +1,78 @@
-﻿using Tessera.Data;
+﻿using Tessera.Core;
+using Tessera.Data;
+using UnityEngine;
 
 namespace Tessera.Runtime
 {
-    /// <summary>한 Run 동안 유지되는 Stage, Round, 재화, 장착 Device 상태를 관리한다.</summary>
+    /// <summary>한 Run 동안 유지되는 Stage, HP, 재화, Chain, 장착 Device 상태를 관리한다.</summary>
     public class TesseraRunSession
     {
         public const int MaxDeviceSlots = 5;
 
         private readonly SlotPairDeviceDefinitionSO[] equippedSlotPairDevices = new SlotPairDeviceDefinitionSO[MaxDeviceSlots];
 
-        /// <summary>현재 Stage 인덱스를 반환한다.</summary>
+        /// <summary>현재 Stage 인덱스.</summary>
         public int CurrentStageIndex { get; private set; }
 
-        /// <summary>현재 Round 인덱스를 반환한다.</summary>
-        public int CurrentRoundIndex { get; private set; }
+        /// <summary>현재 Stage 번호.</summary>
+        public int CurrentStageNumber => CurrentStageIndex + 1;
 
-        /// <summary>현재 보유 Parts를 반환한다.</summary>
+        /// <summary>현재 보유 Parts.</summary>
         public int Parts { get; private set; }
 
-        /// <summary>현재 장착된 SlotPair Device 배열을 반환한다.</summary>
+        /// <summary>플레이어 최대 HP.</summary>
+        public int PlayerMaxHp { get; private set; }
+
+        /// <summary>플레이어 현재 HP.</summary>
+        public int PlayerCurrentHp { get; private set; }
+
+        /// <summary>Run 전체 Chain 누적값.</summary>
+        public int RunChainCount { get; private set; }
+
+        /// <summary>현재 Stage Chain 누적값.</summary>
+        public int StageChainCount { get; private set; }
+
+        /// <summary>현재 Stage Pressure 단계.</summary>
+        public int StagePressureLevel { get; private set; }
+
+        /// <summary>Stage 단위 Overcharge 상태.</summary>
+        public OverchargeState StageOverchargeState { get; }
+
+        /// <summary>현재 Overcharge 수치.</summary>
+        public int Overcharge => StageOverchargeState.CurrentOvercharge;
+
+        /// <summary>현재 장착된 SlotPair Device 배열.</summary>
         public IReadOnlyListWrapper EquippedSlotPairDevices => new IReadOnlyListWrapper(equippedSlotPairDevices);
 
-        /// <summary>RunSession을 초기값으로 생성한다.</summary>
-        public TesseraRunSession(int startParts = 0)
+        /// <summary>RunSession을 생성한다.</summary>
+        public TesseraRunSession(int startParts = 0, int playerMaxHp = 100)
         {
-            Parts = startParts;
+            Parts = Mathf.Max(0, startParts);
+            PlayerMaxHp = Mathf.Max(1, playerMaxHp);
+            PlayerCurrentHp = PlayerMaxHp;
             CurrentStageIndex = 0;
-            CurrentRoundIndex = 0;
+            RunChainCount = 0;
+            StageChainCount = 0;
+            StagePressureLevel = 0;
+            StageOverchargeState = new OverchargeState();
+        }
+
+        /// <summary>현재 Stage 인덱스를 지정한다.</summary>
+        public void SetCurrentStageIndex(int stageIndex, bool resetStageChain)
+        {
+            CurrentStageIndex = Mathf.Max(0, stageIndex);
+
+            if (!resetStageChain)
+                return;
+
+            StageChainCount = 0;
+            StagePressureLevel = 0;
+        }
+
+        /// <summary>Stage 시작 시 Overcharge를 초기화한다.</summary>
+        public void ResetOverchargeForStageStart()
+        {
+            StageOverchargeState.ResetForStageStart();
         }
 
         /// <summary>보유 Parts를 증가시킨다.</summary>
@@ -49,6 +95,56 @@ namespace Tessera.Runtime
 
             Parts -= amount;
             return true;
+        }
+
+        /// <summary>Overcharge를 증가시킨다.</summary>
+        public void AddOvercharge(int amount)
+        {
+            if (amount <= 0)
+                return;
+
+            StageOverchargeState.AddOvercharge(amount);
+        }
+
+        /// <summary>Overcharge 지불을 시도한다.</summary>
+        public bool TrySpendOvercharge(int amount)
+        {
+            if (amount < 0)
+                return false;
+
+            return StageOverchargeState.TrySpendOvercharge(amount);
+        }
+
+        /// <summary>전투 종료 후 플레이어 HP를 반영한다.</summary>
+        public void SetPlayerCurrentHp(int currentHp)
+        {
+            PlayerCurrentHp = Mathf.Clamp(currentHp, 0, PlayerMaxHp);
+        }
+
+        /// <summary>Cash Out 회복을 적용한다.</summary>
+        public int HealByCashOutRatio(float ratio)
+        {
+            if (ratio <= 0f)
+                return 0;
+
+            int healAmount = Mathf.FloorToInt(PlayerMaxHp * ratio);
+            int previousHp = PlayerCurrentHp;
+
+            PlayerCurrentHp = Mathf.Min(PlayerMaxHp, PlayerCurrentHp + healAmount);
+            return PlayerCurrentHp - previousHp;
+        }
+
+        /// <summary>Chain Rush 누적값을 반영한다.</summary>
+        public void AddChainAndPressure(int chainAmount, int pressureAmount)
+        {
+            if (chainAmount > 0)
+            {
+                StageChainCount += chainAmount;
+                RunChainCount += chainAmount;
+            }
+
+            if (pressureAmount > 0)
+                StagePressureLevel += pressureAmount;
         }
 
         /// <summary>현재 장착 Device를 지정 슬롯에 강제로 설정한다.</summary>
@@ -98,60 +194,6 @@ namespace Tessera.Runtime
             return true;
         }
 
-        /// <summary>Shop 상품 구매를 시도하고 성공 시 즉시 장착 또는 적용한다.</summary>
-        public bool TryBuyProduct(ShopProductDefinitionSO product, out string resultMessage)
-        {
-            resultMessage = "Purchase failed.";
-
-            if (product == null || !product.IsValidProduct())
-            {
-                resultMessage = "Invalid product.";
-                return false;
-            }
-
-            if (Parts < product.Price)
-            {
-                resultMessage = "Not enough parts.";
-                return false;
-            }
-
-            if (product.ProductType == ShopProductType.SlotPairDevice)
-                return TryBuySlotPairDevice(product, out resultMessage);
-
-            resultMessage = "This product type is not implemented yet.";
-            return false;
-        }
-
-        /// <summary>Device 상품 구매를 처리한다.</summary>
-        private bool TryBuySlotPairDevice(ShopProductDefinitionSO product, out string resultMessage)
-        {
-            resultMessage = "Device purchase failed.";
-
-            if (FindFirstEmptyDeviceSlotIndex() < 0)
-            {
-                resultMessage = "Device slots are full.";
-                return false;
-            }
-
-            if (!TrySpendParts(product.Price))
-            {
-                resultMessage = "Not enough parts.";
-                return false;
-            }
-
-            if (!TryEquipDeviceToFirstEmptySlot(product.SlotPairDevice, out int equippedSlotIndex))
-            {
-                // 장착 실패 시 Parts를 복구한다.
-                AddParts(product.Price);
-                resultMessage = "No empty device slot.";
-                return false;
-            }
-
-            resultMessage = $"Bought {product.DisplayName}. Equipped to slot {equippedSlotIndex + 1}.";
-            return true;
-        }
-
-        /// <summary>첫 번째 빈 Device 슬롯 인덱스를 찾는다.</summary>
         private int FindFirstEmptyDeviceSlotIndex()
         {
             for (int i = 0; i < equippedSlotPairDevices.Length; i++)
@@ -163,7 +205,6 @@ namespace Tessera.Runtime
             return -1;
         }
 
-        /// <summary>Device 슬롯 인덱스가 유효한지 확인한다.</summary>
         private static bool IsValidDeviceSlotIndex(int slotIndex)
         {
             return slotIndex >= 0 && slotIndex < MaxDeviceSlots;

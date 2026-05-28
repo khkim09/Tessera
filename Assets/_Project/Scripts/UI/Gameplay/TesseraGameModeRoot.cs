@@ -3,67 +3,53 @@ using UnityEngine;
 
 namespace Tessera.UI
 {
-    /// <summary>RoundSelect, Gameplay, Shop 화면 전환과 RunSession 공유를 관리한다.</summary>
+    /// <summary>GameMode Root 전환과 Stage Flow 시작을 관리한다.</summary>
     public class TesseraGameModeRoot : MonoBehaviour
     {
         [Header("Mode Roots")]
         [SerializeField] private GameObject roundSelectRoot;
         [SerializeField] private GameObject gameplayRoot;
         [SerializeField] private GameObject shopRoot;
+        [SerializeField] private GameObject bountyBoardRoot;
+        [SerializeField] private GameObject rewardDecisionRoot;
+        [SerializeField] private GameObject resultRoot;
 
-        [Header("Presenters")]
-        [SerializeField] private TesseraGameplayBattlePresenter gameplayPresenter;
-        [SerializeField] private TesseraShopPresenter shopPresenter;
+        [Header("Flow")]
+        [SerializeField] private StageBountyFlowController stageBountyFlowController;
 
         [Header("Debug Start")]
-        [SerializeField] private GameModeType startMode = GameModeType.Gameplay;
         [SerializeField] private int startParts = 30;
-        [SerializeField] private int roundWinParts = 20;
+        [SerializeField] private int playerMaxHp = 100;
 
         private TesseraRunSession runSession;
         private GameModeType currentMode = GameModeType.None;
+        private System.IDisposable gameModeRequestSubscription;
 
         /// <summary>현재 RunSession을 반환한다.</summary>
         public TesseraRunSession RunSession => runSession;
 
-        /// <summary>RunSession을 생성하고 Presenter에 연결한다.</summary>
         private void Awake()
         {
-            runSession = new TesseraRunSession(startParts);
+            TesseraEventBus.ClearAll();
 
-            if (gameplayPresenter != null)
-                gameplayPresenter.BindRunSession(runSession);
+            runSession = new TesseraRunSession(startParts, playerMaxHp);
 
-            if (shopPresenter != null)
-                shopPresenter.Initialize(runSession);
+            if (stageBountyFlowController != null)
+                stageBountyFlowController.Initialize(runSession);
+
+            gameModeRequestSubscription = TesseraEventBus.Subscribe<GameModeChangeRequestedEvent>(HandleGameModeChangeRequested);
         }
 
-        /// <summary>Presenter 이벤트를 연결하고 시작 화면으로 전환한다.</summary>
-        private void OnEnable()
+        private void Start()
         {
-            if (gameplayPresenter != null)
-            {
-                gameplayPresenter.RoundWon += HandleRoundWon;
-                gameplayPresenter.RoundLost += HandleRoundLost;
-            }
-
-            if (shopPresenter != null)
-                shopPresenter.NextRequested += HandleShopNextRequested;
-
-            SwitchMode(startMode);
+            if (stageBountyFlowController != null)
+                stageBountyFlowController.StartFlow();
         }
 
-        /// <summary>Presenter 이벤트를 해제한다.</summary>
-        private void OnDisable()
+        private void OnDestroy()
         {
-            if (gameplayPresenter != null)
-            {
-                gameplayPresenter.RoundWon -= HandleRoundWon;
-                gameplayPresenter.RoundLost -= HandleRoundLost;
-            }
-
-            if (shopPresenter != null)
-                shopPresenter.NextRequested -= HandleShopNextRequested;
+            gameModeRequestSubscription?.Dispose();
+            gameModeRequestSubscription = null;
         }
 
         /// <summary>지정 GameMode로 화면을 전환한다.</summary>
@@ -74,36 +60,18 @@ namespace Tessera.UI
             SetRootActive(roundSelectRoot, mode == GameModeType.RoundSelect);
             SetRootActive(gameplayRoot, mode == GameModeType.Gameplay);
             SetRootActive(shopRoot, mode == GameModeType.Shop);
+            SetRootActive(bountyBoardRoot, mode == GameModeType.BountyBoard);
+            SetRootActive(rewardDecisionRoot, mode == GameModeType.RewardDecision);
+            SetRootActive(resultRoot, mode == GameModeType.Result);
 
-            if (mode == GameModeType.Shop && shopPresenter != null)
-                shopPresenter.RefreshAll("Shop opened.");
+            TesseraEventBus.Publish(new GameModeChangedEvent(currentMode));
         }
 
-        /// <summary>Round 승리 시 Parts를 지급하고 Shop으로 이동한다.</summary>
-        private void HandleRoundWon(Core.CastSubmitResult result)
+        private void HandleGameModeChangeRequested(GameModeChangeRequestedEvent gameEvent)
         {
-            if (runSession != null)
-                runSession.AddParts(roundWinParts);
-
-            SwitchMode(GameModeType.Shop);
+            SwitchMode(gameEvent.RequestedMode);
         }
 
-        /// <summary>Round 패배 시 현재는 Gameplay 화면에 머문다. 추후 Result 화면으로 연결한다.</summary>
-        private void HandleRoundLost(Core.CastSubmitResult result)
-        {
-            // 패배 화면은 다음 단계에서 별도 Result/Retry 화면으로 분리한다.
-        }
-
-        /// <summary>Shop 다음 버튼 클릭 시 다음 Gameplay로 이동한다.</summary>
-        private void HandleShopNextRequested()
-        {
-            if (gameplayPresenter != null)
-                gameplayPresenter.StartDebugRound();
-
-            SwitchMode(GameModeType.Gameplay);
-        }
-
-        /// <summary>Root GameObject 활성 상태를 안전하게 변경한다.</summary>
         private static void SetRootActive(GameObject targetRoot, bool isActive)
         {
             if (targetRoot == null)
