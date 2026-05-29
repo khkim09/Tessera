@@ -14,11 +14,13 @@ namespace Tessera.UI
         [Header("Stage UI")]
         [SerializeField] private BountyBoardView bountyBoardView;
         [SerializeField] private StageRewardDecisionView rewardDecisionView;
+        [SerializeField] private RoundFailureDecisionView roundFailureDecisionView;
         [SerializeField] private StageShopFlowView shopFlowView;
 
         private IDisposable roundStartSubscription;
         private IDisposable bountyBoardShowSubscription;
         private IDisposable rewardDecisionShowSubscription;
+        private IDisposable roundFailureShowSubscription;
         private IDisposable shopShowSubscription;
 
         private void OnEnable()
@@ -26,6 +28,7 @@ namespace Tessera.UI
             roundStartSubscription = TesseraEventBus.Subscribe<StageRoundStartRequestedEvent>(HandleRoundStartRequested);
             bountyBoardShowSubscription = TesseraEventBus.Subscribe<BountyBoardShowRequestedEvent>(HandleBountyBoardShowRequested);
             rewardDecisionShowSubscription = TesseraEventBus.Subscribe<RewardDecisionShowRequestedEvent>(HandleRewardDecisionShowRequested);
+            roundFailureShowSubscription = TesseraEventBus.Subscribe<RoundFailureShowRequestedEvent>(HandleRoundFailureShowRequested);
             shopShowSubscription = TesseraEventBus.Subscribe<StageShopShowRequestedEvent>(HandleShopShowRequested);
 
             if (gameplayPresenter != null)
@@ -44,6 +47,13 @@ namespace Tessera.UI
                 rewardDecisionView.BossRequested += HandleBossRequested;
             }
 
+            if (roundFailureDecisionView != null)
+            {
+                roundFailureDecisionView.RetryRequested += HandleFailureRetryRequested;
+                roundFailureDecisionView.RetreatRequested += HandleFailureRetreatRequested;
+                roundFailureDecisionView.AbandonRequested += HandleFailureAbandonRequested;
+            }
+
             if (shopFlowView != null)
                 shopFlowView.ContinueRequested += HandleShopContinueRequested;
         }
@@ -53,11 +63,13 @@ namespace Tessera.UI
             roundStartSubscription?.Dispose();
             bountyBoardShowSubscription?.Dispose();
             rewardDecisionShowSubscription?.Dispose();
+            roundFailureShowSubscription?.Dispose();
             shopShowSubscription?.Dispose();
 
             roundStartSubscription = null;
             bountyBoardShowSubscription = null;
             rewardDecisionShowSubscription = null;
+            roundFailureShowSubscription = null;
             shopShowSubscription = null;
 
             if (gameplayPresenter != null)
@@ -74,6 +86,13 @@ namespace Tessera.UI
                 rewardDecisionView.CashOutRequested -= HandleCashOutRequested;
                 rewardDecisionView.ChainRequested -= HandleChainRequested;
                 rewardDecisionView.BossRequested -= HandleBossRequested;
+            }
+
+            if (roundFailureDecisionView != null)
+            {
+                roundFailureDecisionView.RetryRequested -= HandleFailureRetryRequested;
+                roundFailureDecisionView.RetreatRequested -= HandleFailureRetreatRequested;
+                roundFailureDecisionView.AbandonRequested -= HandleFailureAbandonRequested;
             }
 
             if (shopFlowView != null)
@@ -108,6 +127,18 @@ namespace Tessera.UI
             rewardDecisionView.Show(gameEvent.BoardState, gameEvent.Message);
         }
 
+        private void HandleRoundFailureShowRequested(RoundFailureShowRequestedEvent gameEvent)
+        {
+            if (roundFailureDecisionView == null)
+                return;
+
+            roundFailureDecisionView.Show(
+                gameEvent.RunSession,
+                gameEvent.BoardState,
+                gameEvent.RetryPartsCost,
+                gameEvent.Message);
+        }
+
         private void HandleShopShowRequested(StageShopShowRequestedEvent gameEvent)
         {
             if (shopFlowView == null)
@@ -138,6 +169,21 @@ namespace Tessera.UI
         private void HandleBossRequested()
         {
             TesseraEventBus.Publish(new RewardDecisionRequestedEvent(StageRewardDecisionType.Boss));
+        }
+
+        private void HandleFailureRetryRequested()
+        {
+            TesseraEventBus.Publish(new RoundFailureDecisionRequestedEvent(RoundFailureDecisionType.Retry));
+        }
+
+        private void HandleFailureRetreatRequested()
+        {
+            TesseraEventBus.Publish(new RoundFailureDecisionRequestedEvent(RoundFailureDecisionType.Retreat));
+        }
+
+        private void HandleFailureAbandonRequested()
+        {
+            TesseraEventBus.Publish(new RoundFailureDecisionRequestedEvent(RoundFailureDecisionType.Abandon));
         }
 
         private void HandleShopContinueRequested()

@@ -86,6 +86,27 @@ namespace Tessera.Runtime
         }
     }
 
+    /// <summary>Round 패배 후 복구/포기 선택 화면 표시 요청 이벤트다.</summary>
+    public readonly struct RoundFailureShowRequestedEvent
+    {
+        public TesseraRunSession RunSession { get; }
+        public StageBountyBoardState BoardState { get; }
+        public int RetryPartsCost { get; }
+        public string Message { get; }
+
+        public RoundFailureShowRequestedEvent(
+            TesseraRunSession runSession,
+            StageBountyBoardState boardState,
+            int retryPartsCost,
+            string message)
+        {
+            RunSession = runSession;
+            BoardState = boardState;
+            RetryPartsCost = retryPartsCost;
+            Message = message ?? string.Empty;
+        }
+    }
+
     /// <summary>Stage Shop Shell 표시 요청 이벤트다.</summary>
     public readonly struct StageShopShowRequestedEvent
     {
@@ -142,6 +163,17 @@ namespace Tessera.Runtime
         }
     }
 
+    /// <summary>UI에서 Round 패배 후 복구/포기 선택 버튼을 눌렀을 때 Runtime으로 보내는 이벤트다.</summary>
+    public readonly struct RoundFailureDecisionRequestedEvent
+    {
+        public RoundFailureDecisionType DecisionType { get; }
+
+        public RoundFailureDecisionRequestedEvent(RoundFailureDecisionType decisionType)
+        {
+            DecisionType = decisionType;
+        }
+    }
+
     /// <summary>UI에서 Shop Continue를 눌렀을 때 Runtime으로 보내는 이벤트다.</summary>
     public readonly struct StageShopContinueRequestedEvent
     {
@@ -182,12 +214,22 @@ namespace Tessera.Runtime
         Boss = 3
     }
 
+    /// <summary>Round 패배 후 복구/포기 선택 타입이다.</summary>
+    public enum RoundFailureDecisionType
+    {
+        None = 0,
+        Retry = 1,
+        Retreat = 2,
+        Abandon = 3
+    }
+
     /// <summary>Shop 진입 이유를 정의한다.</summary>
     public enum StageShopReasonType
     {
         None = 0,
         CashOut = 1,
         StageClear = 2,
-        Tutorial = 3
+        Tutorial = 3,
+        Retreat = 4
     }
 }

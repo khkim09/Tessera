@@ -39,7 +39,7 @@ namespace Tessera.UI
             SetVisible(true);
 
             if (titleText != null)
-                titleText.text = reasonType == StageShopReasonType.StageClear ? "Workshop - Stage Clear" : "Workshop - Cash Out";
+                titleText.text = ResolveTitle(reasonType);
 
             if (messageText != null)
                 messageText.text = message ?? string.Empty;
@@ -50,9 +50,19 @@ namespace Tessera.UI
                 int hp = runSession != null ? runSession.PlayerCurrentHp : 0;
                 int maxHp = runSession != null ? runSession.PlayerMaxHp : 0;
                 int overcharge = runSession != null ? runSession.Overcharge : 0;
-                int chain = runSession != null ? runSession.RunChainCount : 0;
+                int runChain = runSession != null ? runSession.RunChainCount : 0;
+                int stageChain = boardState != null ? boardState.ChainCount : 0;
+                int pressure = boardState != null ? boardState.PressureLevel : 0;
+                bool bossForced = boardState != null && boardState.IsBossForcedAfterCashOut;
 
-                resourceText.text = $"HP {hp}/{maxHp}\nParts {parts}\nOvercharge {overcharge}\nRun Chain {chain}";
+                resourceText.text =
+                    $"HP {hp}/{maxHp}\n" +
+                    $"Parts {parts}\n" +
+                    $"Overcharge {overcharge}\n" +
+                    $"Run Chain {runChain}\n" +
+                    $"Stage Chain {stageChain}\n" +
+                    $"Pressure {pressure}\n" +
+                    $"Next Boss Forced: {bossForced}";
             }
         }
 
@@ -63,6 +73,23 @@ namespace Tessera.UI
                 root.SetActive(visible);
             else
                 gameObject.SetActive(visible);
+        }
+
+        private static string ResolveTitle(StageShopReasonType reasonType)
+        {
+            if (reasonType == StageShopReasonType.StageClear)
+                return "Workshop - Stage Clear";
+
+            if (reasonType == StageShopReasonType.CashOut)
+                return "Workshop - Cash Out";
+
+            if (reasonType == StageShopReasonType.Retreat)
+                return "Workshop - Retreat";
+
+            if (reasonType == StageShopReasonType.Tutorial)
+                return "Workshop - Tutorial";
+
+            return "Workshop";
         }
 
         private void HandleContinueClicked()

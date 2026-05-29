@@ -147,6 +147,13 @@ namespace Tessera.Runtime
                 StagePressureLevel += pressureAmount;
         }
 
+        /// <summary>현재 Stage의 Chain과 Pressure를 초기화한다.</summary>
+        public void ResetStageChainAndPressure()
+        {
+            StageChainCount = 0;
+            StagePressureLevel = 0;
+        }
+
         /// <summary>현재 장착 Device를 지정 슬롯에 강제로 설정한다.</summary>
         public bool SetEquippedDevice(int slotIndex, SlotPairDeviceDefinitionSO device)
         {

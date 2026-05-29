@@ -9,6 +9,7 @@
         Shop = 3,
         BountyBoard = 4,
         RewardDecision = 5,
-        Result = 6
+        Result = 6,
+        RoundFailureDecision = 7
     }
 }

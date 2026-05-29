@@ -403,6 +403,7 @@ namespace Tessera.Core
             }
         }
 
+        /// <summary>현재 Cast 제출 이후 Round 결과를 판정한다.</summary>
         private static RoundOutcomeType ResolveRoundOutcome(RoundState roundState)
         {
             if (roundState.Encounter.IsOpponentDefeated)
@@ -414,7 +415,28 @@ namespace Tessera.Core
             if (roundState.IsLastAttempt())
                 return RoundOutcomeType.Lost;
 
+            if (ShouldLoseBecauseNoRoundRollsRemain(roundState))
+                return RoundOutcomeType.Lost;
+
             return RoundOutcomeType.Ongoing;
+        }
+
+        /// <summary>다음 Attempt는 남아 있지만 Round Roll Pool이 없어 더 이상 유효하게 진행할 수 없는지 확인한다.</summary>
+        private static bool ShouldLoseBecauseNoRoundRollsRemain(RoundState roundState)
+        {
+            if (roundState == null)
+                return false;
+
+            if (roundState.CurrentAttempt == null)
+                return false;
+
+            if (!roundState.CurrentAttempt.IsSubmitted)
+                return false;
+
+            if (roundState.RemainingRoundRolls > 0)
+                return false;
+
+            return !roundState.IsLastAttempt();
         }
 
         private static void ValidatePlayableRound(RoundState roundState)

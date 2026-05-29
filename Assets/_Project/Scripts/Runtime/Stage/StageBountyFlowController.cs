@@ -13,6 +13,9 @@ namespace Tessera.Runtime
         [Header("Cash Out")]
         [SerializeField] private float cashOutHealRatio = 0.5f;
 
+        [Header("Round Failure")]
+        [SerializeField] private int retryPartsCost = 5;
+
         private TesseraRunSession runSession;
         private StageBountyBoardState currentStageState;
         private int currentStageIndex;
@@ -20,6 +23,7 @@ namespace Tessera.Runtime
 
         private System.IDisposable bountySelectedSubscription;
         private System.IDisposable rewardDecisionSubscription;
+        private System.IDisposable failureDecisionSubscription;
         private System.IDisposable shopContinueSubscription;
         private System.IDisposable roundWonSubscription;
         private System.IDisposable roundLostSubscription;
@@ -34,6 +38,7 @@ namespace Tessera.Runtime
 
             bountySelectedSubscription = TesseraEventBus.Subscribe<BountyRoundSelectedEvent>(HandleBountySelected);
             rewardDecisionSubscription = TesseraEventBus.Subscribe<RewardDecisionRequestedEvent>(HandleRewardDecisionRequested);
+            failureDecisionSubscription = TesseraEventBus.Subscribe<RoundFailureDecisionRequestedEvent>(HandleFailureDecisionRequested);
             shopContinueSubscription = TesseraEventBus.Subscribe<StageShopContinueRequestedEvent>(HandleShopContinueRequested);
             roundWonSubscription = TesseraEventBus.Subscribe<GameplayRoundWonEvent>(HandleRoundWon);
             roundLostSubscription = TesseraEventBus.Subscribe<GameplayRoundLostEvent>(HandleRoundLost);
@@ -69,12 +74,14 @@ namespace Tessera.Runtime
         {
             bountySelectedSubscription?.Dispose();
             rewardDecisionSubscription?.Dispose();
+            failureDecisionSubscription?.Dispose();
             shopContinueSubscription?.Dispose();
             roundWonSubscription?.Dispose();
             roundLostSubscription?.Dispose();
 
             bountySelectedSubscription = null;
             rewardDecisionSubscription = null;
+            failureDecisionSubscription = null;
             shopContinueSubscription = null;
             roundWonSubscription = null;
             roundLostSubscription = null;
@@ -123,6 +130,21 @@ namespace Tessera.Runtime
 
             TesseraEventBus.Publish(new RewardDecisionShowRequestedEvent(currentStageState, message));
             TesseraEventBus.Publish(new GameModeChangeRequestedEvent(GameModeType.RewardDecision, message));
+        }
+
+        private void ShowRoundFailureDecision(string message)
+        {
+            if (currentStageState == null || runSession == null)
+                return;
+
+            TesseraEventBus.Publish(
+                new RoundFailureShowRequestedEvent(
+                    runSession,
+                    currentStageState,
+                    Mathf.Max(0, retryPartsCost),
+                    message));
+
+            TesseraEventBus.Publish(new GameModeChangeRequestedEvent(GameModeType.RoundFailureDecision, message));
         }
 
         private void ShowShop(StageShopReasonType reasonType, string message)
@@ -183,7 +205,7 @@ namespace Tessera.Runtime
             if (runSession != null)
                 runSession.SetPlayerCurrentHp(gameEvent.PlayerHpAfterRound);
 
-            TesseraEventBus.Publish(new GameModeChangeRequestedEvent(GameModeType.Result, "Round lost."));
+            ShowRoundFailureDecision("Round lost. Choose how to continue this run.");
         }
 
         private void HandleRewardDecisionRequested(RewardDecisionRequestedEvent gameEvent)
@@ -202,6 +224,64 @@ namespace Tessera.Runtime
 
             if (gameEvent.DecisionType == StageRewardDecisionType.Boss)
                 HandleBossRequested();
+        }
+
+        private void HandleFailureDecisionRequested(RoundFailureDecisionRequestedEvent gameEvent)
+        {
+            if (gameEvent.DecisionType == RoundFailureDecisionType.Retry)
+            {
+                HandleFailureRetryRequested();
+                return;
+            }
+
+            if (gameEvent.DecisionType == RoundFailureDecisionType.Retreat)
+            {
+                HandleFailureRetreatRequested();
+                return;
+            }
+
+            if (gameEvent.DecisionType == RoundFailureDecisionType.Abandon)
+                HandleFailureAbandonRequested();
+        }
+
+        private void HandleFailureRetryRequested()
+        {
+            if (currentStageState == null || runSession == null)
+                return;
+
+            StageBountyNodeState retryNode = currentStageState.CurrentNode;
+
+            if (retryNode == null)
+            {
+                TesseraEventBus.Publish(new GameModeChangeRequestedEvent(GameModeType.Result, "Retry failed. No active bounty."));
+                return;
+            }
+
+            int cost = Mathf.Max(0, retryPartsCost);
+
+            if (!runSession.TrySpendParts(cost))
+            {
+                ShowRoundFailureDecision("Not enough Parts to retry.");
+                return;
+            }
+
+            StartBountyRound(retryNode);
+        }
+
+        private void HandleFailureRetreatRequested()
+        {
+            if (currentStageState == null || runSession == null)
+                return;
+
+            currentStageState.ApplyFailureRetreat();
+            runSession.ResetStageChainAndPressure();
+
+            ShowShop(StageShopReasonType.Retreat, "Retreated from the bounty. Pending reward was lost.");
+        }
+
+        private void HandleFailureAbandonRequested()
+        {
+            TesseraEventBus.Publish(new GameModeChangeRequestedEvent(GameModeType.Result, "Run abandoned after round loss."));
         }
 
         private void HandleCashOutRequested()

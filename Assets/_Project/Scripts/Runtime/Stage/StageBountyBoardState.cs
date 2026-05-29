@@ -100,6 +100,22 @@ namespace Tessera.Runtime
             CurrentNode = null;
         }
 
+        /// <summary>Round 패배 후 Retreat 선택을 적용한다.</summary>
+        public void ApplyFailureRetreat()
+        {
+            if (CurrentNode != null)
+                CurrentNode.MarkDiscarded();
+
+            CurrentNode = null;
+            PendingPartsReward = 0;
+            PendingOverchargeReward = 0;
+            ChainCount = 0;
+            PressureLevel = 0;
+            IsBossForcedAfterCashOut = false;
+
+            RefreshAvailabilityAfterNormalDecision();
+        }
+
         /// <summary>Chain Rush를 선택하고 압력을 상승시킨다.</summary>
         public void ApplyChainRush()
         {

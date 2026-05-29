@@ -12,6 +12,7 @@ namespace Tessera.UI
         [SerializeField] private GameObject shopRoot;
         [SerializeField] private GameObject bountyBoardRoot;
         [SerializeField] private GameObject rewardDecisionRoot;
+        [SerializeField] private GameObject roundFailureDecisionRoot;
         [SerializeField] private GameObject resultRoot;
 
         [Header("Flow")]
@@ -62,6 +63,7 @@ namespace Tessera.UI
             SetRootActive(shopRoot, mode == GameModeType.Shop);
             SetRootActive(bountyBoardRoot, mode == GameModeType.BountyBoard);
             SetRootActive(rewardDecisionRoot, mode == GameModeType.RewardDecision);
+            SetRootActive(roundFailureDecisionRoot, mode == GameModeType.RoundFailureDecision);
             SetRootActive(resultRoot, mode == GameModeType.Result);
 
             TesseraEventBus.Publish(new GameModeChangedEvent(currentMode));
