@@ -10,7 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 1625970312079915823}
   - component: {fileID: 4976998181261799544}
-  m_Layer: 0
+  - component: {fileID: 1629839956474292420}
+  m_Layer: 7
   m_Name: Dice
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -60,6 +61,28 @@ MonoBehaviour:
   normalColor: {r: 0.85, g: 0.85, b: 0.82, a: 1}
   lockedColor: {r: 0.3, g: 0.48, b: 0.88, a: 1}
   hoverColor: {r: 0.95, g: 0.92, b: 0.7, a: 1}
+--- !u!114 &1629839956474292420
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2100692826580602539}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d101d2eb0c4c6984a8ff384e5b2632cc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Tessera.Presentation::Tessera.Presentation.TesseraHoverHighlightTarget
+  targetRenderers: []
+  highlightLayerMask:
+    serializedVersion: 2
+    m_Bits: 256
+  includeInactiveRenderers: 1
+  useHoverMotion: 0
+  motionRoot: {fileID: 1277234867936049789}
+  shakePositionAmount: 0.015
+  shakeRotationAmount: 1.2
+  shakeSpeed: 18
 --- !u!1 &3947596171944891898
 GameObject:
   m_ObjectHideFlags: 0
@@ -71,7 +94,7 @@ GameObject:
   - component: {fileID: 4981099843626103009}
   - component: {fileID: 4702608669592686652}
   - component: {fileID: 2488195338231821747}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: DiceMesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -161,7 +184,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7508124590056864354}
   - component: {fileID: 7630410997109032279}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: Collider
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -213,7 +236,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1277234867936049789}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: DiceVisualRoot
   m_TagString: Untagged
   m_Icon: {fileID: 0}

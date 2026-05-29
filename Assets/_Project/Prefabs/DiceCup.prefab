@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 3175385008236521699}
   - component: {fileID: 8618886066092753018}
   - component: {fileID: 9002562675992901248}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: DiceCup
   m_TagString: Untagged
   m_Icon: {fileID: 0}

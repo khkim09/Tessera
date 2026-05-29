@@ -37,11 +37,11 @@ namespace Tessera.UI
                 entryTemplate.gameObject.SetActive(false);
         }
 
-        /// <summary>Popup 표시 여부를 설정한다.</summary>
+        /// <summary>사용자 설정 기준 Popup 표시 허용 여부를 설정한다.</summary>
         public void SetPopupVisible(bool isVisible)
         {
             showPopup = isVisible;
-            gameObject.SetActive(isVisible);
+            ApplyResolvedPopupVisibility();
         }
 
         /// <summary>Cast 후보 목록을 다시 생성한다.</summary>
@@ -56,12 +56,14 @@ namespace Tessera.UI
             if (!showPopup)
             {
                 ResizePopupHeight(0);
+                ApplyResolvedPopupVisibility();
                 return;
             }
 
             if (viewModel == null)
             {
                 ResizePopupHeight(0);
+                ApplyResolvedPopupVisibility();
                 return;
             }
 
@@ -72,8 +74,9 @@ namespace Tessera.UI
                 CreateEntry(filteredEntries[i], selectedPatternType, recommendedPatternType, onCandidateClicked);
 
             ResizePopupHeight(filteredEntries.Count);
+            ApplyResolvedPopupVisibility();
 
-            if (entryRoot != null)
+            if (entryRoot != null && gameObject.activeInHierarchy)
                 LayoutRebuilder.ForceRebuildLayoutImmediate(entryRoot);
         }
 
@@ -88,6 +91,17 @@ namespace Tessera.UI
 
             spawnedEntries.Clear();
             filteredEntries.Clear();
+
+            ResizePopupHeight(0);
+        }
+
+        /// <summary>사용자 표시 설정과 후보 개수 기준으로 실제 Popup 활성 상태를 적용한다.</summary>
+        private void ApplyResolvedPopupVisibility()
+        {
+            bool shouldBeVisible = showPopup && spawnedEntries.Count > 0;
+
+            if (gameObject.activeSelf != shouldBeVisible)
+                gameObject.SetActive(shouldBeVisible);
         }
 
         /// <summary>표시 가능한 후보만 필터링한다.</summary>

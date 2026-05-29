@@ -137,6 +137,10 @@ namespace Tessera.UI
         [Header("Debug Start")]
         [SerializeField] private bool autoStartDebugRoundOnStart = true;
 
+        [Header("External Input Lock")]
+        [SerializeField] private bool externalGameplayInputLocked;
+        [SerializeField] private string externalGameplayInputLockReason = "Gameplay input is locked.";
+
         private readonly int[] lockedDiceIndexBySlot = { -1, -1, -1, -1, -1 };
 
         private CoreRoundSimulator simulator;
@@ -271,6 +275,7 @@ namespace Tessera.UI
                 ? "Round started."
                 : $"{roundDisplayName} started.";
 
+            SetExternalGameplayInputLocked(false, string.Empty);
             RefreshAll(message);
         }
 
@@ -285,6 +290,21 @@ namespace Tessera.UI
                 RefreshAll(null);
             else
                 RefreshDeviceSlotViews();
+        }
+
+        /// <summary>외부 GameMode/StageFlow에 의해 Gameplay 입력 잠금 상태를 변경한다.</summary>
+        public void SetExternalGameplayInputLocked(bool isLocked, string reason)
+        {
+            externalGameplayInputLocked = isLocked;
+            externalGameplayInputLockReason = string.IsNullOrWhiteSpace(reason)
+                ? "Gameplay input is locked."
+                : reason;
+
+            RefreshButtonStates();
+            RefreshCastPopup();
+
+            if (externalGameplayInputLocked)
+                SetMessage(externalGameplayInputLockReason);
         }
 
         /// <summary>잠기지 않은 주사위를 다시 굴린다.</summary>
@@ -401,6 +421,12 @@ namespace Tessera.UI
         private bool TryCanRollUnlockedDice(out string failureMessage)
         {
             failureMessage = string.Empty;
+
+            if (externalGameplayInputLocked)
+            {
+                failureMessage = externalGameplayInputLockReason;
+                return false;
+            }
 
             if (interactionState == BattleInteractionState.DiceRolling)
             {
@@ -1186,11 +1212,19 @@ namespace Tessera.UI
         /// <summary>Cast 후보 Popup을 갱신한다.</summary>
         private void RefreshCastPopup()
         {
-            if (castCandidatePopupView == null) return;
+            if (castCandidatePopupView == null)
+                return;
+
+            if (externalGameplayInputLocked)
+            {
+                castCandidatePopupView.SetPopupVisible(false);
+                return;
+            }
 
             castCandidatePopupView.SetPopupVisible(showCastCandidatePopup);
 
-            if (!showCastCandidatePopup) return;
+            if (!showCastCandidatePopup)
+                return;
 
             if (!CanPrepareCastPreviewInCurrentAttempt())
             {
@@ -1219,7 +1253,9 @@ namespace Tessera.UI
                 submitSelectedButton,
                 canPrepareCast && selectedPatternType != RollPatternType.None);
 
-            SetButtonInteractable(togglePopupButton, hasRound && CanTogglePopup());
+            SetButtonInteractable(
+                togglePopupButton,
+                hasRound && CanTogglePopup());
 
             if (diceCup3DView != null)
                 diceCup3DView.SetInteractable(useDiceCupRollInput && CanRollByDiceCupInput());
@@ -1241,6 +1277,9 @@ namespace Tessera.UI
         /// <summary>현재 Attempt에서 플레이어 조작이 가능한지 확인한다.</summary>
         private bool CanActInCurrentAttempt()
         {
+            if (externalGameplayInputLocked)
+                return false;
+
             if (roundState == null)
                 return false;
 
@@ -1265,6 +1304,9 @@ namespace Tessera.UI
         /// <summary>DiceCup Roll 입력 가능 여부를 반환한다.</summary>
         private bool CanRollByDiceCupInput()
         {
+            if (externalGameplayInputLocked)
+                return false;
+
             if (roundState == null)
                 return false;
 
@@ -1280,11 +1322,14 @@ namespace Tessera.UI
         /// <summary>Cast 후보 Popup 토글 가능 여부를 반환한다.</summary>
         private bool CanTogglePopup()
         {
+            if (externalGameplayInputLocked)
+                return false;
+
             if (roundState == null)
                 return false;
 
             if (roundState.IsRoundEnded)
-                return true;
+                return false;
 
             return interactionState == BattleInteractionState.PlayerIdle;
         }
@@ -1668,7 +1713,7 @@ namespace Tessera.UI
             return roundState != null && roundState.IsRoundEnded;
         }
 
-        /// <summary>Round 종료 후 Dice를 Tray에 고정하고 후속 전환 대기 상태로 만든다.</summary>
+        /// <summary>Round 종료 후 Dice를 Tray에 고정하고 StageFlow 후속 전환을 기다리는 상태로 만든다.</summary>
         private void ForceRoundEndDiceTrayState(CastSubmitResult result)
         {
             if (roundState == null)
@@ -1686,8 +1731,8 @@ namespace Tessera.UI
                 diceTray3DView.RestoreAllDiceToTray(roundState.GetCurrentDiceValues(), lockedDiceMoveDuration);
 
             string message = result.IsRoundWon
-                ? "Round won. Dice fixed to tray. Shop transition is pending."
-                : "Round lost. Dice fixed to tray. Result UI is pending.";
+                ? "Round won. Awaiting bounty decision."
+                : "Round lost. Awaiting result decision.";
 
             Debug.Log(
                 $"[Tessera][RoundEnd] {message} " +
@@ -1708,6 +1753,9 @@ namespace Tessera.UI
                 return;
 
             if (roundState == null)
+                return;
+
+            if (!result.CanStartNextAttempt)
                 return;
 
             if (result.IsRoundWon)
