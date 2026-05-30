@@ -19,6 +19,7 @@ namespace Tessera.UI
         [Header("Texts")]
         [SerializeField] private TMP_Text titleText;
         [SerializeField] private TMP_Text messageText;
+        [SerializeField] private TMP_Text stateText;
 
         [Header("Cards")]
         [SerializeField] private RectTransform cardRoot;
@@ -60,6 +61,9 @@ namespace Tessera.UI
 
             if (messageText != null)
                 messageText.text = message ?? string.Empty;
+
+            if (stateText != null)
+                stateText.text = BuildStateText(boardState);
 
             RebuildCards(boardState);
         }
@@ -137,12 +141,27 @@ namespace Tessera.UI
 
                 card.gameObject.SetActive(true);
                 card.Selected += HandleCardSelected;
-                card.Bind(boardState.BountyNodes[i]);
+                card.Bind(boardState.BountyNodes[i], boardState);
 
                 spawnedCards.Add(card);
             }
 
             LayoutRebuilder.ForceRebuildLayoutImmediate(cardRoot);
+        }
+
+        /// <summary>Bounty Board 상태 텍스트를 생성한다.</summary>
+        private static string BuildStateText(StageBountyBoardState boardState)
+        {
+            if (boardState == null)
+                return string.Empty;
+
+            string enragedText = boardState.IsEnraged ? " / Enraged" : string.Empty;
+            string retreatRecoveryText = boardState.IsRetreatRecoveryActive ? " / Retreat Recovery" : string.Empty;
+
+            return
+                $"Pending Money {boardState.PendingMoneyReward} | " +
+                $"Chain {boardState.ChainCount} | " +
+                $"StageThreat {boardState.StageThreatLevel}{enragedText}{retreatRecoveryText}";
         }
 
         /// <summary>기존 생성 카드들을 제거한다.</summary>

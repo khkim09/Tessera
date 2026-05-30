@@ -17,8 +17,11 @@ namespace Tessera.Runtime
         /// <summary>현재 선택 가능 여부.</summary>
         public bool IsAvailable { get; private set; }
 
-        /// <summary>분노/압력 적용 단계.</summary>
-        public int EnrageLevel { get; private set; }
+        /// <summary>Retreat Recovery 제한에 의해 잠긴 상태인지 여부.</summary>
+        public bool IsLockedByRetreatRecovery { get; private set; }
+
+        /// <summary>기존 Enrage 표시 호환용 접근자다. 신규 구조에서는 StageThreatLevel 기반으로 Enraged를 해석한다.</summary>
+        public int EnrageLevel => 0;
 
         /// <summary>보스 수배지 여부.</summary>
         public bool IsBoss => Definition != null && Definition.RoundType == Core.StageRoundType.Boss;
@@ -33,13 +36,13 @@ namespace Tessera.Runtime
             IsCleared = false;
             IsDiscarded = false;
             IsAvailable = definition != null && definition.InitiallyAvailable;
-            EnrageLevel = 0;
+            IsLockedByRetreatRecovery = false;
         }
 
         /// <summary>선택 가능 상태를 지정한다.</summary>
         public void SetAvailable(bool isAvailable)
         {
-            if (IsCleared || IsDiscarded)
+            if (IsCleared || IsDiscarded || IsLockedByRetreatRecovery)
             {
                 IsAvailable = false;
                 return;
@@ -48,12 +51,22 @@ namespace Tessera.Runtime
             IsAvailable = isAvailable;
         }
 
+        /// <summary>Retreat Recovery 잠금 상태를 지정한다.</summary>
+        public void SetRetreatRecoveryLocked(bool isLocked)
+        {
+            IsLockedByRetreatRecovery = isLocked;
+
+            if (isLocked)
+                IsAvailable = false;
+        }
+
         /// <summary>수배지를 클리어 처리한다.</summary>
         public void MarkCleared()
         {
             IsCleared = true;
             IsDiscarded = false;
             IsAvailable = false;
+            IsLockedByRetreatRecovery = false;
         }
 
         /// <summary>수배지를 폐기 처리한다.</summary>
@@ -64,15 +77,12 @@ namespace Tessera.Runtime
 
             IsDiscarded = true;
             IsAvailable = false;
+            IsLockedByRetreatRecovery = false;
         }
 
-        /// <summary>분노 단계를 증가시킨다.</summary>
+        /// <summary>기존 Enrage 증가 호출 호환용 메서드다. 신규 구조에서는 아무 동작도 하지 않는다.</summary>
         public void IncreaseEnrage()
         {
-            if (IsCleared || IsDiscarded)
-                return;
-
-            EnrageLevel++;
         }
     }
 }

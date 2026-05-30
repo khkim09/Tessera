@@ -20,10 +20,16 @@ namespace Tessera.UI
         [SerializeField] private Button retreatButton;
         [SerializeField] private Button abandonButton;
 
+        /// <summary>Retry 버튼 클릭 이벤트.</summary>
         public event Action RetryRequested;
+
+        /// <summary>Retreat 버튼 클릭 이벤트.</summary>
         public event Action RetreatRequested;
+
+        /// <summary>Abandon 버튼 클릭 이벤트.</summary>
         public event Action AbandonRequested;
 
+        /// <summary>버튼 클릭 이벤트를 연결한다.</summary>
         private void OnEnable()
         {
             if (retryButton != null)
@@ -36,6 +42,7 @@ namespace Tessera.UI
                 abandonButton.onClick.AddListener(HandleAbandonClicked);
         }
 
+        /// <summary>버튼 클릭 이벤트를 해제한다.</summary>
         private void OnDisable()
         {
             if (retryButton != null)
@@ -52,7 +59,7 @@ namespace Tessera.UI
         public void Show(
             TesseraRunSession runSession,
             StageBountyBoardState boardState,
-            int retryPartsCost,
+            int retryMoneyCost,
             string message)
         {
             SetVisible(true);
@@ -62,15 +69,16 @@ namespace Tessera.UI
                 ? currentNode.Definition.DisplayName
                 : "Unknown Bounty";
 
-            int parts = runSession != null ? runSession.Parts : 0;
+            int money = runSession != null ? runSession.Money : 0;
             int hp = runSession != null ? runSession.PlayerCurrentHp : 0;
             int maxHp = runSession != null ? runSession.PlayerMaxHp : 0;
             int overcharge = runSession != null ? runSession.Overcharge : 0;
             int chain = boardState != null ? boardState.ChainCount : 0;
-            int pressure = boardState != null ? boardState.PressureLevel : 0;
-            int pendingParts = boardState != null ? boardState.PendingPartsReward : 0;
-            int pendingOvercharge = boardState != null ? boardState.PendingOverchargeReward : 0;
-            bool canRetry = runSession != null && currentNode != null && parts >= retryPartsCost;
+            int stageThreat = boardState != null ? boardState.StageThreatLevel : 0;
+            int pendingMoney = boardState != null ? boardState.PendingMoneyReward : 0;
+            bool retreatRecovery = boardState != null && boardState.IsRetreatRecoveryActive;
+            bool enraged = boardState != null && boardState.IsEnraged;
+            bool canRetry = runSession != null && currentNode != null && money >= retryMoneyCost;
 
             if (titleText != null)
                 titleText.text = "Round Lost";
@@ -83,18 +91,19 @@ namespace Tessera.UI
                 summaryText.text =
                     $"Bounty: {bountyName}\n" +
                     $"HP: {hp}/{maxHp}\n" +
-                    $"Parts: {parts}\n" +
+                    $"Money: {money}\n" +
                     $"Overcharge: {overcharge}\n" +
                     $"Chain: {chain}\n" +
-                    $"Pressure: {pressure}\n" +
-                    $"Pending Reward: Parts {pendingParts}, Overcharge {pendingOvercharge}\n\n" +
-                    $"Retry keeps the same bounty and current risk.\n" +
-                    $"Retreat discards this bounty and pending reward, then opens Workshop.\n" +
-                    $"Abandon ends the run.";
+                    $"StageThreat: {stageThreat}" + (enraged ? " / Enraged" : string.Empty) + "\n" +
+                    $"Pending Money: {pendingMoney}\n" +
+                    $"Retreat Recovery: {retreatRecovery}\n\n" +
+                    $"Retry: pay Money, restore HP to 100%, retry the same bounty.\n" +
+                    $"Retreat: discard this bounty, pay out part of Pending Money, restore HP to 80% minimum, open Emergency Workshop.\n" +
+                    $"Abandon: end the run.";
             }
 
             if (retryButtonText != null)
-                retryButtonText.text = $"Retry - Parts {retryPartsCost}";
+                retryButtonText.text = $"Retry - Money {retryMoneyCost}";
 
             if (retreatButtonText != null)
                 retreatButtonText.text = "Retreat";
@@ -115,16 +124,19 @@ namespace Tessera.UI
                 gameObject.SetActive(visible);
         }
 
+        /// <summary>Retry 버튼 클릭을 외부 이벤트로 전달한다.</summary>
         private void HandleRetryClicked()
         {
             RetryRequested?.Invoke();
         }
 
+        /// <summary>Retreat 버튼 클릭을 외부 이벤트로 전달한다.</summary>
         private void HandleRetreatClicked()
         {
             RetreatRequested?.Invoke();
         }
 
+        /// <summary>Abandon 버튼 클릭을 외부 이벤트로 전달한다.</summary>
         private void HandleAbandonClicked()
         {
             AbandonRequested?.Invoke();

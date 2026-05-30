@@ -14,19 +14,22 @@ namespace Tessera.UI
         [SerializeField] private TMP_Text typeText;
         [SerializeField] private TMP_Text rewardText;
         [SerializeField] private TMP_Text stateText;
-        [SerializeField] private TMP_Text pressureText;
+        [SerializeField] private TMP_Text stageThreatText;
 
         private StageBountyNodeState node;
+        private StageBountyBoardState boardState;
 
         /// <summary>카드 선택 이벤트.</summary>
         public event Action<StageBountyNodeState> Selected;
 
+        /// <summary>버튼 클릭 이벤트를 연결한다.</summary>
         private void OnEnable()
         {
             if (button != null)
                 button.onClick.AddListener(HandleClicked);
         }
 
+        /// <summary>버튼 클릭 이벤트를 해제한다.</summary>
         private void OnDisable()
         {
             if (button != null)
@@ -34,21 +37,22 @@ namespace Tessera.UI
         }
 
         /// <summary>카드를 지정 수배지 상태로 갱신한다.</summary>
-        public void Bind(StageBountyNodeState nodeState)
+        public void Bind(StageBountyNodeState nodeState, StageBountyBoardState ownerBoardState)
         {
             node = nodeState;
+            boardState = ownerBoardState;
 
             if (titleText != null)
                 titleText.text = node?.Definition != null ? node.Definition.DisplayName : "Empty";
 
             if (typeText != null)
-                typeText.text = node?.Definition != null ? node.Definition.RoundType.ToString() : "-";
+                typeText.text = BuildTypeText();
 
             if (rewardText != null)
-                rewardText.text = node?.Definition != null ? $"Parts +{node.Definition.RewardParts}" : "-";
+                rewardText.text = BuildRewardText();
 
-            if (pressureText != null)
-                pressureText.text = node != null ? $"Enrage {node.EnrageLevel}" : string.Empty;
+            if (stageThreatText != null)
+                stageThreatText.text = BuildThreatText();
 
             if (stateText != null)
                 stateText.text = BuildStateText();
@@ -57,17 +61,50 @@ namespace Tessera.UI
                 button.interactable = node != null && node.IsAvailable;
         }
 
-        private void HandleClicked()
+        /// <summary>기존 호출 호환용 Bind 메서드다.</summary>
+        public void Bind(StageBountyNodeState nodeState)
         {
-            if (node == null)
-                return;
-
-            if (!node.IsAvailable)
-                return;
-
-            Selected?.Invoke(node);
+            Bind(nodeState, null);
         }
 
+        /// <summary>카드 타입 텍스트를 생성한다.</summary>
+        private string BuildTypeText()
+        {
+            if (node == null || node.Definition == null)
+                return "-";
+
+            return $"{node.Definition.RoundType} / Rank {node.Definition.BountyRank}";
+        }
+
+        /// <summary>카드 보상 텍스트를 생성한다.</summary>
+        private string BuildRewardText()
+        {
+            if (node == null || node.Definition == null)
+                return "-";
+
+            int baseReward = node.Definition.BaseRewardMoney;
+            int bountyRankBonus = node.Definition.BountyRank * 2;
+            int stageThreatBonus = boardState != null ? boardState.StageThreatLevel * 2 : 0;
+
+            return
+                $"Money +{baseReward}\n" +
+                $"Rank Bonus +{bountyRankBonus}\n" +
+                $"Threat Bonus +{stageThreatBonus}";
+        }
+
+        /// <summary>StageThreat / Enraged 표시 텍스트를 생성한다.</summary>
+        private string BuildThreatText()
+        {
+            if (boardState == null)
+                return string.Empty;
+
+            string enragedText = boardState.IsEnraged ? " / Enraged" : string.Empty;
+            string retreatLockText = node != null && node.IsLockedByRetreatRecovery ? " / Retreat Locked" : string.Empty;
+
+            return $"StageThreat {boardState.StageThreatLevel}{enragedText}{retreatLockText}";
+        }
+
+        /// <summary>카드 상태 텍스트를 생성한다.</summary>
         private string BuildStateText()
         {
             if (node == null)
@@ -79,10 +116,25 @@ namespace Tessera.UI
             if (node.IsDiscarded)
                 return "Discarded";
 
+            if (node.IsLockedByRetreatRecovery)
+                return "Retreat Locked";
+
             if (node.IsAvailable)
                 return "Available";
 
             return "Locked";
+        }
+
+        /// <summary>버튼 클릭을 선택 이벤트로 전달한다.</summary>
+        private void HandleClicked()
+        {
+            if (node == null)
+                return;
+
+            if (!node.IsAvailable)
+                return;
+
+            Selected?.Invoke(node);
         }
     }
 }

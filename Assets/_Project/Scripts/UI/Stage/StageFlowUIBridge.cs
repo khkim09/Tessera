@@ -23,6 +23,7 @@ namespace Tessera.UI
         private IDisposable roundFailureShowSubscription;
         private IDisposable shopShowSubscription;
 
+        /// <summary>이벤트 구독 및 View 이벤트 연결을 수행한다.</summary>
         private void OnEnable()
         {
             roundStartSubscription = TesseraEventBus.Subscribe<StageRoundStartRequestedEvent>(HandleRoundStartRequested);
@@ -43,8 +44,7 @@ namespace Tessera.UI
             if (rewardDecisionView != null)
             {
                 rewardDecisionView.CashOutRequested += HandleCashOutRequested;
-                rewardDecisionView.ChainRequested += HandleChainRequested;
-                rewardDecisionView.BossRequested += HandleBossRequested;
+                rewardDecisionView.KeepFightingRequested += HandleKeepFightingRequested;
             }
 
             if (roundFailureDecisionView != null)
@@ -55,9 +55,14 @@ namespace Tessera.UI
             }
 
             if (shopFlowView != null)
+            {
                 shopFlowView.ContinueRequested += HandleShopContinueRequested;
+                shopFlowView.RepairRequested += HandleShopRepairRequested;
+                shopFlowView.UpgradeTierRequested += HandleShopUpgradeTierRequested;
+            }
         }
 
+        /// <summary>이벤트 구독 및 View 이벤트 연결을 해제한다.</summary>
         private void OnDisable()
         {
             roundStartSubscription?.Dispose();
@@ -84,8 +89,7 @@ namespace Tessera.UI
             if (rewardDecisionView != null)
             {
                 rewardDecisionView.CashOutRequested -= HandleCashOutRequested;
-                rewardDecisionView.ChainRequested -= HandleChainRequested;
-                rewardDecisionView.BossRequested -= HandleBossRequested;
+                rewardDecisionView.KeepFightingRequested -= HandleKeepFightingRequested;
             }
 
             if (roundFailureDecisionView != null)
@@ -96,9 +100,14 @@ namespace Tessera.UI
             }
 
             if (shopFlowView != null)
+            {
                 shopFlowView.ContinueRequested -= HandleShopContinueRequested;
+                shopFlowView.RepairRequested -= HandleShopRepairRequested;
+                shopFlowView.UpgradeTierRequested -= HandleShopUpgradeTierRequested;
+            }
         }
 
+        /// <summary>Stage Round 시작 요청을 Gameplay Presenter에 전달한다.</summary>
         private void HandleRoundStartRequested(StageRoundStartRequestedEvent gameEvent)
         {
             if (gameplayPresenter == null)
@@ -111,6 +120,7 @@ namespace Tessera.UI
                 gameEvent.RoundDisplayName);
         }
 
+        /// <summary>Bounty Board 표시 요청을 View에 전달한다.</summary>
         private void HandleBountyBoardShowRequested(BountyBoardShowRequestedEvent gameEvent)
         {
             if (bountyBoardView == null)
@@ -119,6 +129,7 @@ namespace Tessera.UI
             bountyBoardView.Show(gameEvent.BoardState, gameEvent.Message);
         }
 
+        /// <summary>Reward Decision 표시 요청을 View에 전달한다.</summary>
         private void HandleRewardDecisionShowRequested(RewardDecisionShowRequestedEvent gameEvent)
         {
             if (rewardDecisionView == null)
@@ -127,6 +138,7 @@ namespace Tessera.UI
             rewardDecisionView.Show(gameEvent.BoardState, gameEvent.Message);
         }
 
+        /// <summary>Round Failure Decision 표시 요청을 View에 전달한다.</summary>
         private void HandleRoundFailureShowRequested(RoundFailureShowRequestedEvent gameEvent)
         {
             if (roundFailureDecisionView == null)
@@ -135,10 +147,11 @@ namespace Tessera.UI
             roundFailureDecisionView.Show(
                 gameEvent.RunSession,
                 gameEvent.BoardState,
-                gameEvent.RetryPartsCost,
+                gameEvent.RetryMoneyCost,
                 gameEvent.Message);
         }
 
+        /// <summary>Workshop Shell 표시 요청을 View에 전달한다.</summary>
         private void HandleShopShowRequested(StageShopShowRequestedEvent gameEvent)
         {
             if (shopFlowView == null)
@@ -151,58 +164,75 @@ namespace Tessera.UI
                 gameEvent.Message);
         }
 
+        /// <summary>View의 수배지 선택을 Runtime 이벤트로 변환한다.</summary>
         private void HandleBountySelected(StageBountyNodeState node)
         {
             TesseraEventBus.Publish(new BountyRoundSelectedEvent(node));
         }
 
+        /// <summary>CashOut 요청을 Runtime 이벤트로 변환한다.</summary>
         private void HandleCashOutRequested()
         {
             TesseraEventBus.Publish(new RewardDecisionRequestedEvent(StageRewardDecisionType.CashOut));
         }
 
-        private void HandleChainRequested()
+        /// <summary>Keep Fighting 요청을 Runtime 이벤트로 변환한다.</summary>
+        private void HandleKeepFightingRequested()
         {
             TesseraEventBus.Publish(new RewardDecisionRequestedEvent(StageRewardDecisionType.ChainRush));
         }
 
-        private void HandleBossRequested()
-        {
-            TesseraEventBus.Publish(new RewardDecisionRequestedEvent(StageRewardDecisionType.Boss));
-        }
-
+        /// <summary>Retry 요청을 Runtime 이벤트로 변환한다.</summary>
         private void HandleFailureRetryRequested()
         {
             TesseraEventBus.Publish(new RoundFailureDecisionRequestedEvent(RoundFailureDecisionType.Retry));
         }
 
+        /// <summary>Retreat 요청을 Runtime 이벤트로 변환한다.</summary>
         private void HandleFailureRetreatRequested()
         {
             TesseraEventBus.Publish(new RoundFailureDecisionRequestedEvent(RoundFailureDecisionType.Retreat));
         }
 
+        /// <summary>Abandon 요청을 Runtime 이벤트로 변환한다.</summary>
         private void HandleFailureAbandonRequested()
         {
             TesseraEventBus.Publish(new RoundFailureDecisionRequestedEvent(RoundFailureDecisionType.Abandon));
         }
 
+        /// <summary>Workshop Continue 요청을 Runtime 이벤트로 변환한다.</summary>
         private void HandleShopContinueRequested()
         {
             TesseraEventBus.Publish(new StageShopContinueRequestedEvent());
         }
 
+        /// <summary>Workshop Repair 요청을 Runtime 이벤트로 변환한다.</summary>
+        private void HandleShopRepairRequested()
+        {
+            TesseraEventBus.Publish(new StageShopRepairRequestedEvent());
+        }
+
+        /// <summary>Workshop Tier 업그레이드 요청을 Runtime 이벤트로 변환한다.</summary>
+        private void HandleShopUpgradeTierRequested()
+        {
+            TesseraEventBus.Publish(new StageShopUpgradeTierRequestedEvent());
+        }
+
+        /// <summary>Gameplay Presenter의 Round 승리 이벤트를 Runtime 이벤트로 변환한다.</summary>
         private void HandleRoundWon(CastSubmitResult result)
         {
             int playerHp = GetCurrentPlayerHpFromPresenter();
             TesseraEventBus.Publish(new GameplayRoundWonEvent(result, playerHp));
         }
 
+        /// <summary>Gameplay Presenter의 Round 패배 이벤트를 Runtime 이벤트로 변환한다.</summary>
         private void HandleRoundLost(CastSubmitResult result)
         {
             int playerHp = GetCurrentPlayerHpFromPresenter();
             TesseraEventBus.Publish(new GameplayRoundLostEvent(result, playerHp));
         }
 
+        /// <summary>Gameplay Presenter의 현재 RoundState에서 플레이어 HP를 읽는다.</summary>
         private int GetCurrentPlayerHpFromPresenter()
         {
             RoundState roundState = gameplayPresenter != null ? gameplayPresenter.CurrentRoundState : null;

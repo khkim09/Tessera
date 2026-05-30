@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Tessera.Runtime
 {
-    /// <summary>한 Run 동안 유지되는 Stage, HP, 재화, Chain, 장착 Device 상태를 관리한다.</summary>
+    /// <summary>한 Run 동안 유지되는 Stage, HP, Money, Overcharge, Chain, 장착 Device 상태를 관리한다.</summary>
     public class TesseraRunSession
     {
         public const int MaxDeviceSlots = 5;
@@ -17,8 +17,11 @@ namespace Tessera.Runtime
         /// <summary>현재 Stage 번호.</summary>
         public int CurrentStageNumber => CurrentStageIndex + 1;
 
-        /// <summary>현재 보유 Parts.</summary>
-        public int Parts { get; private set; }
+        /// <summary>현재 보유 Money.</summary>
+        public int Money { get; private set; }
+
+        /// <summary>기존 Parts 기반 코드 호환용 접근자다. 신규 코드는 Money를 사용한다.</summary>
+        public int Parts => Money;
 
         /// <summary>플레이어 최대 HP.</summary>
         public int PlayerMaxHp { get; private set; }
@@ -32,10 +35,16 @@ namespace Tessera.Runtime
         /// <summary>현재 Stage Chain 누적값.</summary>
         public int StageChainCount { get; private set; }
 
-        /// <summary>현재 Stage Pressure 단계.</summary>
-        public int StagePressureLevel { get; private set; }
+        /// <summary>현재 Stage 내부 누적 위험도.</summary>
+        public int StageThreatLevel { get; private set; }
 
-        /// <summary>Stage 단위 Overcharge 상태.</summary>
+        /// <summary>기존 Pressure 기반 코드 호환용 접근자다. 신규 코드는 StageThreatLevel을 사용한다.</summary>
+        public int StagePressureLevel => StageThreatLevel;
+
+        /// <summary>현재 Workshop Tier.</summary>
+        public int CurrentWorkshopTier { get; private set; }
+
+        /// <summary>Stage/Run 단위 Overcharge 상태.</summary>
         public OverchargeState StageOverchargeState { get; }
 
         /// <summary>현재 Overcharge 수치.</summary>
@@ -47,13 +56,14 @@ namespace Tessera.Runtime
         /// <summary>RunSession을 생성한다.</summary>
         public TesseraRunSession(int startParts = 0, int playerMaxHp = 100)
         {
-            Parts = Mathf.Max(0, startParts);
+            Money = Mathf.Max(0, startParts);
             PlayerMaxHp = Mathf.Max(1, playerMaxHp);
             PlayerCurrentHp = PlayerMaxHp;
             CurrentStageIndex = 0;
             RunChainCount = 0;
             StageChainCount = 0;
-            StagePressureLevel = 0;
+            StageThreatLevel = 0;
+            CurrentWorkshopTier = 1;
             StageOverchargeState = new OverchargeState();
         }
 
@@ -65,36 +75,49 @@ namespace Tessera.Runtime
             if (!resetStageChain)
                 return;
 
-            StageChainCount = 0;
-            StagePressureLevel = 0;
+            ResetStageChainAndStageThreat();
         }
 
-        /// <summary>Stage 시작 시 Overcharge를 초기화한다.</summary>
+        /// <summary>
+        /// 기존 Stage 시작 Overcharge 초기화 호출 호환용 메서드다.
+        /// 최신 경제 구조에서 Overcharge는 Stage 시작/종료 시 초기화하지 않는다.
+        /// </summary>
         public void ResetOverchargeForStageStart()
         {
-            StageOverchargeState.ResetForStageStart();
         }
 
-        /// <summary>보유 Parts를 증가시킨다.</summary>
-        public void AddParts(int amount)
+        /// <summary>보유 Money를 증가시킨다.</summary>
+        public void AddMoney(int amount)
         {
             if (amount <= 0)
                 return;
 
-            Parts += amount;
+            Money += amount;
         }
 
-        /// <summary>지정 Parts를 지불할 수 있으면 차감한다.</summary>
-        public bool TrySpendParts(int amount)
+        /// <summary>지정 Money를 지불할 수 있으면 차감한다.</summary>
+        public bool TrySpendMoney(int amount)
         {
             if (amount < 0)
                 return false;
 
-            if (Parts < amount)
+            if (Money < amount)
                 return false;
 
-            Parts -= amount;
+            Money -= amount;
             return true;
+        }
+
+        /// <summary>기존 Parts 기반 코드 호환용 메서드다. 신규 코드는 AddMoney를 사용한다.</summary>
+        public void AddParts(int amount)
+        {
+            AddMoney(amount);
+        }
+
+        /// <summary>기존 Parts 기반 코드 호환용 메서드다. 신규 코드는 TrySpendMoney를 사용한다.</summary>
+        public bool TrySpendParts(int amount)
+        {
+            return TrySpendMoney(amount);
         }
 
         /// <summary>Overcharge를 증가시킨다.</summary>
@@ -121,21 +144,54 @@ namespace Tessera.Runtime
             PlayerCurrentHp = Mathf.Clamp(currentHp, 0, PlayerMaxHp);
         }
 
-        /// <summary>Cash Out 회복을 적용한다.</summary>
-        public int HealByCashOutRatio(float ratio)
+        /// <summary>플레이어 HP를 최대치로 회복한다.</summary>
+        public void RestorePlayerToFullHp()
+        {
+            PlayerCurrentHp = PlayerMaxHp;
+        }
+
+        /// <summary>최대 HP 비율만큼 현재 HP를 추가 회복한다.</summary>
+        public int HealByRatio(float ratio)
         {
             if (ratio <= 0f)
                 return 0;
 
             int healAmount = Mathf.FloorToInt(PlayerMaxHp * ratio);
+            return RepairPlayerHp(healAmount);
+        }
+
+        /// <summary>현재 HP가 지정 비율 미만이면 해당 비율까지 보정한다.</summary>
+        public int HealToMinimumRatio(float minimumRatio)
+        {
+            if (minimumRatio <= 0f)
+                return 0;
+
+            int targetHp = Mathf.FloorToInt(PlayerMaxHp * minimumRatio);
             int previousHp = PlayerCurrentHp;
 
+            PlayerCurrentHp = Mathf.Clamp(Mathf.Max(PlayerCurrentHp, targetHp), 0, PlayerMaxHp);
+            return PlayerCurrentHp - previousHp;
+        }
+
+        /// <summary>고정량만큼 플레이어 HP를 회복한다.</summary>
+        public int RepairPlayerHp(int healAmount)
+        {
+            if (healAmount <= 0)
+                return 0;
+
+            int previousHp = PlayerCurrentHp;
             PlayerCurrentHp = Mathf.Min(PlayerMaxHp, PlayerCurrentHp + healAmount);
             return PlayerCurrentHp - previousHp;
         }
 
-        /// <summary>Chain Rush 누적값을 반영한다.</summary>
-        public void AddChainAndPressure(int chainAmount, int pressureAmount)
+        /// <summary>기존 CashOut 회복 호출 호환용 메서드다. 신규 코드는 HealByRatio를 사용한다.</summary>
+        public int HealByCashOutRatio(float ratio)
+        {
+            return HealByRatio(ratio);
+        }
+
+        /// <summary>Chain Rush 누적값과 StageThreat를 반영한다.</summary>
+        public void AddChainAndStageThreat(int chainAmount, int stageThreatAmount)
         {
             if (chainAmount > 0)
             {
@@ -143,15 +199,53 @@ namespace Tessera.Runtime
                 RunChainCount += chainAmount;
             }
 
-            if (pressureAmount > 0)
-                StagePressureLevel += pressureAmount;
+            if (stageThreatAmount > 0)
+                StageThreatLevel += stageThreatAmount;
         }
 
-        /// <summary>현재 Stage의 Chain과 Pressure를 초기화한다.</summary>
-        public void ResetStageChainAndPressure()
+        /// <summary>현재 Stage의 Chain과 StageThreat를 명시적으로 동기화한다.</summary>
+        public void SetStageChainAndThreat(int chainCount, int stageThreatLevel)
+        {
+            StageChainCount = Mathf.Max(0, chainCount);
+            StageThreatLevel = Mathf.Max(0, stageThreatLevel);
+        }
+
+        /// <summary>현재 Stage의 Chain과 StageThreat를 초기화한다.</summary>
+        public void ResetStageChainAndStageThreat()
         {
             StageChainCount = 0;
-            StagePressureLevel = 0;
+            StageThreatLevel = 0;
+        }
+
+        /// <summary>기존 Pressure 기반 코드 호환용 메서드다. 신규 코드는 AddChainAndStageThreat를 사용한다.</summary>
+        public void AddChainAndPressure(int chainAmount, int pressureAmount)
+        {
+            AddChainAndStageThreat(chainAmount, pressureAmount);
+        }
+
+        /// <summary>기존 Pressure 기반 코드 호환용 메서드다. 신규 코드는 ResetStageChainAndStageThreat를 사용한다.</summary>
+        public void ResetStageChainAndPressure()
+        {
+            ResetStageChainAndStageThreat();
+        }
+
+        /// <summary>Overcharge를 지불하고 Workshop Tier 상승을 시도한다.</summary>
+        public bool TryUpgradeWorkshopTier(int overchargeCost)
+        {
+            if (overchargeCost < 0)
+                return false;
+
+            if (!TrySpendOvercharge(overchargeCost))
+                return false;
+
+            CurrentWorkshopTier++;
+            return true;
+        }
+
+        /// <summary>현재 Workshop Tier를 초기화한다.</summary>
+        public void ResetWorkshopTier()
+        {
+            CurrentWorkshopTier = 1;
         }
 
         /// <summary>현재 장착 Device를 지정 슬롯에 강제로 설정한다.</summary>
@@ -201,6 +295,7 @@ namespace Tessera.Runtime
             return true;
         }
 
+        /// <summary>첫 번째 빈 Device 슬롯 인덱스를 찾는다.</summary>
         private int FindFirstEmptyDeviceSlotIndex()
         {
             for (int i = 0; i < equippedSlotPairDevices.Length; i++)
@@ -212,6 +307,7 @@ namespace Tessera.Runtime
             return -1;
         }
 
+        /// <summary>Device 슬롯 인덱스가 유효한지 확인한다.</summary>
         private static bool IsValidDeviceSlotIndex(int slotIndex)
         {
             return slotIndex >= 0 && slotIndex < MaxDeviceSlots;

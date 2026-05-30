@@ -33,7 +33,6 @@ namespace Tessera.UI
 
         [Header("Manual Dice")]
         [SerializeField] private bool useManualDiceValuesOnStart = true;
-        [SerializeField] private bool useManualDiceValuesOnNextAttempt = true;
         [SerializeField] private int die1 = 2;
         [SerializeField] private int die2 = 2;
         [SerializeField] private int die3 = 2;
@@ -526,6 +525,9 @@ namespace Tessera.UI
                 return;
             }
 
+            // 제출 성공 즉시 Attempt 표시를 감소시킨다.
+            RefreshTableHologramBattleMeta();
+
             // 제출 후에는 Core 결과를 그대로 보존해야 한다.
             SetInteractionState(BattleInteractionState.CastResolving);
             selectedPatternType = result.PatternResult.PatternType;
@@ -566,6 +568,9 @@ namespace Tessera.UI
                 RefreshAll("Broken Cast cannot be submitted.");
                 return;
             }
+
+            // 제출 성공 즉시 Attempt 표시를 감소시킨다.
+            RefreshTableHologramBattleMeta();
 
             // 제출 후에는 Core 결과를 그대로 보존해야 한다.
             SetInteractionState(BattleInteractionState.CastResolving);
@@ -897,8 +902,13 @@ namespace Tessera.UI
             if (roundState == null)
                 return 0;
 
-            // 현재 Attempt도 아직 제출 전이면 사용 가능한 횟수에 포함한다.
+            if (roundState.CurrentAttempt == null)
+                return 0;
+
             int remainingAttempts = roundState.RuleContext.MaxAttempts - roundState.CurrentAttempt.AttemptNumber + 1;
+
+            if (roundState.CurrentAttempt.IsSubmitted)
+                remainingAttempts--;
 
             return Mathf.Max(remainingAttempts, 0);
         }

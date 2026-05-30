@@ -91,18 +91,19 @@ namespace Tessera.Runtime
     {
         public TesseraRunSession RunSession { get; }
         public StageBountyBoardState BoardState { get; }
-        public int RetryPartsCost { get; }
+        public int RetryMoneyCost { get; }
+        public int RetryPartsCost => RetryMoneyCost;
         public string Message { get; }
 
         public RoundFailureShowRequestedEvent(
             TesseraRunSession runSession,
             StageBountyBoardState boardState,
-            int retryPartsCost,
+            int retryMoneyCost,
             string message)
         {
             RunSession = runSession;
             BoardState = boardState;
-            RetryPartsCost = retryPartsCost;
+            RetryMoneyCost = retryMoneyCost;
             Message = message ?? string.Empty;
         }
     }
@@ -126,6 +127,29 @@ namespace Tessera.Runtime
             ReasonType = reasonType;
             Message = message ?? string.Empty;
         }
+    }
+
+    /// <summary>Stage Economy 표시 갱신 요청 이벤트다.</summary>
+    public readonly struct StageEconomyChangedEvent
+    {
+        public TesseraRunSession RunSession { get; }
+        public StageBountyBoardState BoardState { get; }
+        public string Reason { get; }
+
+        public StageEconomyChangedEvent(
+            TesseraRunSession runSession,
+            StageBountyBoardState boardState,
+            string reason)
+        {
+            RunSession = runSession;
+            BoardState = boardState;
+            Reason = reason ?? string.Empty;
+        }
+    }
+
+    /// <summary>현재 Stage Economy 상태 재발행 요청 이벤트다.</summary>
+    public readonly struct StageEconomyRefreshRequestedEvent
+    {
     }
 
     /// <summary>Stage Shop 진입 요청 이벤트다.</summary>
@@ -176,6 +200,16 @@ namespace Tessera.Runtime
 
     /// <summary>UI에서 Shop Continue를 눌렀을 때 Runtime으로 보내는 이벤트다.</summary>
     public readonly struct StageShopContinueRequestedEvent
+    {
+    }
+
+    /// <summary>UI에서 Workshop Repair를 눌렀을 때 Runtime으로 보내는 이벤트다.</summary>
+    public readonly struct StageShopRepairRequestedEvent
+    {
+    }
+
+    /// <summary>UI에서 Workshop Tier 업그레이드를 눌렀을 때 Runtime으로 보내는 이벤트다.</summary>
+    public readonly struct StageShopUpgradeTierRequestedEvent
     {
     }
 

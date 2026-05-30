@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using Tessera.Core;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Tessera.Data
 {
@@ -18,7 +19,9 @@ namespace Tessera.Data
         [SerializeField] private bool initiallyAvailable = true;
 
         [Header("Rewards")]
-        [SerializeField] private int rewardParts = 20;
+        [FormerlySerializedAs("rewardParts")]
+        [SerializeField] private int baseRewardMoney = 20;
+        [SerializeField] private int bountyRank = 1;
         [SerializeField] private int rewardOvercharge;
         [SerializeField] private string rewardDescription;
 
@@ -61,17 +64,32 @@ namespace Tessera.Data
         /// <summary>초기 선택 가능 여부.</summary>
         public bool InitiallyAvailable => initiallyAvailable;
 
-        /// <summary>Parts 보상.</summary>
-        public int RewardParts => Mathf.Max(0, rewardParts);
+        /// <summary>수배지 승리 시 PendingMoneyReward에 들어갈 기본 Money 보상.</summary>
+        public int BaseRewardMoney => Mathf.Max(0, baseRewardMoney);
 
-        /// <summary>Overcharge 보상.</summary>
+        /// <summary>수배지 기본 난이도 랭크.</summary>
+        public int BountyRank => Mathf.Max(1, bountyRank);
+
+        /// <summary>최대 Attempt 수.</summary>
+        public int MaxAttempts => Mathf.Max(1, maxAttempts);
+
+        /// <summary>기존 Parts 기반 코드 호환용 접근자다. 신규 코드는 BaseRewardMoney를 사용한다.</summary>
+        public int RewardParts => BaseRewardMoney;
+
+        /// <summary>기존 Pending Overcharge 보상 호환용 접근자다. 신규 Bounty 보상 흐름에서는 사용하지 않는다.</summary>
         public int RewardOvercharge => Mathf.Max(0, rewardOvercharge);
 
         /// <summary>보상 설명.</summary>
         public string RewardDescription => rewardDescription ?? string.Empty;
 
-        /// <summary>RoundRuleContext를 생성한다.</summary>
+        /// <summary>StageThreat 없이 RoundRuleContext를 생성한다.</summary>
         public RoundRuleContext BuildRuleContext(int runPlayerMaxHp)
+        {
+            return BuildRuleContext(runPlayerMaxHp, 0);
+        }
+
+        /// <summary>StageThreatLevel 보정을 반영하여 RoundRuleContext를 생성한다.</summary>
+        public RoundRuleContext BuildRuleContext(int runPlayerMaxHp, int stageThreatLevel)
         {
             List<TableRule> tableRules = new List<TableRule>();
 
@@ -85,16 +103,29 @@ namespace Tessera.Data
                 tableRules.Add(TableRule.DisableBrokenCastReward());
 
             int resolvedPlayerMaxHp = runPlayerMaxHp > 0 ? runPlayerMaxHp : playerMaxHp;
+            int resolvedStageThreatLevel = Mathf.Max(0, stageThreatLevel);
+            int resolvedEnemyStrikeDamage = Mathf.Max(0, enemyStrikeDamage);
+            int resolvedRoundRollPool = Mathf.Max(1, roundRollPool);
+            int resolvedOpponentMaxHp = Mathf.Max(1, opponentMaxHp);
+
+            if (resolvedStageThreatLevel >= 1)
+                resolvedEnemyStrikeDamage += 1;
+
+            if (resolvedStageThreatLevel >= 2)
+                resolvedRoundRollPool = Mathf.Max(1, resolvedRoundRollPool - 1);
+
+            if (resolvedStageThreatLevel >= 3)
+                resolvedOpponentMaxHp += resolvedStageThreatLevel * 5;
 
             return new RoundRuleContext(
                 diceCount: Mathf.Max(1, diceCount),
                 maxAttempts: Mathf.Max(1, maxAttempts),
-                roundRollPool: Mathf.Max(1, roundRollPool),
+                roundRollPool: resolvedRoundRollPool,
                 playerMaxHp: Mathf.Max(1, resolvedPlayerMaxHp),
-                opponentMaxHp: Mathf.Max(1, opponentMaxHp),
+                opponentMaxHp: resolvedOpponentMaxHp,
                 maxUsesPerCastPerRound: Mathf.Max(1, maxUsesPerCastPerRound),
                 maxBrokenCastUsesPerRound: Mathf.Max(1, maxBrokenCastUsesPerRound),
-                enemyStrikeDamage: Mathf.Max(0, enemyStrikeDamage),
+                enemyStrikeDamage: resolvedEnemyStrikeDamage,
                 brokenCastGrantsOvercharge: brokenCastGrantsOvercharge,
                 brokenCastOverchargeAmount: Mathf.Max(0, brokenCastOverchargeAmount),
                 brokenCastGrantsNextAttemptFreeReroll: brokenCastGrantsNextAttemptFreeReroll,
