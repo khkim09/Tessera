@@ -72,7 +72,7 @@ namespace Tessera.UI
                 cashOutButton.interactable = boardState != null && boardState.PendingMoneyReward > 0;
 
             if (keepFightingButton != null)
-                keepFightingButton.interactable = boardState != null && boardState.HasAvailableNormalBounty;
+                keepFightingButton.interactable = boardState != null && boardState.HasAvailableFightBounty;
         }
 
         /// <summary>View 표시 상태를 변경한다.</summary>

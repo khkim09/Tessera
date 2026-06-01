@@ -22,6 +22,9 @@ namespace Tessera.Data
         [Header("Bounties")]
         [SerializeField] private StageRoundDefinitionSO[] roundDefinitions;
 
+        [Header("Workshop Rules")]
+        [SerializeField] private StageWorkshopRulesSO workshopRules;
+
         /// <summary>Stage 번호.</summary>
         public int StageNumber => Mathf.Max(1, stageNumber);
 
@@ -45,6 +48,9 @@ namespace Tessera.Data
 
         /// <summary>Round 정의 목록.</summary>
         public StageRoundDefinitionSO[] RoundDefinitions => roundDefinitions;
+
+        /// <summary>이 Stage에 적용할 Workshop/Shop 등급 규칙.</summary>
+        public StageWorkshopRulesSO WorkshopRules => workshopRules;
 
         /// <summary>정의가 최소 조건을 만족하는지 확인한다.</summary>
         public bool IsValidDefinition()

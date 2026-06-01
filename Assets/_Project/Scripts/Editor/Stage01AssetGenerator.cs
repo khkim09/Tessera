@@ -13,8 +13,29 @@ public static class Stage01AssetGenerator
         // Ensure folder exists
         System.IO.Directory.CreateDirectory(FolderPath);
 
+        // 기존 에셋 제거 (있으면 덮어쓰기 위해)
+        string[] existingPaths = new string[]
+        {
+            $"{FolderPath}/Stage01_Round01_TutorialNormal.asset",
+            $"{FolderPath}/Stage01_Round02_NormalBounty.asset",
+            $"{FolderPath}/Stage01_Boss_TheClerk.asset",
+            $"{FolderPath}/Stage01_WorkshopRules.asset",
+            $"{FolderPath}/Stage_01_BrokenLedger.asset",
+        };
+
+        foreach (string path in existingPaths)
+        {
+            string assetPath = path.Replace("\\", "/");
+            string existing = AssetDatabase.AssetPathToGUID(assetPath);
+            if (!string.IsNullOrEmpty(existing))
+                AssetDatabase.DeleteAsset(assetPath);
+        }
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
         // --- Create Round 1: Tutorial Normal ---
-        var round1 = ScriptableObject.CreateInstance<StageRoundDefinitionSO>();
+        StageRoundDefinitionSO round1 = ScriptableObject.CreateInstance<StageRoundDefinitionSO>();
         round1.name = "Stage01_Round01_TutorialNormal";
         SetRoundFields(round1,
             roundId: "stage01_tutorial_normal",
@@ -25,9 +46,9 @@ public static class Stage01AssetGenerator
             rewardParts: 10,
             rewardOvercharge: 0,
             rewardDescription: "First tutorial bounty reward.",
-            opponentMaxHp: 40,
+            opponentMaxHP: 40,
             enemyStrikeDamage: 2,
-            playerMaxHp: 100,
+            playerMaxHP: 100,
             diceCount: 5,
             maxAttempts: 3,
             roundRollPool: 8,
@@ -44,7 +65,7 @@ public static class Stage01AssetGenerator
         AssetDatabase.CreateAsset(round1, $"{FolderPath}/Stage01_Round01_TutorialNormal.asset");
 
         // --- Create Round 2: Normal Bounty ---
-        var round2 = ScriptableObject.CreateInstance<StageRoundDefinitionSO>();
+        StageRoundDefinitionSO round2 = ScriptableObject.CreateInstance<StageRoundDefinitionSO>();
         round2.name = "Stage01_Round02_NormalBounty";
         SetRoundFields(round2,
             roundId: "stage01_normal_bounty",
@@ -55,9 +76,9 @@ public static class Stage01AssetGenerator
             rewardParts: 20,
             rewardOvercharge: 0,
             rewardDescription: "Chain choice test reward.",
-            opponentMaxHp: 70,
+            opponentMaxHP: 70,
             enemyStrikeDamage: 3,
-            playerMaxHp: 100,
+            playerMaxHP: 100,
             diceCount: 5,
             maxAttempts: 3,
             roundRollPool: 8,
@@ -74,7 +95,7 @@ public static class Stage01AssetGenerator
         AssetDatabase.CreateAsset(round2, $"{FolderPath}/Stage01_Round02_NormalBounty.asset");
 
         // --- Create Round 3: Boss ---
-        var round3 = ScriptableObject.CreateInstance<StageRoundDefinitionSO>();
+        StageRoundDefinitionSO round3 = ScriptableObject.CreateInstance<StageRoundDefinitionSO>();
         round3.name = "Stage01_Boss_TheClerk";
         SetRoundFields(round3,
             roundId: "stage01_boss_clerk",
@@ -85,9 +106,9 @@ public static class Stage01AssetGenerator
             rewardParts: 50,
             rewardOvercharge: 0,
             rewardDescription: "Stage clear reward.",
-            opponentMaxHp: 90,
+            opponentMaxHP: 90,
             enemyStrikeDamage: 4,
-            playerMaxHp: 100,
+            playerMaxHP: 100,
             diceCount: 5,
             maxAttempts: 3,
             roundRollPool: 8,
@@ -103,8 +124,24 @@ public static class Stage01AssetGenerator
             disableBrokenCastReward: false);
         AssetDatabase.CreateAsset(round3, $"{FolderPath}/Stage01_Boss_TheClerk.asset");
 
-        // --- Create Stage Definition ---
-        var stage = ScriptableObject.CreateInstance<StageDefinitionSO>();
+        // --- Create Workshop Rules for Stage 01 ---
+        StageWorkshopRulesSO workshopRules = ScriptableObject.CreateInstance<StageWorkshopRulesSO>();
+        workshopRules.name = "Stage01_WorkshopRules";
+        SerializedObject workshopRulesSo = new SerializedObject(workshopRules);
+        workshopRulesSo.FindProperty("baseWorkshopTier").intValue = 1;
+        workshopRulesSo.FindProperty("minShopProductTier").intValue = 1;
+        workshopRulesSo.FindProperty("maxShopProductTier").intValue = 2;
+        workshopRulesSo.FindProperty("tierUpgradeOverchargeCost").intValue = 1;
+        workshopRulesSo.FindProperty("maxTierUpgradePerVisit").intValue = 1;
+        workshopRulesSo.FindProperty("tierIncreasePerUpgrade").intValue = 1;
+        workshopRulesSo.ApplyModifiedPropertiesWithoutUndo();
+        AssetDatabase.CreateAsset(workshopRules, $"{FolderPath}/Stage01_WorkshopRules.asset");
+
+        // 중간 저장: CreateAsset으로 만든 에셋들을 디스크에 기록하여 참조 가능하게 함
+        AssetDatabase.SaveAssets();
+
+        // --- Create Stage Definition (다른 CreateAsset 에셋을 참조하므로 중간 저장 후 생성) ---
+        StageDefinitionSO stage = ScriptableObject.CreateInstance<StageDefinitionSO>();
         stage.name = "Stage_01_BrokenLedger";
         SetStageFields(stage,
             stageNumber: 1,
@@ -114,7 +151,8 @@ public static class Stage01AssetGenerator
             tutorialStage: true,
             shopEntryRequiresOverchargeAfterStageClear: false,
             keepChainAfterStageClear: true,
-            rounds: new[] { round1, round2, round3 });
+            rounds: new StageRoundDefinitionSO[] { round1, round2, round3 },
+            workshopRules: workshopRules);
         AssetDatabase.CreateAsset(stage, $"{FolderPath}/Stage_01_BrokenLedger.asset");
 
         AssetDatabase.SaveAssets();
@@ -131,7 +169,8 @@ public static class Stage01AssetGenerator
         bool tutorialStage,
         bool shopEntryRequiresOverchargeAfterStageClear,
         bool keepChainAfterStageClear,
-        StageRoundDefinitionSO[] rounds)
+        StageRoundDefinitionSO[] rounds,
+        StageWorkshopRulesSO workshopRules = null)
     {
         var so = new SerializedObject(stage);
         so.FindProperty("stageNumber").intValue = stageNumber;
@@ -150,6 +189,8 @@ public static class Stage01AssetGenerator
             roundsProp.GetArrayElementAtIndex(i).objectReferenceValue = rounds[i];
         }
 
+        so.FindProperty("workshopRules").objectReferenceValue = workshopRules;
+
         so.ApplyModifiedPropertiesWithoutUndo();
     }
 
@@ -162,9 +203,9 @@ public static class Stage01AssetGenerator
         int rewardParts,
         int rewardOvercharge,
         string rewardDescription,
-        int opponentMaxHp,
+        int opponentMaxHP,
         int enemyStrikeDamage,
-        int playerMaxHp,
+        int playerMaxHP,
         int diceCount,
         int maxAttempts,
         int roundRollPool,
@@ -185,12 +226,12 @@ public static class Stage01AssetGenerator
         so.FindProperty("roundType").enumValueIndex = (int)roundType;
         so.FindProperty("tutorialForcedRound").boolValue = tutorialForcedRound;
         so.FindProperty("initiallyAvailable").boolValue = initiallyAvailable;
-        so.FindProperty("rewardParts").intValue = rewardParts;
+        so.FindProperty("baseRewardMoney").intValue = rewardParts;
         so.FindProperty("rewardOvercharge").intValue = rewardOvercharge;
         so.FindProperty("rewardDescription").stringValue = rewardDescription;
-        so.FindProperty("opponentMaxHp").intValue = opponentMaxHp;
+        so.FindProperty("opponentMaxHP").intValue = opponentMaxHP;
         so.FindProperty("enemyStrikeDamage").intValue = enemyStrikeDamage;
-        so.FindProperty("playerMaxHp").intValue = playerMaxHp;
+        so.FindProperty("playerMaxHP").intValue = playerMaxHP;
         so.FindProperty("diceCount").intValue = diceCount;
         so.FindProperty("maxAttempts").intValue = maxAttempts;
         so.FindProperty("roundRollPool").intValue = roundRollPool;

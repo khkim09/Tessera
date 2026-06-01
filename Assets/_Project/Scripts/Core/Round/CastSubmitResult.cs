@@ -19,7 +19,7 @@
         public int DamageApplied { get; }
 
         /// <summary>피해 적용 후 상대 HP.</summary>
-        public int OpponentHpAfterDamage { get; }
+        public int OpponentHPAfterDamage { get; }
 
         /// <summary>Broken Cast인지 확인한다.</summary>
         public bool IsBrokenCast { get; }
@@ -60,7 +60,7 @@
             PatternResult patternResult,
             TableRuleEvaluationResult tableRuleEvaluationResult,
             int damageApplied,
-            int opponentHpAfterDamage,
+            int opponentHPAfterDamage,
             bool isBrokenCast,
             bool didGrantOvercharge,
             int grantedOverchargeAmount,
@@ -76,7 +76,7 @@
             SlotPairDamagePreview = slotPairDamagePreview;
             TableRuleEvaluationResult = tableRuleEvaluationResult;
             DamageApplied = damageApplied;
-            OpponentHpAfterDamage = opponentHpAfterDamage;
+            OpponentHPAfterDamage = opponentHPAfterDamage;
             IsBrokenCast = isBrokenCast;
             DidGrantOvercharge = didGrantOvercharge;
             GrantedOverchargeAmount = grantedOverchargeAmount;

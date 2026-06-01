@@ -22,6 +22,8 @@ namespace Tessera.UI
         private IDisposable rewardDecisionShowSubscription;
         private IDisposable roundFailureShowSubscription;
         private IDisposable shopShowSubscription;
+        private IDisposable playerHPDisplayRefreshSubscription;
+        private IDisposable overchargeDisplayRefreshSubscription;
 
         /// <summary>이벤트 구독 및 View 이벤트 연결을 수행한다.</summary>
         private void OnEnable()
@@ -31,7 +33,8 @@ namespace Tessera.UI
             rewardDecisionShowSubscription = TesseraEventBus.Subscribe<RewardDecisionShowRequestedEvent>(HandleRewardDecisionShowRequested);
             roundFailureShowSubscription = TesseraEventBus.Subscribe<RoundFailureShowRequestedEvent>(HandleRoundFailureShowRequested);
             shopShowSubscription = TesseraEventBus.Subscribe<StageShopShowRequestedEvent>(HandleShopShowRequested);
-
+            playerHPDisplayRefreshSubscription = TesseraEventBus.Subscribe<PlayerHPDisplayRefreshRequestedEvent>(HandlePlayerHPDisplayRefreshRequested);
+            overchargeDisplayRefreshSubscription = TesseraEventBus.Subscribe<OverchargeDisplayRefreshRequestedEvent>(HandleOverchargeDisplayRefreshRequested);
             if (gameplayPresenter != null)
             {
                 gameplayPresenter.RoundWon += HandleRoundWon;
@@ -70,12 +73,16 @@ namespace Tessera.UI
             rewardDecisionShowSubscription?.Dispose();
             roundFailureShowSubscription?.Dispose();
             shopShowSubscription?.Dispose();
+            playerHPDisplayRefreshSubscription?.Dispose();
+            overchargeDisplayRefreshSubscription?.Dispose();
 
             roundStartSubscription = null;
             bountyBoardShowSubscription = null;
             rewardDecisionShowSubscription = null;
             roundFailureShowSubscription = null;
             shopShowSubscription = null;
+            playerHPDisplayRefreshSubscription = null;
+            overchargeDisplayRefreshSubscription = null;
 
             if (gameplayPresenter != null)
             {
@@ -115,7 +122,7 @@ namespace Tessera.UI
 
             gameplayPresenter.StartRound(
                 gameEvent.RuleContext,
-                gameEvent.PlayerHpAtStart,
+                gameEvent.PlayerHPAtStart,
                 gameEvent.StageOverchargeState,
                 gameEvent.RoundDisplayName);
         }
@@ -162,6 +169,29 @@ namespace Tessera.UI
                 gameEvent.BoardState,
                 gameEvent.ReasonType,
                 gameEvent.Message);
+        }
+
+        /// <summary>StageFlow에서 변경된 플레이어 HP 표시 갱신 요청을 Gameplay Presenter에 전달한다.</summary>
+        private void HandlePlayerHPDisplayRefreshRequested(PlayerHPDisplayRefreshRequestedEvent gameEvent)
+        {
+            if (gameplayPresenter == null)
+                return;
+
+            gameplayPresenter.RefreshExternalPlayerHPDisplay(
+                gameEvent.CurrentHP,
+                gameEvent.MaxHP,
+                gameEvent.Reason);
+        }
+
+        /// <summary>StageFlow에서 변경된 Overcharge 표시 갱신 요청을 Gameplay Presenter에 전달한다.</summary>
+        private void HandleOverchargeDisplayRefreshRequested(OverchargeDisplayRefreshRequestedEvent gameEvent)
+        {
+            if (gameplayPresenter == null)
+                return;
+
+            gameplayPresenter.RefreshExternalOverchargeDisplay(
+                gameEvent.CurrentOvercharge,
+                gameEvent.Reason);
         }
 
         /// <summary>View의 수배지 선택을 Runtime 이벤트로 변환한다.</summary>
@@ -221,26 +251,26 @@ namespace Tessera.UI
         /// <summary>Gameplay Presenter의 Round 승리 이벤트를 Runtime 이벤트로 변환한다.</summary>
         private void HandleRoundWon(CastSubmitResult result)
         {
-            int playerHp = GetCurrentPlayerHpFromPresenter();
-            TesseraEventBus.Publish(new GameplayRoundWonEvent(result, playerHp));
+            int playerHP = GetCurrentPlayerHPFromPresenter();
+            TesseraEventBus.Publish(new GameplayRoundWonEvent(result, playerHP));
         }
 
         /// <summary>Gameplay Presenter의 Round 패배 이벤트를 Runtime 이벤트로 변환한다.</summary>
         private void HandleRoundLost(CastSubmitResult result)
         {
-            int playerHp = GetCurrentPlayerHpFromPresenter();
-            TesseraEventBus.Publish(new GameplayRoundLostEvent(result, playerHp));
+            int playerHP = GetCurrentPlayerHPFromPresenter();
+            TesseraEventBus.Publish(new GameplayRoundLostEvent(result, playerHP));
         }
 
         /// <summary>Gameplay Presenter의 현재 RoundState에서 플레이어 HP를 읽는다.</summary>
-        private int GetCurrentPlayerHpFromPresenter()
+        private int GetCurrentPlayerHPFromPresenter()
         {
             RoundState roundState = gameplayPresenter != null ? gameplayPresenter.CurrentRoundState : null;
 
             if (roundState == null || roundState.Encounter == null)
                 return 1;
 
-            return roundState.Encounter.PlayerCurrentHp;
+            return roundState.Encounter.PlayerCurrentHP;
         }
     }
 }

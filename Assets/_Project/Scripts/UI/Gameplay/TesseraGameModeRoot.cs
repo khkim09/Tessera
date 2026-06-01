@@ -19,7 +19,7 @@ namespace Tessera.UI
 
         [Header("Debug Start")]
         [SerializeField] private int startMoney = 30;
-        [SerializeField] private int playerMaxHp = 100;
+        [SerializeField] private int playerMaxHP = 100;
 
         private TesseraRunSession runSession;
         private GameModeType currentMode = GameModeType.None;
@@ -33,7 +33,7 @@ namespace Tessera.UI
         {
             // TesseraEventBus.ClearAll();
 
-            runSession = new TesseraRunSession(startMoney, playerMaxHp);
+            runSession = new TesseraRunSession(startMoney, playerMaxHP);
 
             if (stageBountyFlowController != null)
                 stageBountyFlowController.Initialize(runSession);

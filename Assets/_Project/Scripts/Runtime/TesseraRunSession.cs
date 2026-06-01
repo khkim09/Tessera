@@ -24,10 +24,10 @@ namespace Tessera.Runtime
         public int Parts => Money;
 
         /// <summary>플레이어 최대 HP.</summary>
-        public int PlayerMaxHp { get; private set; }
+        public int PlayerMaxHP { get; private set; }
 
         /// <summary>플레이어 현재 HP.</summary>
-        public int PlayerCurrentHp { get; private set; }
+        public int PlayerCurrentHP { get; private set; }
 
         /// <summary>Run 전체 Chain 누적값.</summary>
         public int RunChainCount { get; private set; }
@@ -54,11 +54,11 @@ namespace Tessera.Runtime
         public IReadOnlyListWrapper EquippedSlotPairDevices => new IReadOnlyListWrapper(equippedSlotPairDevices);
 
         /// <summary>RunSession을 생성한다.</summary>
-        public TesseraRunSession(int startParts = 0, int playerMaxHp = 100)
+        public TesseraRunSession(int startParts = 0, int playerMaxHP = 100)
         {
             Money = Mathf.Max(0, startParts);
-            PlayerMaxHp = Mathf.Max(1, playerMaxHp);
-            PlayerCurrentHp = PlayerMaxHp;
+            PlayerMaxHP = Mathf.Max(1, playerMaxHP);
+            PlayerCurrentHP = PlayerMaxHP;
             CurrentStageIndex = 0;
             RunChainCount = 0;
             StageChainCount = 0;
@@ -139,15 +139,15 @@ namespace Tessera.Runtime
         }
 
         /// <summary>전투 종료 후 플레이어 HP를 반영한다.</summary>
-        public void SetPlayerCurrentHp(int currentHp)
+        public void SetPlayerCurrentHP(int currentHP)
         {
-            PlayerCurrentHp = Mathf.Clamp(currentHp, 0, PlayerMaxHp);
+            PlayerCurrentHP = Mathf.Clamp(currentHP, 0, PlayerMaxHP);
         }
 
         /// <summary>플레이어 HP를 최대치로 회복한다.</summary>
-        public void RestorePlayerToFullHp()
+        public void RestorePlayerToFullHP()
         {
-            PlayerCurrentHp = PlayerMaxHp;
+            PlayerCurrentHP = PlayerMaxHP;
         }
 
         /// <summary>최대 HP 비율만큼 현재 HP를 추가 회복한다.</summary>
@@ -156,8 +156,8 @@ namespace Tessera.Runtime
             if (ratio <= 0f)
                 return 0;
 
-            int healAmount = Mathf.FloorToInt(PlayerMaxHp * ratio);
-            return RepairPlayerHp(healAmount);
+            int healAmount = Mathf.FloorToInt(PlayerMaxHP * ratio);
+            return RepairPlayerHP(healAmount);
         }
 
         /// <summary>현재 HP가 지정 비율 미만이면 해당 비율까지 보정한다.</summary>
@@ -166,22 +166,22 @@ namespace Tessera.Runtime
             if (minimumRatio <= 0f)
                 return 0;
 
-            int targetHp = Mathf.FloorToInt(PlayerMaxHp * minimumRatio);
-            int previousHp = PlayerCurrentHp;
+            int targetHP = Mathf.FloorToInt(PlayerMaxHP * minimumRatio);
+            int previousHP = PlayerCurrentHP;
 
-            PlayerCurrentHp = Mathf.Clamp(Mathf.Max(PlayerCurrentHp, targetHp), 0, PlayerMaxHp);
-            return PlayerCurrentHp - previousHp;
+            PlayerCurrentHP = Mathf.Clamp(Mathf.Max(PlayerCurrentHP, targetHP), 0, PlayerMaxHP);
+            return PlayerCurrentHP - previousHP;
         }
 
         /// <summary>고정량만큼 플레이어 HP를 회복한다.</summary>
-        public int RepairPlayerHp(int healAmount)
+        public int RepairPlayerHP(int healAmount)
         {
             if (healAmount <= 0)
                 return 0;
 
-            int previousHp = PlayerCurrentHp;
-            PlayerCurrentHp = Mathf.Min(PlayerMaxHp, PlayerCurrentHp + healAmount);
-            return PlayerCurrentHp - previousHp;
+            int previousHP = PlayerCurrentHP;
+            PlayerCurrentHP = Mathf.Min(PlayerMaxHP, PlayerCurrentHP + healAmount);
+            return PlayerCurrentHP - previousHP;
         }
 
         /// <summary>기존 CashOut 회복 호출 호환용 메서드다. 신규 코드는 HealByRatio를 사용한다.</summary>
@@ -293,6 +293,18 @@ namespace Tessera.Runtime
             equippedSlotPairDevices[emptySlotIndex] = device;
             equippedSlotIndex = emptySlotIndex;
             return true;
+        }
+
+        /// <summary>현재 Overcharge 값을 직접 지정한다.</summary>
+        public void SetCurrentOvercharge(int value)
+        {
+            StageOverchargeState.SetCurrentOvercharge(Mathf.Max(0, value));
+        }
+
+        /// <summary>현재 Workshop Tier를 지정한다.</summary>
+        public void SetWorkshopTier(int tier)
+        {
+            CurrentWorkshopTier = Mathf.Max(1, tier);
         }
 
         /// <summary>첫 번째 빈 Device 슬롯 인덱스를 찾는다.</summary>

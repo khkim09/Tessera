@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 664672578bd3cfb48ba04f9924a74d04, type: 3}
   m_Name: Stage_01_BrokenLedger
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Tessera.Data::Tessera.Data.StageDefinitionSO
   stageNumber: 1
   displayName: Stage 1 - Broken Ledger
   descentLabel: Depth 01
@@ -23,3 +23,4 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 0b8855e633814304b2525a440d622d4b, type: 2}
   - {fileID: 11400000, guid: 08a97f06bf144474899d9a09796bab3f, type: 2}
   - {fileID: 11400000, guid: 5b508c31c5604defa22927b07bba083a, type: 2}
+  workshopRules: {fileID: 11400000, guid: 6060feaa2043ba44593a4c85945b75bf, type: 2}

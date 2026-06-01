@@ -13,7 +13,7 @@
         public int DamageToPlayer { get; }
 
         /// <summary>피해 적용 후 플레이어 HP.</summary>
-        public int PlayerHpAfterDamage { get; }
+        public int PlayerHPAfterDamage { get; }
 
         /// <summary>디버그 및 UI 표시용 메시지.</summary>
         public string Message { get; }
@@ -23,20 +23,20 @@
             bool didExecute,
             EnemyIntentType intentType,
             int damageToPlayer,
-            int playerHpAfterDamage,
+            int playerHPAfterDamage,
             string message)
         {
             DidExecute = didExecute;
             IntentType = intentType;
             DamageToPlayer = damageToPlayer;
-            PlayerHpAfterDamage = playerHpAfterDamage;
+            PlayerHPAfterDamage = playerHPAfterDamage;
             Message = message;
         }
 
         /// <summary>실행되지 않은 상대 Intent 결과를 생성한다.</summary>
-        public static EnemyIntentResult NotExecuted(int playerHp)
+        public static EnemyIntentResult NotExecuted(int playerHP)
         {
-            return new EnemyIntentResult(false, EnemyIntentType.None, 0, playerHp, "Enemy intent was not executed.");
+            return new EnemyIntentResult(false, EnemyIntentType.None, 0, playerHP, "Enemy intent was not executed.");
         }
     }
 }

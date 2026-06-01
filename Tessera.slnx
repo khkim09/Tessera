@@ -4,6 +4,5 @@
   <Project Path="Tessera.UI.csproj" />
   <Project Path="Tessera.Runtime.csproj" />
   <Project Path="Tessera.Data.csproj" />
-  <Project Path="Assembly-CSharp-Editor.csproj" />
   <Project Path="Tessera.Editor.csproj" />
 </Solution>

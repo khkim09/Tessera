@@ -70,8 +70,8 @@ namespace Tessera.UI
                 : "Unknown Bounty";
 
             int money = runSession != null ? runSession.Money : 0;
-            int hp = runSession != null ? runSession.PlayerCurrentHp : 0;
-            int maxHp = runSession != null ? runSession.PlayerMaxHp : 0;
+            int HP = runSession != null ? runSession.PlayerCurrentHP : 0;
+            int maxHP = runSession != null ? runSession.PlayerMaxHP : 0;
             int overcharge = runSession != null ? runSession.Overcharge : 0;
             int chain = boardState != null ? boardState.ChainCount : 0;
             int stageThreat = boardState != null ? boardState.StageThreatLevel : 0;
@@ -90,7 +90,7 @@ namespace Tessera.UI
             {
                 summaryText.text =
                     $"Bounty: {bountyName}\n" +
-                    $"HP: {hp}/{maxHp}\n" +
+                    $"HP: {HP}/{maxHP}\n" +
                     $"Money: {money}\n" +
                     $"Overcharge: {overcharge}\n" +
                     $"Chain: {chain}\n" +

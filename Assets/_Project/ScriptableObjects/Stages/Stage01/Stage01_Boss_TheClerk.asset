@@ -11,19 +11,19 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3487ea4abad0e40448995151808b0bc6, type: 3}
   m_Name: Stage01_Boss_TheClerk
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Tessera.Data::Tessera.Data.StageRoundDefinitionSO
   roundId: stage01_boss_clerk
   displayName: Boss - The Clerk
   roundType: 1
   tutorialForcedRound: 0
-  initiallyAvailable: 0
+  initiallyAvailable: 1
   baseRewardMoney: 50
-  bountyRank: 4
+  bountyRank: 1
   rewardOvercharge: 0
   rewardDescription: Stage clear reward.
-  opponentMaxHp: 90
+  opponentMaxHP: 90
   enemyStrikeDamage: 4
-  playerMaxHp: 100
+  playerMaxHP: 100
   diceCount: 5
   maxAttempts: 3
   roundRollPool: 8

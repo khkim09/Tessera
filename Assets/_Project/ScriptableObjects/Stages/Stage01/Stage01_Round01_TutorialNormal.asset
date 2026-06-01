@@ -11,22 +11,22 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3487ea4abad0e40448995151808b0bc6, type: 3}
   m_Name: Stage01_Round01_TutorialNormal
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Tessera.Data::Tessera.Data.StageRoundDefinitionSO
   roundId: stage01_tutorial_normal
   displayName: Tutorial Target
   roundType: 0
-  tutorialForcedRound: 0
+  tutorialForcedRound: 1
   initiallyAvailable: 1
   baseRewardMoney: 10
   bountyRank: 1
   rewardOvercharge: 0
   rewardDescription: First tutorial bounty reward.
-  opponentMaxHp: 40
+  opponentMaxHP: 40
   enemyStrikeDamage: 2
-  playerMaxHp: 100
+  playerMaxHP: 100
   diceCount: 5
   maxAttempts: 3
-  roundRollPool: 5
+  roundRollPool: 8
   maxUsesPerCastPerRound: 1
   maxBrokenCastUsesPerRound: 3
   brokenCastGrantsOvercharge: 1

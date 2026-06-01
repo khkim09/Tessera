@@ -18,10 +18,10 @@ namespace Tessera.Core
         public int RoundRollPool { get; }
 
         /// <summary>플레이어 최대 HP.</summary>
-        public int PlayerMaxHp { get; }
+        public int PlayerMaxHP { get; }
 
         /// <summary>상대 최대 HP.</summary>
-        public int OpponentMaxHp { get; }
+        public int OpponentMaxHP { get; }
 
         /// <summary>같은 Cast 카테고리를 Round 안에서 사용할 수 있는 기본 횟수.</summary>
         public int MaxUsesPerCastPerRound { get; }
@@ -52,8 +52,8 @@ namespace Tessera.Core
             int diceCount,
             int maxAttempts,
             int roundRollPool,
-            int playerMaxHp,
-            int opponentMaxHp,
+            int playerMaxHP,
+            int opponentMaxHP,
             int maxUsesPerCastPerRound,
             int maxBrokenCastUsesPerRound,
             int enemyStrikeDamage,
@@ -72,11 +72,11 @@ namespace Tessera.Core
             if (roundRollPool <= 0)
                 throw new ArgumentOutOfRangeException(nameof(roundRollPool), "Round Roll Pool은 1 이상이어야 합니다.");
 
-            if (playerMaxHp <= 0)
-                throw new ArgumentOutOfRangeException(nameof(playerMaxHp), "플레이어 최대 HP는 1 이상이어야 합니다.");
+            if (playerMaxHP <= 0)
+                throw new ArgumentOutOfRangeException(nameof(playerMaxHP), "플레이어 최대 HP는 1 이상이어야 합니다.");
 
-            if (opponentMaxHp <= 0)
-                throw new ArgumentOutOfRangeException(nameof(opponentMaxHp), "상대 최대 HP는 1 이상이어야 합니다.");
+            if (opponentMaxHP <= 0)
+                throw new ArgumentOutOfRangeException(nameof(opponentMaxHP), "상대 최대 HP는 1 이상이어야 합니다.");
 
             if (maxUsesPerCastPerRound <= 0)
                 throw new ArgumentOutOfRangeException(nameof(maxUsesPerCastPerRound), "Cast 사용 가능 횟수는 1 이상이어야 합니다.");
@@ -96,8 +96,8 @@ namespace Tessera.Core
             DiceCount = diceCount;
             MaxAttempts = maxAttempts;
             RoundRollPool = roundRollPool;
-            PlayerMaxHp = playerMaxHp;
-            OpponentMaxHp = opponentMaxHp;
+            PlayerMaxHP = playerMaxHP;
+            OpponentMaxHP = opponentMaxHP;
             MaxUsesPerCastPerRound = maxUsesPerCastPerRound;
             MaxBrokenCastUsesPerRound = maxBrokenCastUsesPerRound;
             EnemyStrikeDamage = enemyStrikeDamage;
@@ -115,8 +115,8 @@ namespace Tessera.Core
                 diceCount: 5,
                 maxAttempts: 3,
                 roundRollPool: 8,
-                playerMaxHp: 24,
-                opponentMaxHp: 80,
+                playerMaxHP: 24,
+                opponentMaxHP: 80,
                 maxUsesPerCastPerRound: 1,
                 maxBrokenCastUsesPerRound: 3,
                 enemyStrikeDamage: 3,
@@ -138,8 +138,8 @@ namespace Tessera.Core
                 diceCount: 5,
                 maxAttempts: 3,
                 roundRollPool: 8,
-                playerMaxHp: 24,
-                opponentMaxHp: 80,
+                playerMaxHP: 24,
+                opponentMaxHP: 80,
                 maxUsesPerCastPerRound: 1,
                 maxBrokenCastUsesPerRound: 3,
                 enemyStrikeDamage: 4,
@@ -163,8 +163,8 @@ namespace Tessera.Core
                 diceCount: 5,
                 maxAttempts: 3,
                 roundRollPool: 8,
-                playerMaxHp: 24,
-                opponentMaxHp: 80,
+                playerMaxHP: 24,
+                opponentMaxHP: 80,
                 maxUsesPerCastPerRound: 1,
                 maxBrokenCastUsesPerRound: 3,
                 enemyStrikeDamage: 4,

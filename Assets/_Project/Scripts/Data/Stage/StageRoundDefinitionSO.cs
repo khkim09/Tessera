@@ -26,11 +26,11 @@ namespace Tessera.Data
         [SerializeField] private string rewardDescription;
 
         [Header("Enemy")]
-        [SerializeField] private int opponentMaxHp = 80;
+        [SerializeField] private int opponentMaxHP = 80;
         [SerializeField] private int enemyStrikeDamage = 3;
 
         [Header("Player / Round Rules")]
-        [SerializeField] private int playerMaxHp = 100;
+        [SerializeField] private int playerMaxHP = 100;
         [SerializeField] private int diceCount = 5;
         [SerializeField] private int maxAttempts = 3;
         [SerializeField] private int roundRollPool = 8;
@@ -83,13 +83,13 @@ namespace Tessera.Data
         public string RewardDescription => rewardDescription ?? string.Empty;
 
         /// <summary>StageThreat 없이 RoundRuleContext를 생성한다.</summary>
-        public RoundRuleContext BuildRuleContext(int runPlayerMaxHp)
+        public RoundRuleContext BuildRuleContext(int runPlayerMaxHP)
         {
-            return BuildRuleContext(runPlayerMaxHp, 0);
+            return BuildRuleContext(runPlayerMaxHP, 0);
         }
 
         /// <summary>StageThreatLevel 보정을 반영하여 RoundRuleContext를 생성한다.</summary>
-        public RoundRuleContext BuildRuleContext(int runPlayerMaxHp, int stageThreatLevel)
+        public RoundRuleContext BuildRuleContext(int runPlayerMaxHP, int stageThreatLevel)
         {
             List<TableRule> tableRules = new List<TableRule>();
 
@@ -102,11 +102,11 @@ namespace Tessera.Data
             if (disableBrokenCastReward)
                 tableRules.Add(TableRule.DisableBrokenCastReward());
 
-            int resolvedPlayerMaxHp = runPlayerMaxHp > 0 ? runPlayerMaxHp : playerMaxHp;
+            int resolvedPlayerMaxHP = runPlayerMaxHP > 0 ? runPlayerMaxHP : playerMaxHP;
             int resolvedStageThreatLevel = Mathf.Max(0, stageThreatLevel);
             int resolvedEnemyStrikeDamage = Mathf.Max(0, enemyStrikeDamage);
             int resolvedRoundRollPool = Mathf.Max(1, roundRollPool);
-            int resolvedOpponentMaxHp = Mathf.Max(1, opponentMaxHp);
+            int resolvedOpponentMaxHP = Mathf.Max(1, opponentMaxHP);
 
             if (resolvedStageThreatLevel >= 1)
                 resolvedEnemyStrikeDamage += 1;
@@ -115,14 +115,14 @@ namespace Tessera.Data
                 resolvedRoundRollPool = Mathf.Max(1, resolvedRoundRollPool - 1);
 
             if (resolvedStageThreatLevel >= 3)
-                resolvedOpponentMaxHp += resolvedStageThreatLevel * 5;
+                resolvedOpponentMaxHP += resolvedStageThreatLevel * 5;
 
             return new RoundRuleContext(
                 diceCount: Mathf.Max(1, diceCount),
                 maxAttempts: Mathf.Max(1, maxAttempts),
                 roundRollPool: resolvedRoundRollPool,
-                playerMaxHp: Mathf.Max(1, resolvedPlayerMaxHp),
-                opponentMaxHp: resolvedOpponentMaxHp,
+                playerMaxHP: Mathf.Max(1, resolvedPlayerMaxHP),
+                opponentMaxHP: resolvedOpponentMaxHP,
                 maxUsesPerCastPerRound: Mathf.Max(1, maxUsesPerCastPerRound),
                 maxBrokenCastUsesPerRound: Mathf.Max(1, maxBrokenCastUsesPerRound),
                 enemyStrikeDamage: resolvedEnemyStrikeDamage,

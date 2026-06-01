@@ -354,7 +354,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2100692826580602539, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
       propertyPath: m_Name
-      value: Dice_4
+      value: PlayerDice_4
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -1138,7 +1138,7 @@ MonoBehaviour:
   resultRoot: {fileID: 830740240}
   stageBountyFlowController: {fileID: 1191216501}
   startMoney: 30
-  playerMaxHp: 100
+  playerMaxHP: 100
 --- !u!4 &241771488
 Transform:
   m_ObjectHideFlags: 0
@@ -2113,7 +2113,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2100692826580602539, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
       propertyPath: m_Name
-      value: Dice_2
+      value: PlayerDice_2
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -4663,6 +4663,87 @@ MonoBehaviour:
   upgradeTierButtonText: {fileID: 1212798072}
   continueButton: {fileID: 311987842}
   continueButtonText: {fileID: 1341000800}
+--- !u!1001 &790813961
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 2039456996}
+    m_Modifications:
+    - target: {fileID: 1277234867936049789, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: -0.00000004371139
+      objectReference: {fileID: 0}
+    - target: {fileID: 1277234867936049789, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0.11
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0.18499994
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -0.276
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: -0.4898571
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0.48985696
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.50994134
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0.50994116
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2100692826580602539, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_Name
+      value: OpponentDice_3
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+--- !u!4 &790813962 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+  m_PrefabInstance: {fileID: 790813961}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &790813963 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4976998181261799544, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+  m_PrefabInstance: {fileID: 790813961}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 13adab57835162f49b48f7280df2362a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Tessera.UI::Tessera.UI.Dice3DView
 --- !u!1001 &794705762
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4954,6 +5035,37 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 0ec427b0adc7ba24b84c4f2694795d5d, type: 3}
+--- !u!1 &833359332
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 833359333}
+  m_Layer: 0
+  m_Name: OpponentDiceRestPoints
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &833359333
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 833359332}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
+  m_LocalPosition: {x: -1.292, y: 0.152, z: 1.329}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1991444093}
+  m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
 --- !u!1 &842126648
 GameObject:
   m_ObjectHideFlags: 0
@@ -5382,8 +5494,8 @@ MonoBehaviour:
   tableHologramView: {fileID: 1377455157}
   showCastCandidatePopup: 1
   roundTitleText: {fileID: 1698296035}
-  opponentHpText: {fileID: 1850095190}
-  playerHpText: {fileID: 1312906569}
+  opponentHPText: {fileID: 1850095190}
+  playerHPText: {fileID: 1312906569}
   trayDiceSlots:
   - {fileID: 0}
   - {fileID: 0}
@@ -5395,6 +5507,11 @@ MonoBehaviour:
   togglePopupButton: {fileID: 1763634526}
   autoStartNextAttemptAfterCast: 1
   autoNextAttemptDelay: 0.8
+  enemyTurnStartDelay: 0.12
+  enemyTurnAfterActionDelay: 0.18
+  playEnemyDiceCupPresentation: 1
+  enemyDiceCupEnterRollEuler: {x: 180, y: 90, z: 180}
+  enemyDiceCupScatterRollEuler: {x: 240, y: 180, z: 120}
   moneyText: {fileID: 1677064150}
   autoStartDebugRoundOnStart: 0
   externalGameplayInputLocked: 0
@@ -6036,6 +6153,79 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 983186449}
   m_CullTransparentMesh: 1
+--- !u!1001 &983374589
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 2039456996}
+    m_Modifications:
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -0.193
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0.18499994
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -0.199
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: -0.4898571
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0.48985696
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.50994134
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0.50994116
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2100692826580602539, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_Name
+      value: OpponentDice_1
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+--- !u!4 &983374590 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+  m_PrefabInstance: {fileID: 983374589}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &983374591 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4976998181261799544, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+  m_PrefabInstance: {fileID: 983374589}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 13adab57835162f49b48f7280df2362a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Tessera.UI::Tessera.UI.Dice3DView
 --- !u!1 &1010260119
 GameObject:
   m_ObjectHideFlags: 0
@@ -6282,7 +6472,7 @@ Transform:
   m_GameObject: {fileID: 1075646879}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 1.418, y: 1.089, z: -0.35}
+  m_LocalPosition: {x: 1.418, y: 1.089, z: -0.2}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -6327,6 +6517,83 @@ MonoBehaviour:
   shakePositionAmount: 0.015
   shakeRotationAmount: 1.2
   shakeSpeed: 18
+--- !u!1001 &1090315104
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 2039456996}
+    m_Modifications:
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -0.172
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0.185
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.154
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: -0.4898571
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0.48985696
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.50994134
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0.50994116
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1629839956474292420, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: highlightLayerMask.m_Bits
+      value: 256
+      objectReference: {fileID: 0}
+    - target: {fileID: 2100692826580602539, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_Name
+      value: OpponentDice_0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+--- !u!4 &1090315105 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+  m_PrefabInstance: {fileID: 1090315104}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1090315106 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4976998181261799544, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+  m_PrefabInstance: {fileID: 1090315104}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 13adab57835162f49b48f7280df2362a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Tessera.UI::Tessera.UI.Dice3DView
 --- !u!1 &1097259364
 GameObject:
   m_ObjectHideFlags: 0
@@ -7095,7 +7362,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 121906a3b0da4ca893070262338b923b, type: 2}
   cashOutHealRatio: 0.5
   stageClearHealRatio: 0.5
-  retreatMinimumHpRatio: 0.8
+  retreatMinimumHPRatio: 0.8
   stageClearBonusMoney: 25
   baseRetryMoneyCost: 5
   retreatPayoutPercent: 0.2
@@ -7103,6 +7370,8 @@ MonoBehaviour:
   repairCostMoney: 8
   repairHealAmount: 10
   shopTierUpgradeOverchargeCost: 1
+  maxWorkshopTierUpgradePerVisit: 1
+  fallbackWorkshopRules: {fileID: 0}
 --- !u!4 &1191216502
 Transform:
   m_ObjectHideFlags: 0
@@ -7459,7 +7728,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1255660582}
   m_Layer: 0
-  m_Name: DiceViews
+  m_Name: PlayerDiceViews
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -7485,6 +7754,87 @@ Transform:
   - {fileID: 66230411}
   m_Father: {fileID: 1991444093}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &1266040235
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 2039456996}
+    m_Modifications:
+    - target: {fileID: 1277234867936049789, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: -0.00000004371139
+      objectReference: {fileID: 0}
+    - target: {fileID: 1277234867936049789, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0.33
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0.18499994
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -0.076
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: -0.4898571
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0.48985696
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.50994134
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0.50994116
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2100692826580602539, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_Name
+      value: OpponentDice_4
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+--- !u!4 &1266040236 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+  m_PrefabInstance: {fileID: 1266040235}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1266040237 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4976998181261799544, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+  m_PrefabInstance: {fileID: 1266040235}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 13adab57835162f49b48f7280df2362a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Tessera.UI::Tessera.UI.Dice3DView
 --- !u!1 &1271227938
 GameObject:
   m_ObjectHideFlags: 0
@@ -7622,6 +7972,79 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1271227938}
   m_CullTransparentMesh: 1
+--- !u!1001 &1279300987
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 2039456996}
+    m_Modifications:
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0.075
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0.18499994
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.064
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: -0.4898571
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0.48985696
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.50994134
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0.50994116
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2100692826580602539, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_Name
+      value: OpponentDice_2
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+--- !u!4 &1279300988 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+  m_PrefabInstance: {fileID: 1279300987}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1279300989 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4976998181261799544, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+  m_PrefabInstance: {fileID: 1279300987}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 13adab57835162f49b48f7280df2362a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Tessera.UI::Tessera.UI.Dice3DView
 --- !u!1 &1311906304
 GameObject:
   m_ObjectHideFlags: 0
@@ -8600,7 +9023,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2100692826580602539, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
       propertyPath: m_Name
-      value: Dice_3
+      value: PlayerDice_3
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -9416,7 +9839,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1572948536}
-  - component: {fileID: 1572948537}
   m_Layer: 0
   m_Name: PlayerDiceSlots
   m_TagString: Untagged
@@ -9444,24 +9866,6 @@ Transform:
   - {fileID: 1271929654622203844}
   m_Father: {fileID: 1686229310}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1572948537
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1572948535}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d0471cfcf3aaee84db001ee4ae163167, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Tessera.UI::Tessera.UI.DeviceRack3DView
-  slots:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
 --- !u!1 &1585358953
 GameObject:
   m_ObjectHideFlags: 0
@@ -10447,6 +10851,37 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1442824805}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1664394206
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1664394207}
+  m_Layer: 0
+  m_Name: PlayerDiceRestPoints
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1664394207
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1664394206}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 1.508, y: 0.152, z: -1.061}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1991444093}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1673812454
 GameObject:
   m_ObjectHideFlags: 0
@@ -11315,7 +11750,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2100692826580602539, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
       propertyPath: m_Name
-      value: Dice_1
+      value: PlayerDice_1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -12619,7 +13054,10 @@ Transform:
   m_Children:
   - {fileID: 964482449}
   - {fileID: 1442824805}
+  - {fileID: 1664394207}
+  - {fileID: 833359333}
   - {fileID: 1255660582}
+  - {fileID: 2039456996}
   m_Father: {fileID: 1686229310}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1991444094
@@ -12634,12 +13072,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 411c172aeb4af6547ab6bbc126e990a4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Tessera.UI::Tessera.UI.DiceTray3DView
-  diceViews:
+  playerDiceViews:
   - {fileID: 6090428226485335220}
   - {fileID: 1707715620}
   - {fileID: 334043676}
   - {fileID: 1431602088}
   - {fileID: 66230412}
+  opponentDiceViews:
+  - {fileID: 1090315106}
+  - {fileID: 983374591}
+  - {fileID: 1279300989}
+  - {fileID: 790813963}
+  - {fileID: 1266040237}
   dicePoints:
   - {fileID: 1608381096}
   - {fileID: 1938211407}
@@ -12856,6 +13300,42 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 0ec427b0adc7ba24b84c4f2694795d5d, type: 3}
+--- !u!1 &2039456995
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2039456996}
+  m_Layer: 0
+  m_Name: OpponentDiceViews
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2039456996
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2039456995}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1090315105}
+  - {fileID: 983374590}
+  - {fileID: 1279300988}
+  - {fileID: 790813962}
+  - {fileID: 1266040236}
+  m_Father: {fileID: 1991444093}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2065982866
 GameObject:
   m_ObjectHideFlags: 0
@@ -12891,9 +13371,9 @@ RectTransform:
   - {fileID: 1442605386}
   m_Father: {fileID: 875781658}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0.5}
-  m_AnchorMax: {x: 0, y: 0.5}
-  m_AnchoredPosition: {x: 320, y: 100}
+  m_AnchorMin: {x: 1, y: 0}
+  m_AnchorMax: {x: 1, y: 0}
+  m_AnchoredPosition: {x: -320, y: 300}
   m_SizeDelta: {x: 260, y: 360}
   m_Pivot: {x: 0, y: 0.5}
 --- !u!114 &2065982868
@@ -12990,7 +13470,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2067437027}
-  - component: {fileID: 2067437028}
   m_Layer: 0
   m_Name: OpponentDiceSlots
   m_TagString: Untagged
@@ -13018,24 +13497,6 @@ Transform:
   - {fileID: 2511792285910057567}
   m_Father: {fileID: 1686229310}
   m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
---- !u!114 &2067437028
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2067437026}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d0471cfcf3aaee84db001ee4ae163167, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Tessera.UI::Tessera.UI.DeviceRack3DView
-  slots:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
 --- !u!1 &2073541358
 GameObject:
   m_ObjectHideFlags: 0
@@ -13471,7 +13932,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2100692826580602539, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
       propertyPath: m_Name
-      value: Dice_0
+      value: PlayerDice_0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

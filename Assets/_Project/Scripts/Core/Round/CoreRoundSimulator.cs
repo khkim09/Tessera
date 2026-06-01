@@ -29,7 +29,7 @@ namespace Tessera.Core
         /// <summary>지정한 HP와 Stage Overcharge 상태를 유지한 채 새 Round를 시작한다.</summary>
         public RoundState StartRound(
             RoundRuleContext ruleContext,
-            int playerCurrentHp,
+            int playerCurrentHP,
             OverchargeState stageOverchargeState)
         {
             if (ruleContext == null)
@@ -38,13 +38,13 @@ namespace Tessera.Core
             if (stageOverchargeState == null)
                 throw new ArgumentNullException(nameof(stageOverchargeState));
 
-            int resolvedPlayerHp = Math.Max(1, Math.Min(ruleContext.PlayerMaxHp, playerCurrentHp));
+            int resolvedPlayerHP = Math.Max(1, Math.Min(ruleContext.PlayerMaxHP, playerCurrentHP));
 
             EncounterState encounter = new EncounterState(
-                ruleContext.PlayerMaxHp,
-                ruleContext.OpponentMaxHp,
-                resolvedPlayerHp,
-                ruleContext.OpponentMaxHp);
+                ruleContext.PlayerMaxHP,
+                ruleContext.OpponentMaxHP,
+                resolvedPlayerHP,
+                ruleContext.OpponentMaxHP);
 
             AttemptState firstAttempt = CreateAttempt(stageOverchargeState, 1);
             List<DiceInstance> dice = diceRoller.CreateRolledStandardDiceSet(ruleContext.DiceCount);
@@ -235,6 +235,45 @@ namespace Tessera.Core
             return true;
         }
 
+        /// <summary>제출된 Cast 이후 상대 턴 Intent 실행을 시도한다.</summary>
+        public bool TryResolveEnemyTurn(
+            RoundState roundState,
+            out EnemyIntentResult enemyIntentResult,
+            out RoundOutcomeType outcomeType)
+        {
+            if (roundState == null)
+                throw new ArgumentNullException(nameof(roundState));
+
+            enemyIntentResult = EnemyIntentResult.NotExecuted(roundState.Encounter.PlayerCurrentHP);
+            outcomeType = RoundOutcomeType.Ongoing;
+
+            if (roundState.IsRoundEnded)
+            {
+                outcomeType = roundState.OutcomeType;
+                return false;
+            }
+
+            if (roundState.CurrentAttempt == null || !roundState.CurrentAttempt.IsSubmitted)
+                return false;
+
+            if (roundState.Encounter.IsOpponentDefeated)
+            {
+                roundState.MarkWon();
+                outcomeType = RoundOutcomeType.Won;
+                return false;
+            }
+
+            enemyIntentResult = ExecuteEnemyIntent(roundState);
+            outcomeType = ResolveRoundOutcomeAfterEnemyTurn(roundState);
+
+            if (outcomeType == RoundOutcomeType.Won)
+                roundState.MarkWon();
+            else if (outcomeType == RoundOutcomeType.Lost)
+                roundState.MarkLost();
+
+            return enemyIntentResult.DidExecute;
+        }
+
         /// <summary>테스트용으로 현재 주사위 값을 강제로 설정한다.</summary>
         public void SetCurrentDiceValuesForTest(RoundState roundState, IReadOnlyList<int> diceValues)
         {
@@ -283,10 +322,10 @@ namespace Tessera.Core
         }
 
         private CastSubmitResult SubmitResolvedCast(
-            RoundState roundState,
-            PatternResult patternResult,
-            SlotPairDamagePreview slotPairDamagePreview,
-            TableRuleEvaluationResult tableRuleResult)
+    RoundState roundState,
+    PatternResult patternResult,
+    SlotPairDamagePreview slotPairDamagePreview,
+    TableRuleEvaluationResult tableRuleResult)
         {
             if (roundState.CurrentAttempt.IsSubmitted)
                 throw new InvalidOperationException("이미 제출된 Attempt입니다.");
@@ -307,17 +346,12 @@ namespace Tessera.Core
             if (isBrokenCast && !tableRuleResult.IsBrokenCastRewardSuppressed)
                 ApplyBrokenCastReward(roundState, out didGrantOvercharge, out grantedOvercharge, out grantedFreeRerollTokens);
 
-            EnemyIntentResult enemyIntentResult = EnemyIntentResult.NotExecuted(roundState.Encounter.PlayerCurrentHp);
+            EnemyIntentResult enemyIntentResult = EnemyIntentResult.NotExecuted(roundState.Encounter.PlayerCurrentHP);
 
-            if (!roundState.Encounter.IsOpponentDefeated)
-                enemyIntentResult = ExecuteEnemyIntent(roundState);
-
-            RoundOutcomeType outcomeType = ResolveRoundOutcome(roundState);
+            RoundOutcomeType outcomeType = ResolveRoundOutcomeAfterPlayerCast(roundState);
 
             if (outcomeType == RoundOutcomeType.Won)
                 roundState.MarkWon();
-            else if (outcomeType == RoundOutcomeType.Lost)
-                roundState.MarkLost();
 
             bool canStartNextAttempt = !roundState.IsRoundEnded && roundState.CurrentAttempt.IsSubmitted;
             string message = BuildSubmitMessage(patternResult, outcomeType, canStartNextAttempt);
@@ -327,7 +361,7 @@ namespace Tessera.Core
                 patternResult,
                 tableRuleResult,
                 damage,
-                roundState.Encounter.OpponentCurrentHp,
+                roundState.Encounter.OpponentCurrentHP,
                 isBrokenCast,
                 didGrantOvercharge,
                 grantedOvercharge,
@@ -342,12 +376,39 @@ namespace Tessera.Core
             return result;
         }
 
+        /// <summary>플레이어 Cast 직후의 Round 결과만 판정한다. EnemyTurn 피해는 아직 적용하지 않는다.</summary>
+        private static RoundOutcomeType ResolveRoundOutcomeAfterPlayerCast(RoundState roundState)
+        {
+            if (roundState.Encounter.IsOpponentDefeated)
+                return RoundOutcomeType.Won;
+
+            return RoundOutcomeType.Ongoing;
+        }
+
+        /// <summary>EnemyTurn 처리 이후 Round 결과를 판정한다.</summary>
+        private static RoundOutcomeType ResolveRoundOutcomeAfterEnemyTurn(RoundState roundState)
+        {
+            if (roundState.Encounter.IsOpponentDefeated)
+                return RoundOutcomeType.Won;
+
+            if (roundState.Encounter.IsPlayerDefeated)
+                return RoundOutcomeType.Lost;
+
+            if (roundState.IsLastAttempt())
+                return RoundOutcomeType.Lost;
+
+            if (ShouldLoseBecauseNoRoundRollsRemain(roundState))
+                return RoundOutcomeType.Lost;
+
+            return RoundOutcomeType.Ongoing;
+        }
+
         private static EnemyIntentResult ExecuteEnemyIntent(RoundState roundState)
         {
             EnemyIntent intent = roundState.CurrentEnemyIntent;
 
             if (intent.IntentType == EnemyIntentType.None)
-                return EnemyIntentResult.NotExecuted(roundState.Encounter.PlayerCurrentHp);
+                return EnemyIntentResult.NotExecuted(roundState.Encounter.PlayerCurrentHP);
 
             if (intent.IntentType == EnemyIntentType.Strike)
             {
@@ -357,11 +418,11 @@ namespace Tessera.Core
                     true,
                     EnemyIntentType.Strike,
                     intent.Damage,
-                    roundState.Encounter.PlayerCurrentHp,
+                    roundState.Encounter.PlayerCurrentHP,
                     $"Enemy used Strike for {intent.Damage} damage.");
             }
 
-            return EnemyIntentResult.NotExecuted(roundState.Encounter.PlayerCurrentHp);
+            return EnemyIntentResult.NotExecuted(roundState.Encounter.PlayerCurrentHP);
         }
 
         private static AttemptState CreateAttempt(OverchargeState overcharge, int attemptNumber)

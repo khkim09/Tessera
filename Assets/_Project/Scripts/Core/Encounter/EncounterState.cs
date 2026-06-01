@@ -6,36 +6,36 @@ namespace Tessera.Core
     public class EncounterState
     {
         /// <summary>플레이어 최대 HP.</summary>
-        public int PlayerMaxHp { get; }
+        public int PlayerMaxHP { get; }
 
         /// <summary>상대 최대 HP.</summary>
-        public int OpponentMaxHp { get; }
+        public int OpponentMaxHP { get; }
 
         /// <summary>플레이어 현재 HP.</summary>
-        public int PlayerCurrentHp { get; private set; }
+        public int PlayerCurrentHP { get; private set; }
 
         /// <summary>상대 현재 HP.</summary>
-        public int OpponentCurrentHp { get; private set; }
+        public int OpponentCurrentHP { get; private set; }
 
         /// <summary>플레이어가 패배했는지 확인한다.</summary>
-        public bool IsPlayerDefeated => PlayerCurrentHp <= 0;
+        public bool IsPlayerDefeated => PlayerCurrentHP <= 0;
 
         /// <summary>상대가 패배했는지 확인한다.</summary>
-        public bool IsOpponentDefeated => OpponentCurrentHp <= 0;
+        public bool IsOpponentDefeated => OpponentCurrentHP <= 0;
 
         /// <summary>지정 현재 HP를 가진 전투 상태를 생성한다.</summary>
-        public EncounterState(int playerMaxHp, int opponentMaxHp, int playerCurrentHp, int opponentCurrentHp)
+        public EncounterState(int playerMaxHP, int opponentMaxHP, int playerCurrentHP, int opponentCurrentHP)
         {
-            if (playerMaxHp <= 0)
-                throw new ArgumentOutOfRangeException(nameof(playerMaxHp), "플레이어 최대 HP는 1 이상이어야 합니다.");
+            if (playerMaxHP <= 0)
+                throw new ArgumentOutOfRangeException(nameof(playerMaxHP), "플레이어 최대 HP는 1 이상이어야 합니다.");
 
-            if (opponentMaxHp <= 0)
-                throw new ArgumentOutOfRangeException(nameof(opponentMaxHp), "상대 최대 HP는 1 이상이어야 합니다.");
+            if (opponentMaxHP <= 0)
+                throw new ArgumentOutOfRangeException(nameof(opponentMaxHP), "상대 최대 HP는 1 이상이어야 합니다.");
 
-            PlayerMaxHp = playerMaxHp;
-            OpponentMaxHp = opponentMaxHp;
-            PlayerCurrentHp = ClampHp(playerCurrentHp, playerMaxHp);
-            OpponentCurrentHp = ClampHp(opponentCurrentHp, opponentMaxHp);
+            PlayerMaxHP = playerMaxHP;
+            OpponentMaxHP = opponentMaxHP;
+            PlayerCurrentHP = ClampHP(playerCurrentHP, playerMaxHP);
+            OpponentCurrentHP = ClampHP(opponentCurrentHP, opponentMaxHP);
         }
 
         /// <summary>상대에게 피해를 적용한다.</summary>
@@ -44,7 +44,7 @@ namespace Tessera.Core
             if (damage < 0)
                 throw new ArgumentOutOfRangeException(nameof(damage), "피해량은 음수가 될 수 없습니다.");
 
-            OpponentCurrentHp = Math.Max(0, OpponentCurrentHp - damage);
+            OpponentCurrentHP = Math.Max(0, OpponentCurrentHP - damage);
         }
 
         /// <summary>플레이어에게 피해를 적용한다.</summary>
@@ -53,7 +53,7 @@ namespace Tessera.Core
             if (damage < 0)
                 throw new ArgumentOutOfRangeException(nameof(damage), "피해량은 음수가 될 수 없습니다.");
 
-            PlayerCurrentHp = Math.Max(0, PlayerCurrentHp - damage);
+            PlayerCurrentHP = Math.Max(0, PlayerCurrentHP - damage);
         }
 
         /// <summary>플레이어 HP를 회복한다.</summary>
@@ -62,7 +62,7 @@ namespace Tessera.Core
             if (amount < 0)
                 throw new ArgumentOutOfRangeException(nameof(amount), "회복량은 음수가 될 수 없습니다.");
 
-            PlayerCurrentHp = Math.Min(PlayerMaxHp, PlayerCurrentHp + amount);
+            PlayerCurrentHP = Math.Min(PlayerMaxHP, PlayerCurrentHP + amount);
         }
 
         /// <summary>상대 HP를 회복한다.</summary>
@@ -71,16 +71,16 @@ namespace Tessera.Core
             if (amount < 0)
                 throw new ArgumentOutOfRangeException(nameof(amount), "회복량은 음수가 될 수 없습니다.");
 
-            OpponentCurrentHp = Math.Min(OpponentMaxHp, OpponentCurrentHp + amount);
+            OpponentCurrentHP = Math.Min(OpponentMaxHP, OpponentCurrentHP + amount);
         }
 
-        private static int ClampHp(int value, int maxHp)
+        private static int ClampHP(int value, int maxHP)
         {
             if (value < 0)
                 return 0;
 
-            if (value > maxHp)
-                return maxHp;
+            if (value > maxHP)
+                return maxHP;
 
             return value;
         }

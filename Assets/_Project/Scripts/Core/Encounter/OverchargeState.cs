@@ -81,5 +81,14 @@ namespace Tessera.Core
             CurrentOvercharge = 0;
             NextAttemptFreeRerollTokens = 0;
         }
+
+        /// <summary>현재 Overcharge 값을 직접 지정한다.</summary>
+        public void SetCurrentOvercharge(int value)
+        {
+            if (value < 0)
+                throw new ArgumentOutOfRangeException(nameof(value), "Overcharge 값은 음수가 될 수 없습니다.");
+
+            CurrentOvercharge = value;
+        }
     }
 }

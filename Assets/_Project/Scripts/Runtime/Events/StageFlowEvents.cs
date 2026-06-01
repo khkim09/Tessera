@@ -43,18 +43,18 @@ namespace Tessera.Runtime
     public readonly struct StageRoundStartRequestedEvent
     {
         public RoundRuleContext RuleContext { get; }
-        public int PlayerHpAtStart { get; }
+        public int PlayerHPAtStart { get; }
         public OverchargeState StageOverchargeState { get; }
         public string RoundDisplayName { get; }
 
         public StageRoundStartRequestedEvent(
             RoundRuleContext ruleContext,
-            int playerHpAtStart,
+            int playerHPAtStart,
             OverchargeState stageOverchargeState,
             string roundDisplayName)
         {
             RuleContext = ruleContext;
-            PlayerHpAtStart = playerHpAtStart;
+            PlayerHPAtStart = playerHPAtStart;
             StageOverchargeState = stageOverchargeState;
             RoundDisplayName = roundDisplayName ?? string.Empty;
         }
@@ -217,12 +217,12 @@ namespace Tessera.Runtime
     public readonly struct GameplayRoundWonEvent
     {
         public CastSubmitResult Result { get; }
-        public int PlayerHpAfterRound { get; }
+        public int PlayerHPAfterRound { get; }
 
-        public GameplayRoundWonEvent(CastSubmitResult result, int playerHpAfterRound)
+        public GameplayRoundWonEvent(CastSubmitResult result, int playerHPAfterRound)
         {
             Result = result;
-            PlayerHpAfterRound = playerHpAfterRound;
+            PlayerHPAfterRound = playerHPAfterRound;
         }
     }
 
@@ -230,12 +230,40 @@ namespace Tessera.Runtime
     public readonly struct GameplayRoundLostEvent
     {
         public CastSubmitResult Result { get; }
-        public int PlayerHpAfterRound { get; }
+        public int PlayerHPAfterRound { get; }
 
-        public GameplayRoundLostEvent(CastSubmitResult result, int playerHpAfterRound)
+        public GameplayRoundLostEvent(CastSubmitResult result, int playerHPAfterRound)
         {
             Result = result;
-            PlayerHpAfterRound = playerHpAfterRound;
+            PlayerHPAfterRound = playerHPAfterRound;
+        }
+    }
+
+    /// <summary>RunSession의 플레이어 HP 표시 갱신 요청 이벤트다.</summary>
+    public readonly struct PlayerHPDisplayRefreshRequestedEvent
+    {
+        public int CurrentHP { get; }
+        public int MaxHP { get; }
+        public string Reason { get; }
+
+        public PlayerHPDisplayRefreshRequestedEvent(int currentHP, int maxHP, string reason)
+        {
+            CurrentHP = currentHP;
+            MaxHP = maxHP;
+            Reason = reason ?? string.Empty;
+        }
+    }
+
+    /// <summary>RunSession의 Overcharge 표시 갱신 요청 이벤트다.</summary>
+    public readonly struct OverchargeDisplayRefreshRequestedEvent
+    {
+        public int CurrentOvercharge { get; }
+        public string Reason { get; }
+
+        public OverchargeDisplayRefreshRequestedEvent(int currentOvercharge, string reason)
+        {
+            CurrentOvercharge = currentOvercharge;
+            Reason = reason ?? string.Empty;
         }
     }
 

@@ -96,8 +96,8 @@ namespace Tessera.UI
                 return;
 
             int money = runSession != null ? runSession.Money : 0;
-            int hp = runSession != null ? runSession.PlayerCurrentHp : 0;
-            int maxHp = runSession != null ? runSession.PlayerMaxHp : 0;
+            int HP = runSession != null ? runSession.PlayerCurrentHP : 0;
+            int maxHP = runSession != null ? runSession.PlayerMaxHP : 0;
             int overcharge = runSession != null ? runSession.Overcharge : 0;
             int workshopTier = runSession != null ? runSession.CurrentWorkshopTier : 1;
             int runChain = runSession != null ? runSession.RunChainCount : 0;
@@ -108,7 +108,7 @@ namespace Tessera.UI
             bool enraged = boardState != null && boardState.IsEnraged;
 
             resourceText.text =
-                $"HP {hp}/{maxHp}\n" +
+                $"HP {HP}/{maxHP}\n" +
                 $"Money {money}\n" +
                 $"Overcharge {overcharge}\n" +
                 $"Workshop Tier {workshopTier}\n" +
@@ -124,8 +124,8 @@ namespace Tessera.UI
         {
             int money = runSession != null ? runSession.Money : 0;
             int overcharge = runSession != null ? runSession.Overcharge : 0;
-            int hp = runSession != null ? runSession.PlayerCurrentHp : 0;
-            int maxHp = runSession != null ? runSession.PlayerMaxHp : 0;
+            int HP = runSession != null ? runSession.PlayerCurrentHP : 0;
+            int maxHP = runSession != null ? runSession.PlayerMaxHP : 0;
 
             if (repairButtonText != null)
                 repairButtonText.text = $"Repair +{RepairHealAmount} / Money {RepairCostMoney}";
@@ -137,7 +137,7 @@ namespace Tessera.UI
                 continueButtonText.text = reasonType == StageShopReasonType.StageClear ? "Continue to Next Stage" : "Continue";
 
             if (repairButton != null)
-                repairButton.interactable = runSession != null && money >= RepairCostMoney && hp < maxHp;
+                repairButton.interactable = runSession != null && money >= RepairCostMoney && HP < maxHP;
 
             if (upgradeTierButton != null)
                 upgradeTierButton.interactable = runSession != null && overcharge >= UpgradeTierOverchargeCost;

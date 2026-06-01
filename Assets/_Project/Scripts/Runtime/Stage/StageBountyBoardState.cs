@@ -322,6 +322,23 @@ namespace Tessera.Runtime
             }
         }
 
+        /// <summary>선택 가능한 전투 수배지가 남아 있는지 여부.</summary>
+        public bool HasAvailableFightBounty
+        {
+            get
+            {
+                for (int i = 0; i < bountyNodes.Count; i++)
+                {
+                    StageBountyNodeState node = bountyNodes[i];
+
+                    if (node != null && node.IsAvailable && !node.IsCleared && !node.IsDiscarded)
+                        return true;
+                }
+
+                return false;
+            }
+        }
+
         /// <summary>Retreat Recovery 잠금을 해제한다.</summary>
         private void ClearRetreatRecovery()
         {

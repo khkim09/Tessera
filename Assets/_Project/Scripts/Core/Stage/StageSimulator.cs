@@ -34,7 +34,7 @@ namespace Tessera.Core
         /// <summary>현재 Stage Round의 Core RoundState를 생성한다.</summary>
         public RoundState StartCurrentRound(
             StageProgressState stageProgressState,
-            int playerCurrentHp,
+            int playerCurrentHP,
             OverchargeState stageOverchargeState)
         {
             if (stageProgressState == null)
@@ -47,7 +47,7 @@ namespace Tessera.Core
 
             return roundSimulator.StartRound(
                 currentRound.RuleContext,
-                playerCurrentHp,
+                playerCurrentHP,
                 stageOverchargeState);
         }
 
