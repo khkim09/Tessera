@@ -211,31 +211,77 @@ namespace Tessera.Core
             return true;
         }
 
-        /// <summary>제출 이후 다음 Attempt 시작을 시도한다.</summary>
-        public bool TryStartNextAttempt(RoundState roundState)
+        /// <summary>상대 턴에서 주사위 기반 자동 Cast를 계산하고 플레이어에게 피해를 적용한다.</summary>
+        public bool TryResolveEnemyTurnWithDice(
+            RoundState roundState,
+            IReadOnlyList<int> enemyDiceValues,
+            IReadOnlyList<SlotPairDeviceDefinition> opponentDeviceDefinitions,
+            out EnemyIntentResult enemyIntentResult,
+            out RoundOutcomeType outcomeType,
+            out PatternResult patternResult,
+            out SlotPairDamagePreview slotPairDamagePreview,
+            out TableRuleEvaluationResult tableRuleResult)
         {
             if (roundState == null)
                 throw new ArgumentNullException(nameof(roundState));
 
+            if (enemyDiceValues == null)
+                throw new ArgumentNullException(nameof(enemyDiceValues));
+
+            enemyIntentResult = EnemyIntentResult.NotExecuted(roundState.Encounter.PlayerCurrentHP);
+            outcomeType = RoundOutcomeType.Ongoing;
+            patternResult = null;
+            slotPairDamagePreview = null;
+            tableRuleResult = null;
+
             if (roundState.IsRoundEnded)
+            {
+                outcomeType = roundState.OutcomeType;
+                return false;
+            }
+
+            if (roundState.CurrentAttempt == null || !roundState.CurrentAttempt.IsSubmitted)
                 return false;
 
-            if (!roundState.CurrentAttempt.IsSubmitted)
+            if (roundState.Encounter.IsOpponentDefeated)
+            {
+                roundState.MarkWon();
+                outcomeType = RoundOutcomeType.Won;
                 return false;
+            }
 
-            if (roundState.CurrentAttempt.AttemptNumber >= roundState.RuleContext.MaxAttempts)
+            if (!TryBuildBestEnemySlotPairDamagePreview(
+                    roundState,
+                    enemyDiceValues,
+                    opponentDeviceDefinitions,
+                    out patternResult,
+                    out slotPairDamagePreview,
+                    out tableRuleResult))
+            {
+                enemyIntentResult = EnemyIntentResult.NotExecuted(roundState.Encounter.PlayerCurrentHP);
+                outcomeType = ResolveRoundOutcomeAfterEnemyTurn(roundState);
+                ApplyEnemyTurnOutcome(roundState, outcomeType);
                 return false;
+            }
 
-            int nextAttemptNumber = roundState.CurrentAttempt.AttemptNumber + 1;
-            AttemptState nextAttempt = CreateAttempt(roundState.Overcharge, nextAttemptNumber);
-            List<DiceInstance> dice = diceRoller.CreateRolledStandardDiceSet(roundState.RuleContext.DiceCount);
+            int damage = Math.Max(0, tableRuleResult.ModifiedDamage);
 
-            roundState.StartAttempt(nextAttempt, dice);
-            roundState.SetEnemyIntent(EnemyIntent.Strike(roundState.RuleContext.EnemyStrikeDamage));
+            if (damage > 0)
+                roundState.Encounter.ApplyDamageToPlayer(damage);
+
+            enemyIntentResult = new EnemyIntentResult(
+                true,
+                EnemyIntentType.Strike,
+                damage,
+                roundState.Encounter.PlayerCurrentHP,
+                $"Enemy used {patternResult.PatternType} for {damage} damage.");
+
+            outcomeType = ResolveRoundOutcomeAfterEnemyTurn(roundState);
+            ApplyEnemyTurnOutcome(roundState, outcomeType);
             return true;
         }
 
-        /// <summary>제출된 Cast 이후 상대 턴 Intent 실행을 시도한다.</summary>
+        /// <summary>상대 턴에서 기존 고정 Intent를 실행한다. 주사위 기반 상대 턴 미구현 또는 폴백용이다.</summary>
         public bool TryResolveEnemyTurn(
             RoundState roundState,
             out EnemyIntentResult enemyIntentResult,
@@ -265,13 +311,93 @@ namespace Tessera.Core
 
             enemyIntentResult = ExecuteEnemyIntent(roundState);
             outcomeType = ResolveRoundOutcomeAfterEnemyTurn(roundState);
-
-            if (outcomeType == RoundOutcomeType.Won)
-                roundState.MarkWon();
-            else if (outcomeType == RoundOutcomeType.Lost)
-                roundState.MarkLost();
-
+            ApplyEnemyTurnOutcome(roundState, outcomeType);
             return enemyIntentResult.DidExecute;
+        }
+
+        /// <summary>상대 주사위 값과 Device를 기준으로 가장 강한 Cast 피해 미리보기를 생성한다.</summary>
+        public bool TryBuildBestEnemySlotPairDamagePreview(
+            RoundState roundState,
+            IReadOnlyList<int> enemyDiceValues,
+            IReadOnlyList<SlotPairDeviceDefinition> opponentDeviceDefinitions,
+            out PatternResult bestPatternResult,
+            out SlotPairDamagePreview bestPreview,
+            out TableRuleEvaluationResult bestTableRuleResult)
+        {
+            if (roundState == null)
+                throw new ArgumentNullException(nameof(roundState));
+
+            if (enemyDiceValues == null)
+                throw new ArgumentNullException(nameof(enemyDiceValues));
+
+            bestPatternResult = null;
+            bestPreview = null;
+            bestTableRuleResult = null;
+
+            List<PatternResult> patternResults = patternEvaluator.EvaluateAll(enemyDiceValues);
+            List<int> lockSlotDiceIndexes = CreateSequentialLockSlotDiceIndexes(enemyDiceValues.Count);
+            int bestDamage = int.MinValue;
+
+            for (int i = 0; i < patternResults.Count; i++)
+            {
+                PatternResult candidatePattern = patternResults[i];
+
+                if (candidatePattern.PatternType == RollPatternType.None || candidatePattern.PatternType == RollPatternType.BrokenCast)
+                    continue;
+
+                TableRuleEvaluationResult candidateBaseRule = TableRuleEvaluator.Evaluate(roundState.RuleContext, candidatePattern);
+
+                if (candidateBaseRule.IsCastBlocked)
+                    continue;
+
+                SlotPairDamagePreview candidatePreview = slotPairDamageCalculator.Calculate(
+                    candidatePattern,
+                    enemyDiceValues,
+                    lockSlotDiceIndexes,
+                    opponentDeviceDefinitions);
+
+                TableRuleEvaluationResult candidateTableRule = TableRuleEvaluator.Evaluate(
+                    roundState.RuleContext,
+                    candidatePattern.PatternType,
+                    candidatePreview.DamageBeforeTableRules);
+
+                if (candidateTableRule.IsCastBlocked)
+                    continue;
+
+                if (candidateTableRule.ModifiedDamage <= bestDamage)
+                    continue;
+
+                bestDamage = candidateTableRule.ModifiedDamage;
+                bestPatternResult = candidatePattern;
+                bestPreview = candidatePreview;
+                bestTableRuleResult = candidateTableRule;
+            }
+
+            return bestPatternResult != null && bestPreview != null && bestTableRuleResult != null;
+        }
+
+        /// <summary>제출 이후 다음 Attempt 시작을 시도한다.</summary>
+        public bool TryStartNextAttempt(RoundState roundState)
+        {
+            if (roundState == null)
+                throw new ArgumentNullException(nameof(roundState));
+
+            if (roundState.IsRoundEnded)
+                return false;
+
+            if (!roundState.CurrentAttempt.IsSubmitted)
+                return false;
+
+            if (roundState.CurrentAttempt.AttemptNumber >= roundState.RuleContext.MaxAttempts)
+                return false;
+
+            int nextAttemptNumber = roundState.CurrentAttempt.AttemptNumber + 1;
+            AttemptState nextAttempt = CreateAttempt(roundState.Overcharge, nextAttemptNumber);
+            List<DiceInstance> dice = diceRoller.CreateRolledStandardDiceSet(roundState.RuleContext.DiceCount);
+
+            roundState.StartAttempt(nextAttempt, dice);
+            roundState.SetEnemyIntent(EnemyIntent.Strike(roundState.RuleContext.EnemyStrikeDamage));
+            return true;
         }
 
         /// <summary>테스트용으로 현재 주사위 값을 강제로 설정한다.</summary>
@@ -322,10 +448,10 @@ namespace Tessera.Core
         }
 
         private CastSubmitResult SubmitResolvedCast(
-    RoundState roundState,
-    PatternResult patternResult,
-    SlotPairDamagePreview slotPairDamagePreview,
-    TableRuleEvaluationResult tableRuleResult)
+            RoundState roundState,
+            PatternResult patternResult,
+            SlotPairDamagePreview slotPairDamagePreview,
+            TableRuleEvaluationResult tableRuleResult)
         {
             if (roundState.CurrentAttempt.IsSubmitted)
                 throw new InvalidOperationException("이미 제출된 Attempt입니다.");
@@ -347,7 +473,6 @@ namespace Tessera.Core
                 ApplyBrokenCastReward(roundState, out didGrantOvercharge, out grantedOvercharge, out grantedFreeRerollTokens);
 
             EnemyIntentResult enemyIntentResult = EnemyIntentResult.NotExecuted(roundState.Encounter.PlayerCurrentHP);
-
             RoundOutcomeType outcomeType = ResolveRoundOutcomeAfterPlayerCast(roundState);
 
             if (outcomeType == RoundOutcomeType.Won)
@@ -374,33 +499,6 @@ namespace Tessera.Core
 
             roundState.AddSubmitResult(result);
             return result;
-        }
-
-        /// <summary>플레이어 Cast 직후의 Round 결과만 판정한다. EnemyTurn 피해는 아직 적용하지 않는다.</summary>
-        private static RoundOutcomeType ResolveRoundOutcomeAfterPlayerCast(RoundState roundState)
-        {
-            if (roundState.Encounter.IsOpponentDefeated)
-                return RoundOutcomeType.Won;
-
-            return RoundOutcomeType.Ongoing;
-        }
-
-        /// <summary>EnemyTurn 처리 이후 Round 결과를 판정한다.</summary>
-        private static RoundOutcomeType ResolveRoundOutcomeAfterEnemyTurn(RoundState roundState)
-        {
-            if (roundState.Encounter.IsOpponentDefeated)
-                return RoundOutcomeType.Won;
-
-            if (roundState.Encounter.IsPlayerDefeated)
-                return RoundOutcomeType.Lost;
-
-            if (roundState.IsLastAttempt())
-                return RoundOutcomeType.Lost;
-
-            if (ShouldLoseBecauseNoRoundRollsRemain(roundState))
-                return RoundOutcomeType.Lost;
-
-            return RoundOutcomeType.Ongoing;
         }
 
         private static EnemyIntentResult ExecuteEnemyIntent(RoundState roundState)
@@ -464,8 +562,17 @@ namespace Tessera.Core
             }
         }
 
-        /// <summary>현재 Cast 제출 이후 Round 결과를 판정한다.</summary>
-        private static RoundOutcomeType ResolveRoundOutcome(RoundState roundState)
+        /// <summary>플레이어 Cast 직후의 Round 결과를 판정한다. 상대 턴 피해는 아직 반영하지 않는다.</summary>
+        private static RoundOutcomeType ResolveRoundOutcomeAfterPlayerCast(RoundState roundState)
+        {
+            if (roundState.Encounter.IsOpponentDefeated)
+                return RoundOutcomeType.Won;
+
+            return RoundOutcomeType.Ongoing;
+        }
+
+        /// <summary>EnemyTurn 처리 이후 Round 결과를 판정한다.</summary>
+        private static RoundOutcomeType ResolveRoundOutcomeAfterEnemyTurn(RoundState roundState)
         {
             if (roundState.Encounter.IsOpponentDefeated)
                 return RoundOutcomeType.Won;
@@ -480,6 +587,31 @@ namespace Tessera.Core
                 return RoundOutcomeType.Lost;
 
             return RoundOutcomeType.Ongoing;
+        }
+
+        /// <summary>EnemyTurn 이후 판정된 결과를 RoundState에 반영한다.</summary>
+        private static void ApplyEnemyTurnOutcome(RoundState roundState, RoundOutcomeType outcomeType)
+        {
+            if (outcomeType == RoundOutcomeType.Won)
+                roundState.MarkWon();
+            else if (outcomeType == RoundOutcomeType.Lost)
+                roundState.MarkLost();
+        }
+
+        /// <summary>SlotPair 0~4에 DiceIndex 0~4를 순서대로 대응시킨다.</summary>
+        private static List<int> CreateSequentialLockSlotDiceIndexes(int diceCount)
+        {
+            List<int> diceIndexes = new List<int>(SlotPairDamageCalculator.SlotPairCount);
+
+            for (int slotIndex = 0; slotIndex < SlotPairDamageCalculator.SlotPairCount; slotIndex++)
+            {
+                if (slotIndex < diceCount)
+                    diceIndexes.Add(slotIndex);
+                else
+                    diceIndexes.Add(-1);
+            }
+
+            return diceIndexes;
         }
 
         /// <summary>다음 Attempt는 남아 있지만 Round Roll Pool이 없어 더 이상 유효하게 진행할 수 없는지 확인한다.</summary>

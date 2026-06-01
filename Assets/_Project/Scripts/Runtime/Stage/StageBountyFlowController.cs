@@ -262,15 +262,47 @@ namespace Tessera.Runtime
                 runSession.PlayerMaxHP,
                 currentStageState.StageThreatLevel);
 
+            int opponentDeviceSeed = CreateOpponentDeviceLoadoutSeed(node);
+            SlotPairDeviceDefinitionSO[] opponentDevices =
+                node.Definition.BuildOpponentSlotPairDeviceLoadout(opponentDeviceSeed);
+
             TesseraEventBus.Publish(
                 new StageRoundStartRequestedEvent(
                     ruleContext,
                     Mathf.Max(1, runSession.PlayerCurrentHP),
                     runSession.StageOverchargeState,
-                    node.Definition.DisplayName));
+                    node.Definition.DisplayName,
+                    opponentDevices,
+                    node.Definition.FirstTurnPolicy));
 
             TesseraEventBus.Publish(new GameModeChangeRequestedEvent(GameModeType.Gameplay, node.Definition.DisplayName));
             PublishStageEconomyChanged($"Bounty started: {node.Definition.DisplayName}");
+        }
+
+        /// <summary>상대 Device 로드아웃 생성을 위한 결정적 Seed를 만든다.</summary>
+        private int CreateOpponentDeviceLoadoutSeed(StageBountyNodeState node)
+        {
+            int stageNumber = currentStageState != null && currentStageState.StageDefinition != null
+                ? currentStageState.StageDefinition.StageNumber
+                : 1;
+
+            int bountyRank = node != null && node.Definition != null
+                ? node.Definition.BountyRank
+                : 1;
+
+            int stageThreat = currentStageState != null
+                ? currentStageState.StageThreatLevel
+                : 0;
+
+            int chainCount = currentStageState != null
+                ? currentStageState.ChainCount
+                : 0;
+
+            return stageNumber * 100000
+                    + bountyRank * 10000
+                    + stageThreat * 1000
+                    + chainCount * 100
+                    + Mathf.Abs(Time.frameCount % 100);
         }
 
         /// <summary>Round 승리 이벤트를 처리한다.</summary>

@@ -17,11 +17,11 @@ namespace Tessera.Core
         /// <summary>이 Round를 Skip할 수 있는지 여부.</summary>
         public bool CanSkip { get; }
 
-        /// <summary>Round 클리어 시 기본 Parts 보상.</summary>
-        public int RewardParts { get; }
+        /// <summary>Round 클리어 시 기본 Money 보상.</summary>
+        public int RewardMoney { get; }
 
-        /// <summary>Round Skip 시 받을 Parts 보상.</summary>
-        public int SkipRewardParts { get; }
+        /// <summary>Round Skip 시 받을 Money 보상.</summary>
+        public int SkipRewardMoney { get; }
 
         /// <summary>이 Round에 적용되는 Core Round 규칙.</summary>
         public RoundRuleContext RuleContext { get; }
@@ -32,25 +32,25 @@ namespace Tessera.Core
             string displayName,
             StageRoundType roundType,
             bool canSkip,
-            int rewardParts,
-            int skipRewardParts,
+            int rewardMoney,
+            int skipRewardMoney,
             RoundRuleContext ruleContext)
         {
             if (roundIndex < 0)
                 throw new ArgumentOutOfRangeException(nameof(roundIndex), "Round 인덱스는 음수가 될 수 없습니다.");
 
-            if (rewardParts < 0)
-                throw new ArgumentOutOfRangeException(nameof(rewardParts), "보상 Parts는 음수가 될 수 없습니다.");
+            if (rewardMoney < 0)
+                throw new ArgumentOutOfRangeException(nameof(rewardMoney), "보상 Money는 음수가 될 수 없습니다.");
 
-            if (skipRewardParts < 0)
-                throw new ArgumentOutOfRangeException(nameof(skipRewardParts), "Skip 보상 Parts는 음수가 될 수 없습니다.");
+            if (skipRewardMoney < 0)
+                throw new ArgumentOutOfRangeException(nameof(skipRewardMoney), "Skip 보상 Money는 음수가 될 수 없습니다.");
 
             RoundIndex = roundIndex;
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? $"Round {roundIndex + 1}" : displayName;
             RoundType = roundType;
             CanSkip = canSkip;
-            RewardParts = rewardParts;
-            SkipRewardParts = skipRewardParts;
+            RewardMoney = rewardMoney;
+            SkipRewardMoney = skipRewardMoney;
             RuleContext = ruleContext ?? throw new ArgumentNullException(nameof(ruleContext));
         }
 
@@ -58,8 +58,8 @@ namespace Tessera.Core
         public static StageRoundDefinition CreateNormal(
             int roundIndex,
             string displayName,
-            int rewardParts,
-            int skipRewardParts,
+            int rewardMoney,
+            int skipRewardMoney,
             RoundRuleContext ruleContext)
         {
             return new StageRoundDefinition(
@@ -67,8 +67,8 @@ namespace Tessera.Core
                 displayName,
                 StageRoundType.Normal,
                 true,
-                rewardParts,
-                skipRewardParts,
+                rewardMoney,
+                skipRewardMoney,
                 ruleContext);
         }
 
@@ -76,7 +76,7 @@ namespace Tessera.Core
         public static StageRoundDefinition CreateBoss(
             int roundIndex,
             string displayName,
-            int rewardParts,
+            int rewardMoney,
             RoundRuleContext ruleContext)
         {
             return new StageRoundDefinition(
@@ -84,7 +84,7 @@ namespace Tessera.Core
                 displayName,
                 StageRoundType.Boss,
                 false,
-                rewardParts,
+                rewardMoney,
                 0,
                 ruleContext);
         }

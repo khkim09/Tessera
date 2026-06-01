@@ -20,6 +20,7 @@ MonoBehaviour:
   shopEntryRequiresOverchargeAfterStageClear: 0
   keepChainAfterStageClear: 1
   roundDefinitions:
+  - {fileID: 11400000, guid: e7332170273133e47b7b1e60d12c725b, type: 2}
   - {fileID: 11400000, guid: 0b8855e633814304b2525a440d622d4b, type: 2}
   - {fileID: 11400000, guid: 08a97f06bf144474899d9a09796bab3f, type: 2}
   - {fileID: 11400000, guid: 5b508c31c5604defa22927b07bba083a, type: 2}

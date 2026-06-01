@@ -59,21 +59,21 @@ namespace Tessera.Core
                 StageRoundDefinition.CreateNormal(
                     roundIndex: 0,
                     displayName: "Round 1 - Alley Table",
-                    rewardParts: 20,
-                    skipRewardParts: 8,
+                    rewardMoney: 20,
+                    skipRewardMoney: 8,
                     ruleContext: RoundRuleContext.CreateDefault()),
 
                 StageRoundDefinition.CreateNormal(
                     roundIndex: 1,
                     displayName: "Round 2 - Rust Table",
-                    rewardParts: 25,
-                    skipRewardParts: 10,
+                    rewardMoney: 25,
+                    skipRewardMoney: 10,
                     ruleContext: RoundRuleContext.CreateDefault()),
 
                 StageRoundDefinition.CreateBoss(
                     roundIndex: 2,
                     displayName: "Boss Round - The Clerk",
-                    rewardParts: 60,
+                    rewardMoney: 60,
                     ruleContext: RoundRuleContext.CreateDebugAcesBoss())
             };
 

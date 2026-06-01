@@ -124,7 +124,9 @@ namespace Tessera.UI
                 gameEvent.RuleContext,
                 gameEvent.PlayerHPAtStart,
                 gameEvent.StageOverchargeState,
-                gameEvent.RoundDisplayName);
+                gameEvent.RoundDisplayName,
+                gameEvent.OpponentSlotPairDevices,
+                gameEvent.FirstTurnPolicy);
         }
 
         /// <summary>Bounty Board 표시 요청을 View에 전달한다.</summary>

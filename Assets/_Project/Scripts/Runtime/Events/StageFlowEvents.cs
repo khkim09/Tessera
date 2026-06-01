@@ -1,4 +1,5 @@
 ﻿using Tessera.Core;
+using Tessera.Data;
 
 namespace Tessera.Runtime
 {
@@ -46,17 +47,23 @@ namespace Tessera.Runtime
         public int PlayerHPAtStart { get; }
         public OverchargeState StageOverchargeState { get; }
         public string RoundDisplayName { get; }
+        public SlotPairDeviceDefinitionSO[] OpponentSlotPairDevices { get; }
+        public FirstTurnPolicy FirstTurnPolicy { get; }
 
         public StageRoundStartRequestedEvent(
             RoundRuleContext ruleContext,
             int playerHPAtStart,
             OverchargeState stageOverchargeState,
-            string roundDisplayName)
+            string roundDisplayName,
+            SlotPairDeviceDefinitionSO[] opponentSlotPairDevices,
+            FirstTurnPolicy firstTurnPolicy)
         {
             RuleContext = ruleContext;
             PlayerHPAtStart = playerHPAtStart;
             StageOverchargeState = stageOverchargeState;
             RoundDisplayName = roundDisplayName ?? string.Empty;
+            OpponentSlotPairDevices = opponentSlotPairDevices;
+            FirstTurnPolicy = firstTurnPolicy;
         }
     }
 
@@ -92,7 +99,6 @@ namespace Tessera.Runtime
         public TesseraRunSession RunSession { get; }
         public StageBountyBoardState BoardState { get; }
         public int RetryMoneyCost { get; }
-        public int RetryPartsCost => RetryMoneyCost;
         public string Message { get; }
 
         public RoundFailureShowRequestedEvent(

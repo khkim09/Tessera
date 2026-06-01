@@ -5045,7 +5045,7 @@ GameObject:
   m_Component:
   - component: {fileID: 833359333}
   m_Layer: 0
-  m_Name: OpponentDiceRestPoints
+  m_Name: OpponentDiceRestPoint
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5060,7 +5060,7 @@ Transform:
   m_GameObject: {fileID: 833359332}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
-  m_LocalPosition: {x: -1.292, y: 0.152, z: 1.329}
+  m_LocalPosition: {x: -1.425, y: -0.185, z: 1.245}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5447,6 +5447,12 @@ MonoBehaviour:
   - {fileID: 0}
   - {fileID: 11400000, guid: 7ba54f2b344b77441a2fffa88404bf7e, type: 2}
   - {fileID: 0}
+  opponentSlotPairDevices:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
   deviceSlotViews:
   - {fileID: 0}
   - {fileID: 0}
@@ -5507,9 +5513,10 @@ MonoBehaviour:
   togglePopupButton: {fileID: 1763634526}
   autoStartNextAttemptAfterCast: 1
   autoNextAttemptDelay: 0.8
-  enemyTurnStartDelay: 0.12
-  enemyTurnAfterActionDelay: 0.18
+  enemyTurnStartDelay: 0.7
+  enemyTurnAfterActionDelay: 0.9
   playEnemyDiceCupPresentation: 1
+  ownerDiceRestMoveDuration: 0.4
   enemyDiceCupEnterRollEuler: {x: 180, y: 90, z: 180}
   enemyDiceCupScatterRollEuler: {x: 240, y: 180, z: 120}
   moneyText: {fileID: 1677064150}
@@ -10861,7 +10868,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1664394207}
   m_Layer: 0
-  m_Name: PlayerDiceRestPoints
+  m_Name: PlayerDiceRestPoint
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -10876,7 +10883,7 @@ Transform:
   m_GameObject: {fileID: 1664394206}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1.508, y: 0.152, z: -1.061}
+  m_LocalPosition: {x: 1.425, y: -0.185, z: -1.245}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -13090,6 +13097,8 @@ MonoBehaviour:
   - {fileID: 459735319}
   - {fileID: 620088236}
   - {fileID: 1647954385}
+  playerDiceRestPoint: {fileID: 1664394207}
+  opponentDiceRestPoint: {fileID: 833359333}
 --- !u!1 &1992902396
 GameObject:
   m_ObjectHideFlags: 0

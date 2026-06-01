@@ -17,11 +17,11 @@ MonoBehaviour:
   roundType: 1
   tutorialForcedRound: 0
   initiallyAvailable: 1
-  baseRewardMoney: 50
-  bountyRank: 1
+  baseRewardMoney: 25
+  bountyRank: 3
   rewardOvercharge: 0
   rewardDescription: Stage clear reward.
-  opponentMaxHP: 90
+  opponentMaxHP: 100
   enemyStrikeDamage: 4
   playerMaxHP: 100
   diceCount: 5
@@ -37,3 +37,13 @@ MonoBehaviour:
   nonAcesDamagePercent: 50
   disableChance: 0
   disableBrokenCastReward: 0
+  opponentDevicePool:
+  - {fileID: 11400000, guid: 6846570314fc2554bbed934f8f59b05e, type: 2}
+  - {fileID: 11400000, guid: d1178f2118f94fb4c8b07ea2c698e13f, type: 2}
+  - {fileID: 11400000, guid: 7ba54f2b344b77441a2fffa88404bf7e, type: 2}
+  - {fileID: 11400000, guid: 5911742ee3f7e5c49b2e7b0be9bd80cc, type: 2}
+  - {fileID: 11400000, guid: 522791ecf4c8de748859ea0f616fb3d8, type: 2}
+  minOpponentDeviceCount: 3
+  maxOpponentDeviceCount: 5
+  allowDuplicateOpponentDevices: 0
+  firstTurnPolicy: 0

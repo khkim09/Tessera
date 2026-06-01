@@ -30,14 +30,8 @@ namespace Tessera.Runtime
         /// <summary>현재 StageThreatLevel.</summary>
         public int StageThreatLevel { get; private set; }
 
-        /// <summary>기존 Pressure 기반 코드 호환용 접근자다. 신규 코드는 StageThreatLevel을 사용한다.</summary>
-        public int PressureLevel => StageThreatLevel;
-
         /// <summary>보류 중인 Money 보상.</summary>
         public int PendingMoneyReward { get; private set; }
-
-        /// <summary>기존 Parts 기반 코드 호환용 접근자다. 신규 코드는 PendingMoneyReward를 사용한다.</summary>
-        public int PendingPartsReward => PendingMoneyReward;
 
         /// <summary>기존 Pending Overcharge 코드 호환용 접근자다. 신규 구조에서는 항상 0이다.</summary>
         public int PendingOverchargeReward => 0;
@@ -217,12 +211,6 @@ namespace Tessera.Runtime
             int value = PendingMoneyReward;
             PendingMoneyReward = 0;
             return value;
-        }
-
-        /// <summary>기존 Parts 기반 코드 호환용 메서드다. 신규 코드는 DrainPendingMoneyReward를 사용한다.</summary>
-        public int DrainPendingPartsReward()
-        {
-            return DrainPendingMoneyReward();
         }
 
         /// <summary>기존 Pending Overcharge 코드 호환용 메서드다. 신규 구조에서는 항상 0을 반환한다.</summary>

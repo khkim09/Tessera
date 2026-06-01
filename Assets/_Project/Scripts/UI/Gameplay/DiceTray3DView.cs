@@ -8,7 +8,7 @@ using UnityEngine.Serialization;
 
 namespace Tessera.UI
 {
-    /// <summary>공용 DiceTray3D 위의 Player/Opponent 3D 주사위 세트 표시, 클릭 콜백, DeviceSlot 이동과 Roll 연출을 관리한다.</summary>
+    /// <summary>공용 DiceTray 위의 Player/Opponent 3D 주사위 세트 표시, 값, 클릭 콜백, 이동과 Roll 연출을 관리한다.</summary>
     public class DiceTray3DView : MonoBehaviour
     {
         [Header("Player Dice Views")]
@@ -21,32 +21,36 @@ namespace Tessera.UI
         [Header("Spawn Points")]
         [SerializeField] private Transform[] dicePoints = new Transform[5];
 
+        [Header("Owner Rest Points")]
+        [SerializeField] private Transform playerDiceRestPoint;
+        [SerializeField] private Transform opponentDiceRestPoint;
+
         private Action<int> diceClickedCallback;
 
-        /// <summary>인스펙터에서 자식 Player Dice3DView를 자동 수집한다.</summary>
+        /// <summary>인스펙터에서 자식 Dice3DView를 Player 주사위로 자동 수집한다.</summary>
         private void Reset()
         {
             playerDiceViews = GetComponentsInChildren<Dice3DView>(true);
         }
 
-        /// <summary>Player Dice 클릭 콜백을 초기화한다.</summary>
+        /// <summary>Player Dice 클릭 콜백을 초기화하고 Opponent Dice 입력은 비활성화한다.</summary>
         public void Initialize(Action<int> diceClickedCallback)
         {
             this.diceClickedCallback = diceClickedCallback;
             InitializeDiceViews();
         }
 
-        /// <summary>지정 소유자의 DiceView 배열이 하나 이상 연결되어 있는지 확인한다.</summary>
+        /// <summary>지정 소유자의 Dice 세트가 하나 이상 할당되어 있는지 확인한다.</summary>
         public bool HasDiceSet(DiceOwnerType owner)
         {
-            Dice3DView[] targetDiceViews = ResolveDiceViews(owner);
+            Dice3DView[] diceViews = ResolveDiceViews(owner);
 
-            if (targetDiceViews == null || targetDiceViews.Length == 0)
+            if (diceViews == null || diceViews.Length <= 0)
                 return false;
 
-            for (int i = 0; i < targetDiceViews.Length; i++)
+            for (int i = 0; i < diceViews.Length; i++)
             {
-                if (targetDiceViews[i] != null)
+                if (diceViews[i] != null)
                     return true;
             }
 
@@ -62,33 +66,34 @@ namespace Tessera.UI
         /// <summary>지정 소유자의 DiceView를 반환한다.</summary>
         public Dice3DView GetDiceView(DiceOwnerType owner, int diceIndex)
         {
-            return TryGetDiceView(owner, diceIndex, out Dice3DView diceView)
-                ? diceView
-                : null;
+            if (!TryGetDiceView(owner, diceIndex, out Dice3DView diceView))
+                return null;
+
+            return diceView;
         }
 
-        /// <summary>현재 Core 주사위 값과 Lock 상태를 Player 3D 주사위에 반영한다.</summary>
+        /// <summary>Player Core 주사위 값과 Lock 상태를 3D 주사위에 반영한다.</summary>
         public void SetDice(IReadOnlyList<int> diceValues, IReadOnlyList<bool> lockStates)
         {
             SetDice(DiceOwnerType.Player, diceValues, lockStates);
         }
 
-        /// <summary>현재 Core 주사위 값과 Lock 상태를 지정 소유자의 3D 주사위에 반영한다.</summary>
+        /// <summary>지정 소유자의 주사위 값과 Lock 상태를 3D 주사위에 반영한다.</summary>
         public void SetDice(DiceOwnerType owner, IReadOnlyList<int> diceValues, IReadOnlyList<bool> lockStates)
         {
-            Dice3DView[] targetDiceViews = ResolveDiceViews(owner);
+            Dice3DView[] diceViews = ResolveDiceViews(owner);
 
-            if (targetDiceViews == null)
+            if (diceViews == null)
                 return;
 
-            for (int diceIndex = 0; diceIndex < targetDiceViews.Length; diceIndex++)
+            for (int diceIndex = 0; diceIndex < diceViews.Length; diceIndex++)
             {
-                Dice3DView diceView = targetDiceViews[diceIndex];
+                Dice3DView diceView = diceViews[diceIndex];
 
                 if (diceView == null)
                     continue;
 
-                if (diceValues == null || diceIndex < 0 || diceIndex >= diceValues.Count)
+                if (diceValues == null || diceIndex >= diceValues.Count)
                 {
                     diceView.Hide();
                     continue;
@@ -107,110 +112,23 @@ namespace Tessera.UI
             }
         }
 
-        /// <summary>위치 변경 없이 Player 주사위 값과 Lock 색상만 갱신한다.</summary>
+        /// <summary>Player Dice 위치 변경 없이 주사위 값과 Lock 색상만 갱신한다.</summary>
         public void SetDiceValuesOnly(IReadOnlyList<int> diceValues, IReadOnlyList<bool> lockStates)
         {
             SetDiceValuesOnly(DiceOwnerType.Player, diceValues, lockStates);
         }
 
-        /// <summary>위치 변경 없이 지정 소유자의 주사위 값과 Lock 색상만 갱신한다.</summary>
+        /// <summary>지정 소유자 Dice 위치 변경 없이 주사위 값과 Lock 색상만 갱신한다.</summary>
         public void SetDiceValuesOnly(DiceOwnerType owner, IReadOnlyList<int> diceValues, IReadOnlyList<bool> lockStates)
         {
-            Dice3DView[] targetDiceViews = ResolveDiceViews(owner);
+            Dice3DView[] diceViews = ResolveDiceViews(owner);
 
-            if (targetDiceViews == null)
+            if (diceViews == null)
                 return;
 
-            for (int diceIndex = 0; diceIndex < targetDiceViews.Length; diceIndex++)
+            for (int diceIndex = 0; diceIndex < diceViews.Length; diceIndex++)
             {
-                Dice3DView diceView = targetDiceViews[diceIndex];
-
-                if (diceView == null)
-                    continue;
-
-                if (diceValues == null || diceIndex < 0 || diceIndex >= diceValues.Count)
-                {
-                    diceView.Hide();
-                    continue;
-                }
-
-                bool isLocked = IsDiceLocked(lockStates, diceIndex);
-                diceView.SetDice(diceIndex, diceValues[diceIndex], isLocked);
-            }
-        }
-
-        /// <summary>Player/Opponent 모든 주사위 표시를 숨긴다.</summary>
-        public void HideAll()
-        {
-            HideDiceSet(DiceOwnerType.Player);
-            HideDiceSet(DiceOwnerType.Opponent);
-        }
-
-        /// <summary>지정 소유자의 모든 주사위 표시를 숨긴다.</summary>
-        public void HideDiceSet(DiceOwnerType owner)
-        {
-            Dice3DView[] targetDiceViews = ResolveDiceViews(owner);
-
-            if (targetDiceViews == null)
-                return;
-
-            for (int i = 0; i < targetDiceViews.Length; i++)
-            {
-                if (targetDiceViews[i] == null)
-                    continue;
-
-                targetDiceViews[i].Hide();
-            }
-        }
-
-        /// <summary>Player DiceView를 DeviceSlot 하단 Lock 표시 위치로 이동시킨다.</summary>
-        public void MoveDiceToLockedDeviceSlot(
-            int diceIndex,
-            Vector3 targetPosition,
-            Quaternion targetRotation,
-            float duration)
-        {
-            MoveDiceToLockedDeviceSlot(DiceOwnerType.Player, diceIndex, targetPosition, targetRotation, duration);
-        }
-
-        /// <summary>지정 소유자의 DiceView를 DeviceSlot 하단 Lock 표시 위치로 이동시킨다.</summary>
-        public void MoveDiceToLockedDeviceSlot(
-            DiceOwnerType owner,
-            int diceIndex,
-            Vector3 targetPosition,
-            Quaternion targetRotation,
-            float duration)
-        {
-            if (!TryGetDiceView(owner, diceIndex, out Dice3DView diceView))
-                return;
-
-            diceView.MoveTo(targetPosition, targetRotation, duration);
-        }
-
-        /// <summary>DeviceSlot 하단 Lock Dice 구조에서 Player DiceView 표시값을 갱신한다.</summary>
-        public void SetDiceForDeviceSlotLockPresentation(
-            IReadOnlyList<int> diceValues,
-            IReadOnlyList<bool> lockStates,
-            float unlockedMoveDuration)
-        {
-            SetDiceForDeviceSlotLockPresentation(DiceOwnerType.Player, diceValues, lockStates, unlockedMoveDuration);
-        }
-
-        /// <summary>DeviceSlot 하단 Lock Dice 구조에서 지정 소유자의 DiceView 표시값을 갱신한다.</summary>
-        public void SetDiceForDeviceSlotLockPresentation(
-            DiceOwnerType owner,
-            IReadOnlyList<int> diceValues,
-            IReadOnlyList<bool> lockStates,
-            float unlockedMoveDuration)
-        {
-            Dice3DView[] targetDiceViews = ResolveDiceViews(owner);
-
-            if (targetDiceViews == null)
-                return;
-
-            for (int diceIndex = 0; diceIndex < targetDiceViews.Length; diceIndex++)
-            {
-                Dice3DView diceView = targetDiceViews[diceIndex];
+                Dice3DView diceView = diceViews[diceIndex];
 
                 if (diceView == null)
                     continue;
@@ -222,7 +140,167 @@ namespace Tessera.UI
                 }
 
                 bool isLocked = IsDiceLocked(lockStates, diceIndex);
+                diceView.SetDice(diceIndex, diceValues[diceIndex], isLocked);
+            }
+        }
 
+        /// <summary>모든 소유자의 주사위 표시를 숨긴다.</summary>
+        public void HideAll()
+        {
+            HideDiceSet(DiceOwnerType.Player);
+            HideDiceSet(DiceOwnerType.Opponent);
+        }
+
+        /// <summary>지정 소유자의 주사위 표시를 숨긴다.</summary>
+        public void HideDiceSet(DiceOwnerType owner)
+        {
+            Dice3DView[] diceViews = ResolveDiceViews(owner);
+
+            if (diceViews == null)
+                return;
+
+            for (int i = 0; i < diceViews.Length; i++)
+            {
+                if (diceViews[i] != null)
+                    diceViews[i].Hide();
+            }
+        }
+
+        /// <summary>지정 소유자 Dice 세트를 단일 RestPoint로 회수하고 표시를 숨긴다.</summary>
+        public async UniTask MoveDiceSetToRestAsync(DiceOwnerType owner, float duration, CancellationToken cancellationToken)
+        {
+            Dice3DView[] diceViews = ResolveDiceViews(owner);
+            Transform restPoint = ResolveRestPoint(owner);
+
+            if (diceViews == null)
+                return;
+
+            if (restPoint == null)
+            {
+                HideDiceSet(owner);
+                return;
+            }
+
+            List<UniTask> tasks = new List<UniTask>();
+
+            for (int diceIndex = 0; diceIndex < diceViews.Length; diceIndex++)
+            {
+                Dice3DView diceView = diceViews[diceIndex];
+
+                if (diceView == null)
+                    continue;
+
+                diceView.SetDice(diceIndex, Mathf.Clamp(diceView.DiceValue, 1, 6), false);
+
+                tasks.Add(diceView.PlayArcMoveRollAsync(
+                    restPoint.position,
+                    restPoint.rotation,
+                    duration,
+                    0.08f,
+                    Vector3.zero,
+                    cancellationToken));
+            }
+
+            if (tasks.Count > 0)
+                await UniTask.WhenAll(tasks);
+
+            HideDiceSet(owner);
+        }
+
+        /// <summary>지정 소유자 Dice 세트를 DicePoint로 배치한다.</summary>
+        public async UniTask MoveDiceSetToTrayAsync(
+            DiceOwnerType owner,
+            IReadOnlyList<int> diceValues,
+            IReadOnlyList<bool> lockStates,
+            float duration,
+            CancellationToken cancellationToken)
+        {
+            Dice3DView[] diceViews = ResolveDiceViews(owner);
+
+            if (diceViews == null)
+                return;
+
+            List<UniTask> tasks = new List<UniTask>();
+
+            for (int diceIndex = 0; diceIndex < diceViews.Length; diceIndex++)
+            {
+                Dice3DView diceView = diceViews[diceIndex];
+
+                if (diceView == null)
+                    continue;
+
+                if (diceValues == null || diceIndex >= diceValues.Count)
+                {
+                    diceView.Hide();
+                    continue;
+                }
+
+                if (!TryGetDicePointPose(diceIndex, out Vector3 trayPosition, out Quaternion trayRotation))
+                    continue;
+
+                bool isLocked = IsDiceLocked(lockStates, diceIndex);
+                diceView.SetDice(diceIndex, diceValues[diceIndex], isLocked);
+                tasks.Add(diceView.PlayArcMoveRollAsync(
+                    trayPosition,
+                    trayRotation,
+                    duration,
+                    0.08f,
+                    Vector3.zero,
+                    cancellationToken));
+            }
+
+            if (tasks.Count > 0)
+                await UniTask.WhenAll(tasks);
+        }
+
+        /// <summary>Player DiceView를 DeviceSlot 하단 Lock 표시 위치로 이동시킨다.</summary>
+        public void MoveDiceToLockedDeviceSlot(
+            int diceIndex,
+            Vector3 targetPosition,
+            Quaternion targetRotation,
+            float duration)
+        {
+            if (!TryGetDiceView(DiceOwnerType.Player, diceIndex, out Dice3DView diceView))
+                return;
+
+            diceView.MoveTo(targetPosition, targetRotation, duration);
+        }
+
+        /// <summary>Player DeviceSlot 하단 Lock Dice 구조에서 DiceView 표시값을 갱신한다.</summary>
+        public void SetDiceForDeviceSlotLockPresentation(
+            IReadOnlyList<int> diceValues,
+            IReadOnlyList<bool> lockStates,
+            float unlockedMoveDuration)
+        {
+            SetDiceForDeviceSlotLockPresentation(DiceOwnerType.Player, diceValues, lockStates, unlockedMoveDuration);
+        }
+
+        /// <summary>지정 소유자의 DeviceSlot 하단 Lock Dice 구조에서 DiceView 표시값을 갱신한다.</summary>
+        public void SetDiceForDeviceSlotLockPresentation(
+            DiceOwnerType owner,
+            IReadOnlyList<int> diceValues,
+            IReadOnlyList<bool> lockStates,
+            float unlockedMoveDuration)
+        {
+            Dice3DView[] diceViews = ResolveDiceViews(owner);
+
+            if (diceViews == null)
+                return;
+
+            for (int diceIndex = 0; diceIndex < diceViews.Length; diceIndex++)
+            {
+                Dice3DView diceView = diceViews[diceIndex];
+
+                if (diceView == null)
+                    continue;
+
+                if (diceValues == null || diceIndex >= diceValues.Count)
+                {
+                    diceView.Hide();
+                    continue;
+                }
+
+                bool isLocked = IsDiceLocked(lockStates, diceIndex);
                 diceView.SetDice(diceIndex, diceValues[diceIndex], isLocked);
 
                 if (isLocked)
@@ -238,13 +316,7 @@ namespace Tessera.UI
         /// <summary>Player DiceView가 목표 위치 근처에 있는지 확인한다.</summary>
         public bool IsDiceNearPosition(int diceIndex, Vector3 targetPosition, float threshold)
         {
-            return IsDiceNearPosition(DiceOwnerType.Player, diceIndex, targetPosition, threshold);
-        }
-
-        /// <summary>지정 소유자의 DiceView가 목표 위치 근처에 있는지 확인한다.</summary>
-        public bool IsDiceNearPosition(DiceOwnerType owner, int diceIndex, Vector3 targetPosition, float threshold)
-        {
-            if (!TryGetDiceView(owner, diceIndex, out Dice3DView diceView))
+            if (!TryGetDiceView(DiceOwnerType.Player, diceIndex, out Dice3DView diceView))
                 return false;
 
             float sqrDistance = (diceView.transform.position - targetPosition).sqrMagnitude;
@@ -259,19 +331,7 @@ namespace Tessera.UI
             float duration,
             CancellationToken cancellationToken)
         {
-            return PlayDiceJumpRollAsync(DiceOwnerType.Player, diceIndex, jumpHeight, rollEuler, duration, cancellationToken);
-        }
-
-        /// <summary>지정 소유자의 DiceView에 제자리 점프/회전 연출을 재생한다.</summary>
-        public UniTask PlayDiceJumpRollAsync(
-            DiceOwnerType owner,
-            int diceIndex,
-            float jumpHeight,
-            Vector3 rollEuler,
-            float duration,
-            CancellationToken cancellationToken)
-        {
-            if (!TryGetDiceView(owner, diceIndex, out Dice3DView diceView))
+            if (!TryGetDiceView(DiceOwnerType.Player, diceIndex, out Dice3DView diceView))
                 return UniTask.CompletedTask;
 
             return diceView.PlayJumpRollAsync(jumpHeight, rollEuler, duration, cancellationToken);
@@ -315,19 +375,19 @@ namespace Tessera.UI
             Vector3 rollEuler,
             CancellationToken cancellationToken)
         {
-            Dice3DView[] targetDiceViews = ResolveDiceViews(owner);
+            Dice3DView[] diceViews = ResolveDiceViews(owner);
 
-            if (targetDiceViews == null)
+            if (diceViews == null)
                 return;
 
             List<UniTask> tasks = new List<UniTask>();
 
-            for (int diceIndex = 0; diceIndex < targetDiceViews.Length; diceIndex++)
+            for (int diceIndex = 0; diceIndex < diceViews.Length; diceIndex++)
             {
                 if (!CanAnimateUnlockedDice(owner, diceValues, lockStates, diceIndex))
                     continue;
 
-                Dice3DView diceView = targetDiceViews[diceIndex];
+                Dice3DView diceView = diceViews[diceIndex];
                 diceView.SetDice(diceIndex, diceValues[diceIndex], false);
 
                 if (stagger > 0f && tasks.Count > 0)
@@ -384,14 +444,14 @@ namespace Tessera.UI
             Vector3 rollEuler,
             CancellationToken cancellationToken)
         {
-            Dice3DView[] targetDiceViews = ResolveDiceViews(owner);
+            Dice3DView[] diceViews = ResolveDiceViews(owner);
 
-            if (targetDiceViews == null)
+            if (diceViews == null)
                 return;
 
             List<UniTask> tasks = new List<UniTask>();
 
-            for (int diceIndex = 0; diceIndex < targetDiceViews.Length; diceIndex++)
+            for (int diceIndex = 0; diceIndex < diceViews.Length; diceIndex++)
             {
                 if (!CanAnimateUnlockedDice(owner, diceValues, lockStates, diceIndex))
                     continue;
@@ -399,7 +459,7 @@ namespace Tessera.UI
                 if (!TryGetDicePointPose(diceIndex, out Vector3 trayPosition, out Quaternion trayRotation))
                     continue;
 
-                Dice3DView diceView = targetDiceViews[diceIndex];
+                Dice3DView diceView = diceViews[diceIndex];
                 diceView.SetDice(diceIndex, diceValues[diceIndex], false);
                 diceView.MoveImmediate(cupEntryPosition, cupEntryRotation);
 
@@ -428,19 +488,19 @@ namespace Tessera.UI
         /// <summary>지정 소유자의 DiceView를 DiceTray의 원래 DicePoint 위치로 복귀시킨다.</summary>
         public void RestoreAllDiceToTray(DiceOwnerType owner, IReadOnlyList<int> diceValues, float duration)
         {
-            Dice3DView[] targetDiceViews = ResolveDiceViews(owner);
+            Dice3DView[] diceViews = ResolveDiceViews(owner);
 
-            if (targetDiceViews == null)
+            if (diceViews == null)
                 return;
 
-            for (int diceIndex = 0; diceIndex < targetDiceViews.Length; diceIndex++)
+            for (int diceIndex = 0; diceIndex < diceViews.Length; diceIndex++)
             {
-                Dice3DView diceView = targetDiceViews[diceIndex];
+                Dice3DView diceView = diceViews[diceIndex];
 
                 if (diceView == null)
                     continue;
 
-                if (diceValues == null || diceIndex < 0 || diceIndex >= diceValues.Count)
+                if (diceValues == null || diceIndex >= diceValues.Count)
                 {
                     diceView.Hide();
                     continue;
@@ -461,33 +521,43 @@ namespace Tessera.UI
             SetDice(DiceOwnerType.Player, diceValues, lockStates);
         }
 
-        /// <summary>현재 Core 상태 기준으로 지정 소유자 DiceView 위치를 다시 정렬한다.</summary>
-        public void RestoreDicePlacement(DiceOwnerType owner, IReadOnlyList<int> diceValues, IReadOnlyList<bool> lockStates)
+        /// <summary>지정 소유자 Dice 세트의 클릭/하이라이트 가능 여부를 설정한다.</summary>
+        public void SetDiceInteractionEnabled(DiceOwnerType owner, bool canClick, bool canHoverVisual)
         {
-            SetDice(owner, diceValues, lockStates);
+            Dice3DView[] diceViews = ResolveDiceViews(owner);
+
+            if (diceViews == null)
+                return;
+
+            for (int i = 0; i < diceViews.Length; i++)
+            {
+                if (diceViews[i] != null)
+                    diceViews[i].SetInteractionEnabled(canClick, canHoverVisual);
+            }
         }
 
-        /// <summary>모든 DiceView에 클릭 콜백을 전달한다. Opponent Dice는 클릭 입력을 비활성 콜백으로 둔다.</summary>
+        /// <summary>모든 DiceView에 클릭 콜백을 전달하고 기본 입력 상태를 설정한다.</summary>
         private void InitializeDiceViews()
         {
-            InitializeDiceSet(DiceOwnerType.Player, diceClickedCallback);
-            InitializeDiceSet(DiceOwnerType.Opponent, null);
+            InitializeDiceViews(DiceOwnerType.Player, diceClickedCallback);
+            InitializeDiceViews(DiceOwnerType.Opponent, null);
+
+            SetDiceInteractionEnabled(DiceOwnerType.Player, false, false);
+            SetDiceInteractionEnabled(DiceOwnerType.Opponent, false, false);
         }
 
         /// <summary>지정 소유자의 DiceView 클릭 콜백을 초기화한다.</summary>
-        private void InitializeDiceSet(DiceOwnerType owner, Action<int> callback)
+        private void InitializeDiceViews(DiceOwnerType owner, Action<int> callback)
         {
-            Dice3DView[] targetDiceViews = ResolveDiceViews(owner);
+            Dice3DView[] diceViews = ResolveDiceViews(owner);
 
-            if (targetDiceViews == null)
+            if (diceViews == null)
                 return;
 
-            for (int i = 0; i < targetDiceViews.Length; i++)
+            for (int i = 0; i < diceViews.Length; i++)
             {
-                if (targetDiceViews[i] == null)
-                    continue;
-
-                targetDiceViews[i].Initialize(callback);
+                if (diceViews[i] != null)
+                    diceViews[i].Initialize(callback);
             }
         }
 
@@ -497,26 +567,25 @@ namespace Tessera.UI
             return owner == DiceOwnerType.Opponent ? opponentDiceViews : playerDiceViews;
         }
 
-        /// <summary>Player DiceView를 안전하게 가져온다.</summary>
-        private bool TryGetDiceView(int diceIndex, out Dice3DView diceView)
+        /// <summary>지정 소유자의 단일 RestPoint를 반환한다.</summary>
+        private Transform ResolveRestPoint(DiceOwnerType owner)
         {
-            return TryGetDiceView(DiceOwnerType.Player, diceIndex, out diceView);
+            return owner == DiceOwnerType.Opponent ? opponentDiceRestPoint : playerDiceRestPoint;
         }
 
-        /// <summary>지정 소유자의 DiceView를 안전하게 가져온다.</summary>
+        /// <summary>지정 DiceView를 안전하게 가져온다.</summary>
         private bool TryGetDiceView(DiceOwnerType owner, int diceIndex, out Dice3DView diceView)
         {
             diceView = null;
+            Dice3DView[] diceViews = ResolveDiceViews(owner);
 
-            Dice3DView[] targetDiceViews = ResolveDiceViews(owner);
-
-            if (targetDiceViews == null)
+            if (diceViews == null)
                 return false;
 
-            if (diceIndex < 0 || diceIndex >= targetDiceViews.Length)
+            if (diceIndex < 0 || diceIndex >= diceViews.Length)
                 return false;
 
-            diceView = targetDiceViews[diceIndex];
+            diceView = diceViews[diceIndex];
             return diceView != null;
         }
 
@@ -546,13 +615,7 @@ namespace Tessera.UI
             return lockStates != null && diceIndex >= 0 && diceIndex < lockStates.Count && lockStates[diceIndex];
         }
 
-        /// <summary>Player Roll 연출 대상 Unlock Dice인지 확인한다.</summary>
-        private bool CanAnimateUnlockedDice(IReadOnlyList<int> diceValues, IReadOnlyList<bool> lockStates, int diceIndex)
-        {
-            return CanAnimateUnlockedDice(DiceOwnerType.Player, diceValues, lockStates, diceIndex);
-        }
-
-        /// <summary>지정 소유자의 Roll 연출 대상 Unlock Dice인지 확인한다.</summary>
+        /// <summary>Roll 연출 대상 Unlock Dice인지 확인한다.</summary>
         private bool CanAnimateUnlockedDice(DiceOwnerType owner, IReadOnlyList<int> diceValues, IReadOnlyList<bool> lockStates, int diceIndex)
         {
             if (!TryGetDiceView(owner, diceIndex, out Dice3DView diceView))

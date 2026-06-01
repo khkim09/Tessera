@@ -168,7 +168,7 @@ namespace Tessera.Editor
             EditorUtility.SetDirty(asset);
         }
 
-        /// <summary>에셋 C: Pressure Amplifier (MultiplyForceIfCurrentForceAtLeast, floatValue=1.5, forceThreshold=4)를 생성한다.</summary>
+        /// <summary>에셋 C: StageThreat Amplifier (MultiplyForceIfCurrentForceAtLeast, floatValue=1.5, forceThreshold=4)를 생성한다.</summary>
         private static void CreateAssetC()
         {
             SlotPairDeviceDefinitionSO asset = ScriptableObject.CreateInstance<SlotPairDeviceDefinitionSO>();
@@ -176,7 +176,7 @@ namespace Tessera.Editor
 
             SerializedObject so = new SerializedObject(asset);
             so.FindProperty("deviceId").stringValue = "device.force_over_4_x1_5";
-            so.FindProperty("displayName").stringValue = "Pressure Amplifier";
+            so.FindProperty("displayName").stringValue = "StageThreat Amplifier";
             so.FindProperty("description").stringValue = "Multiplies Force by 1.5 if current Force is at least 4.";
             so.FindProperty("deviceType").enumValueIndex = (int)SlotPairDeviceType.MultiplyForceIfCurrentForceAtLeast;
             so.FindProperty("intValue").intValue = 0;

@@ -14,8 +14,8 @@ namespace Tessera.Core
         /// <summary>현재 진행 대상 Round 인덱스.</summary>
         public int CurrentRoundIndex { get; private set; }
 
-        /// <summary>현재 Stage에서 누적된 Parts 보상.</summary>
-        public int EarnedParts { get; private set; }
+        /// <summary>현재 Stage에서 누적된 Money 보상.</summary>
+        public int EarnedMoney { get; private set; }
 
         /// <summary>현재 Stage가 클리어되었는지 확인한다.</summary>
         public bool IsStageCleared { get; private set; }
@@ -31,7 +31,7 @@ namespace Tessera.Core
         {
             StageDefinition = stageDefinition ?? throw new ArgumentNullException(nameof(stageDefinition));
             CurrentRoundIndex = 0;
-            EarnedParts = 0;
+            EarnedMoney = 0;
             IsStageCleared = false;
             IsStageFailed = false;
             _roundCompletionStates = new List<StageRoundCompletionType>(stageDefinition.Rounds.Count);
@@ -61,7 +61,7 @@ namespace Tessera.Core
                 throw new InvalidOperationException("완료할 수 있는 현재 Round가 없습니다.");
 
             _roundCompletionStates[CurrentRoundIndex] = StageRoundCompletionType.Completed;
-            EarnedParts += currentRound.RewardParts;
+            EarnedMoney += currentRound.RewardMoney;
             AdvanceRoundIndex();
         }
 
@@ -77,7 +77,7 @@ namespace Tessera.Core
                 return false;
 
             _roundCompletionStates[CurrentRoundIndex] = StageRoundCompletionType.Skipped;
-            EarnedParts += currentRound.SkipRewardParts;
+            EarnedMoney += currentRound.SkipRewardMoney;
             AdvanceRoundIndex();
             return true;
         }

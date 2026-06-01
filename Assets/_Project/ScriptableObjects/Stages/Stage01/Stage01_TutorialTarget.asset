@@ -10,19 +10,19 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3487ea4abad0e40448995151808b0bc6, type: 3}
-  m_Name: Stage01_Round02_NormalBounty
+  m_Name: Stage01_TutorialTarget
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.StageRoundDefinitionSO
-  roundId: stage01_round02_normal_bounty
-  displayName: Round 02 Normal Bounty
+  roundId: stage01_tutorial_normal
+  displayName: Tutorial Target
   roundType: 0
-  tutorialForcedRound: 0
+  tutorialForcedRound: 1
   initiallyAvailable: 1
-  baseRewardMoney: 15
-  bountyRank: 2
+  baseRewardMoney: 10
+  bountyRank: 1
   rewardOvercharge: 0
-  rewardDescription: Chain choice test reward.
-  opponentMaxHP: 70
-  enemyStrikeDamage: 3
+  rewardDescription: 
+  opponentMaxHP: 40
+  enemyStrikeDamage: 2
   playerMaxHP: 100
   diceCount: 5
   maxAttempts: 3
@@ -41,9 +41,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 6846570314fc2554bbed934f8f59b05e, type: 2}
   - {fileID: 11400000, guid: d1178f2118f94fb4c8b07ea2c698e13f, type: 2}
   - {fileID: 11400000, guid: 7ba54f2b344b77441a2fffa88404bf7e, type: 2}
-  - {fileID: 11400000, guid: 5911742ee3f7e5c49b2e7b0be9bd80cc, type: 2}
-  - {fileID: 11400000, guid: 522791ecf4c8de748859ea0f616fb3d8, type: 2}
-  minOpponentDeviceCount: 1
-  maxOpponentDeviceCount: 3
+  minOpponentDeviceCount: 0
+  maxOpponentDeviceCount: 1
   allowDuplicateOpponentDevices: 0
   firstTurnPolicy: 0

@@ -20,9 +20,6 @@ namespace Tessera.Runtime
         /// <summary>현재 보유 Money.</summary>
         public int Money { get; private set; }
 
-        /// <summary>기존 Parts 기반 코드 호환용 접근자다. 신규 코드는 Money를 사용한다.</summary>
-        public int Parts => Money;
-
         /// <summary>플레이어 최대 HP.</summary>
         public int PlayerMaxHP { get; private set; }
 
@@ -38,9 +35,6 @@ namespace Tessera.Runtime
         /// <summary>현재 Stage 내부 누적 위험도.</summary>
         public int StageThreatLevel { get; private set; }
 
-        /// <summary>기존 Pressure 기반 코드 호환용 접근자다. 신규 코드는 StageThreatLevel을 사용한다.</summary>
-        public int StagePressureLevel => StageThreatLevel;
-
         /// <summary>현재 Workshop Tier.</summary>
         public int CurrentWorkshopTier { get; private set; }
 
@@ -54,9 +48,9 @@ namespace Tessera.Runtime
         public IReadOnlyListWrapper EquippedSlotPairDevices => new IReadOnlyListWrapper(equippedSlotPairDevices);
 
         /// <summary>RunSession을 생성한다.</summary>
-        public TesseraRunSession(int startParts = 0, int playerMaxHP = 100)
+        public TesseraRunSession(int startMoney = 0, int playerMaxHP = 100)
         {
-            Money = Mathf.Max(0, startParts);
+            Money = Mathf.Max(0, startMoney);
             PlayerMaxHP = Mathf.Max(1, playerMaxHP);
             PlayerCurrentHP = PlayerMaxHP;
             CurrentStageIndex = 0;
@@ -106,18 +100,6 @@ namespace Tessera.Runtime
 
             Money -= amount;
             return true;
-        }
-
-        /// <summary>기존 Parts 기반 코드 호환용 메서드다. 신규 코드는 AddMoney를 사용한다.</summary>
-        public void AddParts(int amount)
-        {
-            AddMoney(amount);
-        }
-
-        /// <summary>기존 Parts 기반 코드 호환용 메서드다. 신규 코드는 TrySpendMoney를 사용한다.</summary>
-        public bool TrySpendParts(int amount)
-        {
-            return TrySpendMoney(amount);
         }
 
         /// <summary>Overcharge를 증가시킨다.</summary>
@@ -215,18 +197,6 @@ namespace Tessera.Runtime
         {
             StageChainCount = 0;
             StageThreatLevel = 0;
-        }
-
-        /// <summary>기존 Pressure 기반 코드 호환용 메서드다. 신규 코드는 AddChainAndStageThreat를 사용한다.</summary>
-        public void AddChainAndPressure(int chainAmount, int pressureAmount)
-        {
-            AddChainAndStageThreat(chainAmount, pressureAmount);
-        }
-
-        /// <summary>기존 Pressure 기반 코드 호환용 메서드다. 신규 코드는 ResetStageChainAndStageThreat를 사용한다.</summary>
-        public void ResetStageChainAndPressure()
-        {
-            ResetStageChainAndStageThreat();
         }
 
         /// <summary>Overcharge를 지불하고 Workshop Tier 상승을 시도한다.</summary>

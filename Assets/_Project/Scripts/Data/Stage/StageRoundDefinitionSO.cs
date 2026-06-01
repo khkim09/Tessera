@@ -19,7 +19,7 @@ namespace Tessera.Data
         [SerializeField] private bool initiallyAvailable = true;
 
         [Header("Rewards")]
-        [FormerlySerializedAs("rewardParts")]
+        [FormerlySerializedAs("rewardMoney")]
         [SerializeField] private int baseRewardMoney = 20;
         [SerializeField] private int bountyRank = 1;
         [SerializeField] private int rewardOvercharge;
@@ -49,6 +49,15 @@ namespace Tessera.Data
         [SerializeField] private bool disableChance;
         [SerializeField] private bool disableBrokenCastReward;
 
+        [Header("Opponent Devices")]
+        [SerializeField] private SlotPairDeviceDefinitionSO[] opponentDevicePool;
+        [SerializeField] private int minOpponentDeviceCount;
+        [SerializeField] private int maxOpponentDeviceCount = 5;
+        [SerializeField] private bool allowDuplicateOpponentDevices = true;
+
+        [Header("Turn Order")]
+        [SerializeField] private FirstTurnPolicy firstTurnPolicy = FirstTurnPolicy.PlayerFirst;
+
         /// <summary>라운드 고유 ID.</summary>
         public string RoundId => string.IsNullOrWhiteSpace(roundId) ? name : roundId;
 
@@ -73,20 +82,35 @@ namespace Tessera.Data
         /// <summary>최대 Attempt 수.</summary>
         public int MaxAttempts => Mathf.Max(1, maxAttempts);
 
-        /// <summary>기존 Parts 기반 코드 호환용 접근자다. 신규 코드는 BaseRewardMoney를 사용한다.</summary>
-        public int RewardParts => BaseRewardMoney;
-
         /// <summary>기존 Pending Overcharge 보상 호환용 접근자다. 신규 Bounty 보상 흐름에서는 사용하지 않는다.</summary>
         public int RewardOvercharge => Mathf.Max(0, rewardOvercharge);
 
         /// <summary>보상 설명.</summary>
         public string RewardDescription => rewardDescription ?? string.Empty;
 
+        /// <summary>상대 Device 후보 풀.</summary>
+        public IReadOnlyList<SlotPairDeviceDefinitionSO> OpponentDevicePool => opponentDevicePool;
+
+        /// <summary>상대가 장착할 최소 Device 수.</summary>
+        public int MinOpponentDeviceCount => Mathf.Clamp(minOpponentDeviceCount, 0, SlotPairDamageCalculator.SlotPairCount);
+
+        /// <summary>상대가 장착할 최대 Device 수.</summary>
+        public int MaxOpponentDeviceCount => Mathf.Clamp(
+            maxOpponentDeviceCount,
+            MinOpponentDeviceCount,
+            SlotPairDamageCalculator.SlotPairCount);
+
+        /// <summary>상대 Device 중복 장착 허용 여부.</summary>
+        public bool AllowDuplicateOpponentDevices => allowDuplicateOpponentDevices;
+
         /// <summary>StageThreat 없이 RoundRuleContext를 생성한다.</summary>
         public RoundRuleContext BuildRuleContext(int runPlayerMaxHP)
         {
             return BuildRuleContext(runPlayerMaxHP, 0);
         }
+
+        /// <summary>Round 시작 선공 정책.</summary>
+        public FirstTurnPolicy FirstTurnPolicy => firstTurnPolicy;
 
         /// <summary>StageThreatLevel 보정을 반영하여 RoundRuleContext를 생성한다.</summary>
         public RoundRuleContext BuildRuleContext(int runPlayerMaxHP, int stageThreatLevel)
@@ -131,6 +155,61 @@ namespace Tessera.Data
                 brokenCastGrantsNextAttemptFreeReroll: brokenCastGrantsNextAttemptFreeReroll,
                 brokenCastFreeRerollTokenAmount: Mathf.Max(0, brokenCastFreeRerollTokenAmount),
                 tableRules: tableRules);
+        }
+
+        /// <summary>이 Round에서 사용할 상대 SlotPair Device 장착 배열을 생성한다.</summary>
+        public SlotPairDeviceDefinitionSO[] BuildOpponentSlotPairDeviceLoadout(int seed)
+        {
+            SlotPairDeviceDefinitionSO[] result = new SlotPairDeviceDefinitionSO[SlotPairDamageCalculator.SlotPairCount];
+
+            if (opponentDevicePool == null || opponentDevicePool.Length <= 0)
+                return result;
+
+            List<SlotPairDeviceDefinitionSO> candidates = new List<SlotPairDeviceDefinitionSO>();
+
+            for (int i = 0; i < opponentDevicePool.Length; i++)
+            {
+                if (opponentDevicePool[i] != null)
+                    candidates.Add(opponentDevicePool[i]);
+            }
+
+            if (candidates.Count <= 0)
+                return result;
+
+            System.Random random = new System.Random(seed);
+
+            int minCount = MinOpponentDeviceCount;
+            int maxCount = MaxOpponentDeviceCount;
+            int equipCount = random.Next(minCount, maxCount + 1);
+
+            if (!allowDuplicateOpponentDevices)
+                equipCount = Mathf.Min(equipCount, candidates.Count);
+
+            List<int> availableSlots = new List<int>();
+
+            for (int i = 0; i < result.Length; i++)
+                availableSlots.Add(i);
+
+            for (int i = 0; i < equipCount; i++)
+            {
+                if (availableSlots.Count <= 0)
+                    break;
+
+                if (candidates.Count <= 0)
+                    break;
+
+                int slotPickIndex = random.Next(0, availableSlots.Count);
+                int slotIndex = availableSlots[slotPickIndex];
+                availableSlots.RemoveAt(slotPickIndex);
+
+                int devicePickIndex = random.Next(0, candidates.Count);
+                result[slotIndex] = candidates[devicePickIndex];
+
+                if (!allowDuplicateOpponentDevices)
+                    candidates.RemoveAt(devicePickIndex);
+            }
+
+            return result;
         }
     }
 }

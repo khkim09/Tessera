@@ -43,7 +43,7 @@ public static class Stage01AssetGenerator
             roundType: StageRoundType.Normal,
             tutorialForcedRound: true,
             initiallyAvailable: true,
-            rewardParts: 10,
+            rewardMoney: 10,
             rewardOvercharge: 0,
             rewardDescription: "First tutorial bounty reward.",
             opponentMaxHP: 40,
@@ -73,7 +73,7 @@ public static class Stage01AssetGenerator
             roundType: StageRoundType.Normal,
             tutorialForcedRound: false,
             initiallyAvailable: true,
-            rewardParts: 20,
+            rewardMoney: 20,
             rewardOvercharge: 0,
             rewardDescription: "Chain choice test reward.",
             opponentMaxHP: 70,
@@ -103,7 +103,7 @@ public static class Stage01AssetGenerator
             roundType: StageRoundType.Boss,
             tutorialForcedRound: false,
             initiallyAvailable: true,
-            rewardParts: 50,
+            rewardMoney: 50,
             rewardOvercharge: 0,
             rewardDescription: "Stage clear reward.",
             opponentMaxHP: 90,
@@ -200,7 +200,7 @@ public static class Stage01AssetGenerator
         StageRoundType roundType,
         bool tutorialForcedRound,
         bool initiallyAvailable,
-        int rewardParts,
+        int rewardMoney,
         int rewardOvercharge,
         string rewardDescription,
         int opponentMaxHP,
@@ -226,7 +226,7 @@ public static class Stage01AssetGenerator
         so.FindProperty("roundType").enumValueIndex = (int)roundType;
         so.FindProperty("tutorialForcedRound").boolValue = tutorialForcedRound;
         so.FindProperty("initiallyAvailable").boolValue = initiallyAvailable;
-        so.FindProperty("baseRewardMoney").intValue = rewardParts;
+        so.FindProperty("baseRewardMoney").intValue = rewardMoney;
         so.FindProperty("rewardOvercharge").intValue = rewardOvercharge;
         so.FindProperty("rewardDescription").stringValue = rewardDescription;
         so.FindProperty("opponentMaxHP").intValue = opponentMaxHP;

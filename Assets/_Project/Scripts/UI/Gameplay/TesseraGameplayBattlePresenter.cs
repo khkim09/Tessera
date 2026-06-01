@@ -42,6 +42,9 @@ namespace Tessera.UI
         [Header("Slot Pair Devices")]
         [SerializeField] private SlotPairDeviceDefinitionSO[] slotPairDevices = new SlotPairDeviceDefinitionSO[5];
 
+        [Header("Opponent Slot Pair Devices")]
+        [SerializeField] private SlotPairDeviceDefinitionSO[] opponentSlotPairDevices = new SlotPairDeviceDefinitionSO[5];
+
         [Header("Legacy Canvas Device Slot Views")]
         [SerializeField] private DeviceSlotView[] deviceSlotViews = new DeviceSlotView[5]; // 기존 device slot
 
@@ -128,12 +131,13 @@ namespace Tessera.UI
 
         [Header("Turn Flow")]
         [SerializeField] private bool autoStartNextAttemptAfterCast = true;
-        [SerializeField] private float autoNextAttemptDelay = 0.35f;
-        [SerializeField] private float enemyTurnStartDelay = 0.12f;
-        [SerializeField] private float enemyTurnAfterActionDelay = 0.18f;
+        [SerializeField] private float autoNextAttemptDelay = 0.8f;
+        [SerializeField] private float enemyTurnStartDelay = 0.7f;
+        [SerializeField] private float enemyTurnAfterActionDelay = 0.9f;
         [SerializeField] private bool playEnemyDiceCupPresentation = true;
 
         [Header("Enemy Turn Dice Presentation")]
+        [SerializeField] private float ownerDiceRestMoveDuration = 0.4f;
         [SerializeField] private Vector3 enemyDiceCupEnterRollEuler = new Vector3(180f, 90f, 180f);
         [SerializeField] private Vector3 enemyDiceCupScatterRollEuler = new Vector3(240f, 180f, 120f);
 
@@ -161,10 +165,9 @@ namespace Tessera.UI
         private readonly List<int> lastSubmittedDiceValues = new List<int>();
         private bool hasLastSubmittedDiceValues;
         private bool roundEndNotified;
-        private bool deferPlayerHPDisplayUntilEnemyTurn;
-        private int deferredDisplayedPlayerHP;
         private CancellationTokenSource slotPairSequenceCts;
         private BattleInteractionState interactionState = BattleInteractionState.None;
+        private FirstTurnPolicy currentFirstTurnPolicy = FirstTurnPolicy.PlayerFirst;
 
         #region Event
 
@@ -237,15 +240,23 @@ namespace Tessera.UI
                 ? runSession.PlayerCurrentHP
                 : ruleContext.PlayerMaxHP;
 
-            StartRound(ruleContext, debugPlayerHP, debugOvercharge, "Debug Round");
+            StartRound(
+                ruleContext,
+                debugPlayerHP,
+                debugOvercharge,
+                "Debug Round",
+                opponentSlotPairDevices,
+                FirstTurnPolicy.PlayerFirst);
         }
 
-        /// <summary>외부 Stage/Bounty Flow에서 지정한 규칙과 이월 HP/Overcharge 상태로 새 Round를 시작한다.</summary>
+        /// <summary>외부 Stage/Bounty Flow에서 지정한 규칙, 상대 Device, 이월 HP/Overcharge 상태로 새 Round를 시작한다.</summary>
         public void StartRound(
             RoundRuleContext ruleContext,
             int carriedPlayerHP,
             OverchargeState stageOverchargeState,
-            string roundDisplayName)
+            string roundDisplayName,
+            SlotPairDeviceDefinitionSO[] roundOpponentSlotPairDevices,
+            FirstTurnPolicy firstTurnPolicy)
         {
             if (ruleContext == null)
             {
@@ -261,11 +272,10 @@ namespace Tessera.UI
 
             roundState = simulator.StartRound(ruleContext, carriedPlayerHP, stageOverchargeState);
             roundEndNotified = false;
-            deferPlayerHPDisplayUntilEnemyTurn = false;
-            deferredDisplayedPlayerHP = carriedPlayerHP;
             SetInteractionState(BattleInteractionState.PlayerIdle);
 
-            if (runSession == null) earnedMoney = 0;
+            if (runSession == null)
+                earnedMoney = 0;
 
             selectedPatternType = RollPatternType.None;
             currentSlotPairPreview = null;
@@ -278,6 +288,9 @@ namespace Tessera.UI
                 simulator.SetCurrentDiceValuesForTest(roundState, CreateManualDiceValues());
 
             SyncDevicesFromRunSession();
+            SetOpponentSlotPairDevices(roundOpponentSlotPairDevices);
+            currentFirstTurnPolicy = firstTurnPolicy;
+
             CancelSlotPairEvaluationSequence();
             ClearSlotPairEvaluationHighlights();
 
@@ -287,6 +300,40 @@ namespace Tessera.UI
 
             SetExternalGameplayInputLocked(false, string.Empty);
             RefreshAll(message);
+
+            if (currentFirstTurnPolicy == FirstTurnPolicy.OpponentFirst)
+                StartOpponentFirstTurnAsync().Forget();
+            else
+                PreparePlayerFirstRoundDicePresentationAsync().Forget();
+        }
+
+        /// <summary>OpponentFirst Round 시작 흐름을 처리한다.</summary>
+        private async UniTaskVoid StartOpponentFirstTurnAsync()
+        {
+            if (roundState == null)
+                return;
+
+            SetInteractionState(BattleInteractionState.EnemyTurn);
+            RefreshDiceInteractionState();
+
+            if (diceTray3DView != null && diceTray3DView.HasDiceSet(DiceOwnerType.Player))
+            {
+                await diceTray3DView.MoveDiceSetToRestAsync(
+                    DiceOwnerType.Player,
+                    ownerDiceRestMoveDuration,
+                    this.GetCancellationTokenOnDestroy());
+            }
+
+            CastSubmitResult virtualResult = null;
+
+            await PlayEnemyTurnPresentationIfNeededAsync(virtualResult);
+
+            if (roundState == null || roundState.IsRoundEnded)
+                return;
+
+            SetInteractionState(BattleInteractionState.PlayerIdle);
+            PreparePlayerFirstRoundDicePresentationAsync().Forget();
+            RefreshAll("Player turn. Roll the dice.");
         }
 
         /// <summary>외부 RunSession을 연결하고 장착 Device/Money 상태를 동기화한다.</summary>
@@ -577,14 +624,11 @@ namespace Tessera.UI
             // 제출 직전 비어 있는 Lock 슬롯을 DiceIndex 오름차순으로 자동 채운다.
             EnsureAllDiceAssignedToLockSlots();
 
-            // // 현재 플레이어 HP 저장.
-            // int displayedPlayerHPBeforeSubmit = roundState.Encounter.PlayerCurrentHP;
-
             bool submitted = simulator.TrySubmitSpecificCast(
                 roundState,
                 selectedPatternType,
                 CreateLockSlotDiceIndexList(),
-                CreateDebugDeviceDefinitions(),
+                CreatePlayerDeviceDefinitions(),
                 out CastSubmitResult result);
 
             if (!submitted)
@@ -592,13 +636,6 @@ namespace Tessera.UI
                 RefreshAll("Selected cast cannot be submitted.");
                 return;
             }
-
-            // deferPlayerHPDisplayUntilEnemyTurn =
-            //     result.EnemyIntentResult != null &&
-            //     result.EnemyIntentResult.DidExecute &&
-            //     result.EnemyIntentResult.DamageToPlayer > 0;
-
-            // deferredDisplayedPlayerHP = displayedPlayerHPBeforeSubmit;
 
             // 제출 성공 즉시 Attempt 표시를 감소시킨다.
             RefreshTableHologramBattleMeta();
@@ -643,13 +680,11 @@ namespace Tessera.UI
             // Broken Cast도 SlotPair 연출 대상이므로 5칸을 먼저 채운다.
             EnsureAllDiceAssignedToLockSlots();
 
-            // int displayedPlayerHPBeforeSubmit = roundState.Encounter.PlayerCurrentHP;
-
             bool submitted = simulator.TrySubmitSpecificCast(
                 roundState,
                 RollPatternType.BrokenCast,
                 CreateLockSlotDiceIndexList(),
-                CreateDebugDeviceDefinitions(),
+                CreatePlayerDeviceDefinitions(),
                 out CastSubmitResult result);
 
             if (!submitted)
@@ -657,13 +692,6 @@ namespace Tessera.UI
                 RefreshAll("Broken Cast cannot be submitted.");
                 return;
             }
-
-            // deferPlayerHPDisplayUntilEnemyTurn =
-            //     result.EnemyIntentResult != null &&
-            //     result.EnemyIntentResult.DidExecute &&
-            //     result.EnemyIntentResult.DamageToPlayer > 0;
-
-            // deferredDisplayedPlayerHP = displayedPlayerHPBeforeSubmit;
 
             // 제출 성공 즉시 Attempt 표시를 감소시킨다.
             RefreshTableHologramBattleMeta();
@@ -820,8 +848,11 @@ namespace Tessera.UI
         /// <summary>지정 Dice의 Lock 상태를 토글하고, Lock 순서 기반 SlotPair 매핑을 갱신한다.</summary>
         private void ToggleDiceLock(int diceIndex)
         {
-            if (!CanActInCurrentAttempt())
+            if (!CanInteractWithPlayerDice())
+            {
+                SetMessage("Roll the dice before locking.");
                 return;
+            }
 
             if (diceIndex < 0 || diceIndex >= roundState.Dice.Count)
                 return;
@@ -940,31 +971,11 @@ namespace Tessera.UI
                 roundState,
                 selectedPatternType,
                 previewLockSlots,
-                CreateDebugDeviceDefinitions(),
+                CreatePlayerDeviceDefinitions(),
                 out PatternResult patternResult,
                 out currentSlotPairPreview,
                 out currentPreviewTableRuleResult);
         }
-
-        // /// <summary>좌측 전투 정보 텍스트를 갱신한다.</summary>
-        // private void RefreshLeftInfoTexts()
-        // {
-        //     if (roundState == null)
-        //         return;
-
-        //     SetText(roundTitleText, useBossRule ? "Boss Round" : "Round");
-        //     SetText(opponentHPText, $"Opponent HP {roundState.Encounter.OpponentCurrentHP}/{roundState.Encounter.OpponentMaxHP}");
-
-        //     int displayedPlayerHP = ResolveDisplayedPlayerHP();
-        //     int displayedPlayerMaxHP = runSession != null && interactionState == BattleInteractionState.RoundEnded
-        //         ? runSession.PlayerMaxHP
-        //         : roundState.Encounter.PlayerMaxHP;
-
-        //     SetText(playerHPText, $"Player HP {displayedPlayerHP}/{displayedPlayerMaxHP}");
-
-        //     RefreshTableHologramBattleMeta();
-        //     RefreshSelectedCastTexts();
-        // }
 
         /// <summary>좌측 전투 정보 텍스트를 갱신한다.</summary>
         private void RefreshLeftInfoTexts()
@@ -982,20 +993,6 @@ namespace Tessera.UI
 
             RefreshTableHologramBattleMeta();
             RefreshSelectedCastTexts();
-        }
-
-        /// <summary>현재 UI에 표시할 플레이어 HP를 반환한다.</summary>
-        private int ResolveDisplayedPlayerHP()
-        {
-            if (runSession != null && interactionState == BattleInteractionState.RoundEnded)
-                return runSession.PlayerCurrentHP;
-
-            if (deferPlayerHPDisplayUntilEnemyTurn &&
-                (interactionState == BattleInteractionState.CastResolving ||
-                    interactionState == BattleInteractionState.EnemyTurn))
-                return Mathf.Clamp(deferredDisplayedPlayerHP, 0, roundState.Encounter.PlayerMaxHP);
-
-            return roundState.Encounter.PlayerCurrentHP;
         }
 
         private void RefreshMoneyOverlay()
@@ -1303,9 +1300,9 @@ namespace Tessera.UI
             if (playerDeviceRack3DView != null)
                 playerDeviceRack3DView.SetDevices(slotPairDevices);
 
-            // 상대 Device는 아직 Core 계산과 연결하지 않았으므로 현재는 비어 있는 상태로 표시한다.
+            // 상대 Device 슬롯은 StageRoundDefinitionSO에서 생성한 로드아웃을 표시한다.
             if (opponentDeviceRack3DView != null)
-                opponentDeviceRack3DView.SetDevices((SlotPairDeviceDefinitionSO[])null);
+                opponentDeviceRack3DView.SetDevices(opponentSlotPairDevices);
 
             RefreshDeviceSlotLockedDicePresentation();
         }
@@ -1412,6 +1409,8 @@ namespace Tessera.UI
 
             if (diceCup3DView != null)
                 diceCup3DView.SetInteractable(useDiceCupRollInput && CanRollByDiceCupInput());
+
+            RefreshDiceInteractionState();
         }
 
         /// <summary>현재 선택된 Cast가 아직 제출 가능한 후보인지 확인한다.</summary>
@@ -1729,8 +1728,8 @@ namespace Tessera.UI
             return -1;
         }
 
-        /// <summary>현재 장착된 SlotPair Device SO를 Core 계산용 정의 리스트로 변환한다.</summary>
-        private List<SlotPairDeviceDefinition> CreateDebugDeviceDefinitions()
+        /// <summary>플레이어 장착 SlotPair Device SO를 Core 계산용 정의 리스트로 변환한다.</summary>
+        private List<SlotPairDeviceDefinition> CreatePlayerDeviceDefinitions()
         {
             List<SlotPairDeviceDefinition> devices = new List<SlotPairDeviceDefinition>(SlotPairDamageCalculator.SlotPairCount);
 
@@ -1738,6 +1737,32 @@ namespace Tessera.UI
                 devices.Add(CreateDeviceDefinitionFromSlot(i));
 
             return devices;
+        }
+
+        /// <summary>상대 장착 SlotPair Device SO를 Core 계산용 정의 리스트로 변환한다.</summary>
+        private List<SlotPairDeviceDefinition> CreateOpponentDeviceDefinitions()
+        {
+            List<SlotPairDeviceDefinition> devices = new List<SlotPairDeviceDefinition>(SlotPairDamageCalculator.SlotPairCount);
+
+            for (int i = 0; i < SlotPairDamageCalculator.SlotPairCount; i++)
+                devices.Add(CreateOpponentDeviceDefinitionFromSlot(i));
+
+            return devices;
+        }
+
+        /// <summary>지정 상대 슬롯에 장착된 Device SO를 Core 계산용 정의로 변환한다.</summary>
+        private SlotPairDeviceDefinition CreateOpponentDeviceDefinitionFromSlot(int index)
+        {
+            if (opponentSlotPairDevices == null)
+                return SlotPairDeviceDefinition.None();
+
+            if (index < 0 || index >= opponentSlotPairDevices.Length)
+                return SlotPairDeviceDefinition.None();
+
+            if (opponentSlotPairDevices[index] == null)
+                return SlotPairDeviceDefinition.None();
+
+            return opponentSlotPairDevices[index].ToCoreDefinition();
         }
 
         /// <summary>지정 슬롯에 장착된 Device SO를 Core 계산용 정의로 변환한다.</summary>
@@ -1779,6 +1804,21 @@ namespace Tessera.UI
             {
                 slotPairDevices[i] = i < runSession.EquippedSlotPairDevices.Count
                     ? runSession.EquippedSlotPairDevices[i]
+                    : null;
+            }
+        }
+
+        /// <summary>현재 Round에서 사용할 상대 SlotPair Device 배열을 설정한다.</summary>
+        private void SetOpponentSlotPairDevices(SlotPairDeviceDefinitionSO[] devices)
+        {
+            if (opponentSlotPairDevices == null ||
+                opponentSlotPairDevices.Length != SlotPairDamageCalculator.SlotPairCount)
+                opponentSlotPairDevices = new SlotPairDeviceDefinitionSO[SlotPairDamageCalculator.SlotPairCount];
+
+            for (int i = 0; i < opponentSlotPairDevices.Length; i++)
+            {
+                opponentSlotPairDevices[i] = devices != null && i < devices.Length
+                    ? devices[i]
                     : null;
             }
         }
@@ -1886,7 +1926,10 @@ namespace Tessera.UI
                 simulator.SetDiceLocked(roundState, diceIndex, false);
 
             if (diceTray3DView != null)
+            {
+                diceTray3DView.HideDiceSet(DiceOwnerType.Opponent);
                 diceTray3DView.RestoreAllDiceToTray(roundState.GetCurrentDiceValues(), lockedDiceMoveDuration);
+            }
 
             bool isWon = result.IsRoundWon || roundState.IsRoundWon;
 
@@ -1902,63 +1945,6 @@ namespace Tessera.UI
 
             RefreshAll(message);
         }
-
-        // /// <summary>Round가 끝나지 않았으면 상대 턴 표시 후 다음 Attempt를 자동으로 시작한다.</summary>
-        // private async UniTask TryAutoStartNextAttemptAfterCastAsync(CastSubmitResult result)
-        // {
-        //     if (!autoStartNextAttemptAfterCast)
-        //         return;
-
-        //     if (result == null)
-        //         return;
-
-        //     if (roundState == null)
-        //         return;
-
-        //     if (!result.CanStartNextAttempt)
-        //         return;
-
-        //     if (result.IsRoundWon)
-        //     {
-        //         RefreshAll("Round won.");
-        //         return;
-        //     }
-
-        //     if (result.IsRoundLost)
-        //     {
-        //         RefreshAll("Round lost.");
-        //         return;
-        //     }
-
-        //     if (roundState.IsRoundEnded)
-        //     {
-        //         RefreshAll("Round ended.");
-        //         return;
-        //     }
-
-        //     if (!roundState.CurrentAttempt.IsSubmitted)
-        //         return;
-
-        //     SetInteractionState(BattleInteractionState.EnemyTurn);
-
-        //     if (result.EnemyIntentResult == null || !result.EnemyIntentResult.DidExecute)
-        //         SetMessage("Enemy turn: no action.");
-
-        //     if ((result.EnemyIntentResult == null || !result.EnemyIntentResult.DidExecute) && autoNextAttemptDelay > 0f)
-        //     {
-        //         await UniTask.Delay(
-        //             TimeSpan.FromSeconds(autoNextAttemptDelay),
-        //             cancellationToken: this.GetCancellationTokenOnDestroy());
-        //     }
-
-        //     if (roundState == null || roundState.IsRoundEnded)
-        //         return;
-
-        //     if (!roundState.CurrentAttempt.IsSubmitted)
-        //         return;
-
-        //     StartNextAttempt();
-        // }
 
         /// <summary>Round가 끝나지 않았으면 다음 Attempt를 자동으로 시작한다.</summary>
         private async UniTask TryAutoStartNextAttemptAfterCastAsync(CastSubmitResult result)
@@ -2032,9 +2018,16 @@ namespace Tessera.UI
                     slotPairSequenceCts = null;
 
                     if (completed)
-                        RestoreAllDiceToTrayAfterEvaluation();
+                    {
+                        if (interactionState == BattleInteractionState.CastResolving)
+                            RefreshDeviceSlotLockedDicePresentation();
+                        else
+                            RestoreAllDiceToTrayAfterEvaluation();
+                    }
                     else
+                    {
                         RefreshDeviceSlotLockedDicePresentation();
+                    }
 
                     ClearSlotPairEvaluationHighlights();
 
@@ -2086,12 +2079,9 @@ namespace Tessera.UI
             }
         }
 
-        /// <summary>상대 턴을 실제 Core 계산과 함께 빠르게 재생한다.</summary>
+        /// <summary>상대 턴을 공용 DiceTray/DiceCup과 상대 Dice 세트 기반 자동 Cast 계산으로 재생한다.</summary>
         private async UniTask PlayEnemyTurnPresentationIfNeededAsync(CastSubmitResult result)
         {
-            if (result == null)
-                return;
-
             if (roundState == null)
                 return;
 
@@ -2103,6 +2093,11 @@ namespace Tessera.UI
 
             SetInteractionState(BattleInteractionState.EnemyTurn);
             SetMessage("Enemy turn.");
+            RefreshDiceInteractionState();
+
+            // EnemyTurn으로 넘어가는 즉시 Player Dice를 Tray에서 치운다.
+            // enemyTurnStartDelay 동안에도 Player Dice가 남아 보이지 않도록 한다.
+            await MovePlayerDiceSetToRestIfNeededAsync();
 
             if (enemyTurnStartDelay > 0f)
             {
@@ -2111,23 +2106,50 @@ namespace Tessera.UI
                     cancellationToken: this.GetCancellationTokenOnDestroy());
             }
 
-            await PlayEnemyDiceCupPresentationAsync();
+            List<int> enemyDiceValues = CreateRandomEnemyDiceValues();
+            List<bool> enemyLockStates = CreateEnemyDiceLockStates(enemyDiceValues.Count);
 
-            bool resolved = simulator.TryResolveEnemyTurn(
+            await PlayEnemyDiceCupPresentationAsync(enemyDiceValues, enemyLockStates);
+
+            int playerHPBeforeEnemyTurn = roundState.Encounter.PlayerCurrentHP;
+
+            bool resolved = simulator.TryResolveEnemyTurnWithDice(
                 roundState,
+                enemyDiceValues,
+                CreateOpponentDeviceDefinitions(),
                 out EnemyIntentResult enemyIntentResult,
-                out RoundOutcomeType enemyTurnOutcome);
+                out RoundOutcomeType enemyTurnOutcome,
+                out PatternResult enemyPatternResult,
+                out SlotPairDamagePreview enemyPreview,
+                out TableRuleEvaluationResult enemyTableRuleResult);
+
+            int playerHPAfterEnemyTurn = roundState.Encounter.PlayerCurrentHP;
+
+            Debug.Log(
+                $"[Tessera][EnemyTurn] Resolved={resolved} | " +
+                $"Dice=[{FormatIntListForLog(enemyDiceValues)}] | " +
+                $"Pattern={(enemyPatternResult != null ? enemyPatternResult.PatternType.ToString() : "None")} | " +
+                $"Score={(enemyPreview != null ? enemyPreview.FinalScore.ToString() : "-")} | " +
+                $"Force={(enemyPreview != null ? enemyPreview.FormatFinalForce() : "-")} | " +
+                $"Damage={(enemyIntentResult != null ? enemyIntentResult.DamageToPlayer.ToString() : "0")} | " +
+                $"PlayerHP={playerHPBeforeEnemyTurn}->{playerHPAfterEnemyTurn} | " +
+                $"Outcome={enemyTurnOutcome} | " +
+                $"Devices={FormatOpponentDeviceLoadoutForLog()}");
 
             if (!resolved || enemyIntentResult == null || !enemyIntentResult.DidExecute)
             {
                 SetMessage("Enemy turn: no action.");
+            }
+            else if (enemyPreview != null && enemyPatternResult != null)
+            {
+                SetMessage(
+                    $"Enemy used {enemyPatternResult.PatternType}: Score {enemyPreview.FinalScore} x Force {enemyPreview.FormatFinalForce()} = Damage {enemyIntentResult.DamageToPlayer}.");
             }
             else
             {
                 SetMessage($"Enemy turn: player took {enemyIntentResult.DamageToPlayer} damage.");
             }
 
-            deferPlayerHPDisplayUntilEnemyTurn = false;
             RefreshLeftInfoTexts();
 
             if (enemyTurnAfterActionDelay > 0f)
@@ -2136,10 +2158,83 @@ namespace Tessera.UI
                     TimeSpan.FromSeconds(enemyTurnAfterActionDelay),
                     cancellationToken: this.GetCancellationTokenOnDestroy());
             }
+
+            if (diceTray3DView != null && diceTray3DView.HasDiceSet(DiceOwnerType.Opponent))
+            {
+                await diceTray3DView.MoveDiceSetToRestAsync(
+                    DiceOwnerType.Opponent,
+                    ownerDiceRestMoveDuration,
+                    this.GetCancellationTokenOnDestroy());
+            }
         }
 
-        /// <summary>상대 턴에 공용 DiceCup과 공용 DiceTray를 이용한 빠른 주사위 연출을 재생한다.</summary>
-        private async UniTask PlayEnemyDiceCupPresentationAsync()
+        /// <summary>플레이어 Dice 세트를 RestPoint로 회수한다.</summary>
+        private async UniTask MovePlayerDiceSetToRestIfNeededAsync()
+        {
+            if (diceTray3DView == null)
+                return;
+
+            if (!diceTray3DView.HasDiceSet(DiceOwnerType.Player))
+                return;
+
+            await diceTray3DView.MoveDiceSetToRestAsync(
+                DiceOwnerType.Player,
+                ownerDiceRestMoveDuration,
+                this.GetCancellationTokenOnDestroy());
+        }
+
+        /// <summary>상대 Dice 세트를 RestPoint로 회수한다.</summary>
+        private async UniTask MoveOpponentDiceSetToRestIfNeededAsync()
+        {
+            if (diceTray3DView == null)
+                return;
+
+            if (!diceTray3DView.HasDiceSet(DiceOwnerType.Opponent))
+                return;
+
+            await diceTray3DView.MoveDiceSetToRestAsync(
+                DiceOwnerType.Opponent,
+                ownerDiceRestMoveDuration,
+                this.GetCancellationTokenOnDestroy());
+        }
+
+        /// <summary>Round 시작 시 Dice 소유자별 표시 상태를 초기화한다.</summary>
+        private async UniTaskVoid PreparePlayerFirstRoundDicePresentationAsync()
+        {
+            if (diceTray3DView == null)
+                return;
+
+            if (roundState == null)
+                return;
+
+            IReadOnlyList<int> diceValues = roundState.GetCurrentDiceValues();
+            List<bool> lockStates = CreateDiceLockStates();
+
+            if (diceTray3DView.HasDiceSet(DiceOwnerType.Opponent))
+            {
+                await diceTray3DView.MoveDiceSetToRestAsync(
+                    DiceOwnerType.Opponent,
+                    ownerDiceRestMoveDuration,
+                    this.GetCancellationTokenOnDestroy());
+            }
+
+            if (diceTray3DView.HasDiceSet(DiceOwnerType.Player))
+            {
+                diceTray3DView.SetDiceValuesOnly(DiceOwnerType.Player, diceValues, lockStates);
+
+                await diceTray3DView.MoveDiceSetToTrayAsync(
+                    DiceOwnerType.Player,
+                    diceValues,
+                    lockStates,
+                    ownerDiceRestMoveDuration,
+                    this.GetCancellationTokenOnDestroy());
+            }
+
+            RefreshDiceInteractionState();
+        }
+
+        /// <summary>상대 턴에 공용 DiceCup과 Opponent Dice 세트를 이용한 빠른 주사위 연출을 재생한다.</summary>
+        private async UniTask PlayEnemyDiceCupPresentationAsync(IReadOnlyList<int> enemyDiceValues, IReadOnlyList<bool> lockStates)
         {
             if (!playEnemyDiceCupPresentation)
                 return;
@@ -2161,15 +2256,18 @@ namespace Tessera.UI
                 return;
             }
 
-            List<int> beforeDiceValues = CreateRandomEnemyDiceValues();
-            List<int> afterDiceValues = CreateRandomEnemyDiceValues();
-            List<bool> lockStates = CreateEnemyDiceLockStates(beforeDiceValues.Count);
+            diceTray3DView.SetDiceValuesOnly(DiceOwnerType.Opponent, enemyDiceValues, lockStates);
 
-            diceTray3DView.SetDiceValuesOnly(DiceOwnerType.Opponent, beforeDiceValues, lockStates);
+            await diceTray3DView.MoveDiceSetToTrayAsync(
+                DiceOwnerType.Opponent,
+                enemyDiceValues,
+                lockStates,
+                ownerDiceRestMoveDuration,
+                this.GetCancellationTokenOnDestroy());
 
             await diceTray3DView.PlayUnlockedDiceEnterCupAsync(
                 DiceOwnerType.Opponent,
-                beforeDiceValues,
+                enemyDiceValues,
                 lockStates,
                 diceCup3DView.DiceEntryPosition,
                 diceCup3DView.DiceEntryRotation,
@@ -2188,11 +2286,9 @@ namespace Tessera.UI
                 diceCupShakeFrequency,
                 this.GetCancellationTokenOnDestroy());
 
-            diceTray3DView.SetDiceValuesOnly(DiceOwnerType.Opponent, afterDiceValues, lockStates);
-
             await diceTray3DView.PlayUnlockedDiceScatterFromCupAsync(
                 DiceOwnerType.Opponent,
-                afterDiceValues,
+                enemyDiceValues,
                 lockStates,
                 diceCup3DView.DiceEntryPosition,
                 diceCup3DView.DiceEntryRotation,
@@ -2374,21 +2470,32 @@ namespace Tessera.UI
             };
         }
 
-        /// <summary>방금 제출한 Cast의 주사위 값을 기억한다.</summary>
-        private void RememberSubmittedDiceValues(IReadOnlyList<int> diceValues)
+        /// <summary>현재 Player Dice를 클릭/Lock할 수 있는지 확인한다.</summary>
+        private bool CanInteractWithPlayerDice()
         {
-            lastSubmittedDiceValues.Clear();
+            if (!CanActInCurrentAttempt())
+                return false;
 
-            if (diceValues == null)
-            {
-                hasLastSubmittedDiceValues = false;
+            return roundState.CanSubmitCastNow();
+        }
+
+        /// <summary>현재 턴/Attempt 상태에 맞춰 Dice 클릭과 Hover 강조 가능 여부를 갱신한다.</summary>
+        private void RefreshDiceInteractionState()
+        {
+            if (diceTray3DView == null)
                 return;
-            }
 
-            for (int i = 0; i < diceValues.Count; i++)
-                lastSubmittedDiceValues.Add(diceValues[i]);
+            bool canInteractWithPlayerDice = CanInteractWithPlayerDice();
 
-            hasLastSubmittedDiceValues = lastSubmittedDiceValues.Count > 0;
+            diceTray3DView.SetDiceInteractionEnabled(
+                DiceOwnerType.Player,
+                canInteractWithPlayerDice,
+                canInteractWithPlayerDice);
+
+            diceTray3DView.SetDiceInteractionEnabled(
+                DiceOwnerType.Opponent,
+                false,
+                false);
         }
 
         /// <summary>기억 중인 직전 Cast 주사위 값을 초기화한다.</summary>
@@ -2447,6 +2554,74 @@ namespace Tessera.UI
                 return;
 
             targetButton.interactable = isInteractable;
+        }
+
+        /// <summary>상대 턴 연출과 자동 Cast 계산에 사용할 임시 주사위 값을 생성한다.</summary>
+        private List<int> CreateRandomEnemyDiceValues()
+        {
+            int diceCount = roundState != null && roundState.RuleContext != null
+                ? roundState.RuleContext.DiceCount
+                : 5;
+
+            List<int> values = new List<int>(diceCount);
+
+            for (int i = 0; i < diceCount; i++)
+                values.Add(UnityEngine.Random.Range(1, 7));
+
+            return values;
+        }
+
+        /// <summary>정수 리스트를 로그 표시용 문자열로 변환한다.</summary>
+        private static string FormatIntListForLog(IReadOnlyList<int> values)
+        {
+            if (values == null || values.Count <= 0)
+                return "-";
+
+            List<string> parts = new List<string>(values.Count);
+
+            for (int i = 0; i < values.Count; i++)
+                parts.Add(values[i].ToString());
+
+            return string.Join(", ", parts);
+        }
+
+        /// <summary>상대 Device 로드아웃을 로그 표시용 문자열로 변환한다.</summary>
+        private string FormatOpponentDeviceLoadoutForLog()
+        {
+            if (opponentSlotPairDevices == null || opponentSlotPairDevices.Length <= 0)
+                return "-";
+
+            List<string> parts = new List<string>(opponentSlotPairDevices.Length);
+
+            for (int i = 0; i < opponentSlotPairDevices.Length; i++)
+            {
+                SlotPairDeviceDefinitionSO device = opponentSlotPairDevices[i];
+
+                if (device == null)
+                {
+                    parts.Add($"{i + 1}:None");
+                    continue;
+                }
+
+                string displayName = string.IsNullOrWhiteSpace(device.DisplayName)
+                    ? device.DeviceType.ToString()
+                    : device.DisplayName;
+
+                parts.Add($"{i + 1}:{displayName}");
+            }
+
+            return string.Join(" | ", parts);
+        }
+
+        /// <summary>상대 턴 연출용 Lock 상태 목록을 생성한다.</summary>
+        private static List<bool> CreateEnemyDiceLockStates(int diceCount)
+        {
+            List<bool> lockStates = new List<bool>(diceCount);
+
+            for (int i = 0; i < diceCount; i++)
+                lockStates.Add(false);
+
+            return lockStates;
         }
 
         #region Debug
@@ -2513,36 +2688,6 @@ namespace Tessera.UI
                 return;
 
             Debug.Log("[Tessera][SlotPair] Sequence Canceled");
-        }
-
-        #endregion
-
-        #region Enemy Turn Simulation
-
-        /// <summary>상대 턴 연출용 임시 주사위 값을 생성한다.</summary>
-        private List<int> CreateRandomEnemyDiceValues()
-        {
-            int diceCount = roundState != null && roundState.RuleContext != null
-                ? roundState.RuleContext.DiceCount
-                : 5;
-
-            List<int> values = new List<int>(diceCount);
-
-            for (int i = 0; i < diceCount; i++)
-                values.Add(UnityEngine.Random.Range(1, 7));
-
-            return values;
-        }
-
-        /// <summary>상대 턴 연출용 Lock 상태 목록을 생성한다.</summary>
-        private static List<bool> CreateEnemyDiceLockStates(int diceCount)
-        {
-            List<bool> lockStates = new List<bool>(diceCount);
-
-            for (int i = 0; i < diceCount; i++)
-                lockStates.Add(false);
-
-            return lockStates;
         }
 
         #endregion

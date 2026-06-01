@@ -39,6 +39,8 @@ namespace Tessera.UI
         private int diceIndex = -1;
         private int diceValue = 1;
         private bool isLocked;
+        private bool clickInputEnabled = true;
+        private bool hoverVisualEnabled = true;
 
         /// <summary>현재 원본 DiceIndex를 반환한다.</summary>
         public int DiceIndex => diceIndex;
@@ -251,12 +253,18 @@ namespace Tessera.UI
             if (diceIndex < 0)
                 return;
 
+            if (!clickInputEnabled)
+                return;
+
             clickedCallback?.Invoke(diceIndex);
         }
 
         /// <summary>마우스가 올라왔을 때 임시 강조한다.</summary>
         private void OnMouseEnter()
         {
+            if (!hoverVisualEnabled)
+                return;
+
             SetDiceColor(hoverColor);
         }
 
@@ -390,6 +398,28 @@ namespace Tessera.UI
                 return;
 
             targetText.text = value;
+        }
+
+        /// <summary>주사위 클릭 입력 가능 여부를 설정한다.</summary>
+        public void SetClickInputEnabled(bool isEnabled)
+        {
+            clickInputEnabled = isEnabled;
+        }
+
+        /// <summary>마우스 Hover 시 시각 강조 가능 여부를 설정한다.</summary>
+        public void SetHoverVisualEnabled(bool isEnabled)
+        {
+            hoverVisualEnabled = isEnabled;
+
+            if (!hoverVisualEnabled)
+                SetDiceColor(GetBaseColor());
+        }
+
+        /// <summary>주사위 상호작용 상태를 설정한다.</summary>
+        public void SetInteractionEnabled(bool canClick, bool canHoverVisual)
+        {
+            SetClickInputEnabled(canClick);
+            SetHoverVisualEnabled(canHoverVisual);
         }
     }
 }
