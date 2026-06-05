@@ -50,6 +50,7 @@ namespace Tessera.Runtime
         public string RoundDisplayName { get; }
         public SlotPairDeviceDefinitionSO[] OpponentSlotPairDevices { get; }
         public FirstTurnPolicy FirstTurnPolicy { get; }
+        public EnemyIntent OpeningIntent { get; }
 
         public StageRoundStartRequestedEvent(
             RoundRuleContext ruleContext,
@@ -57,7 +58,8 @@ namespace Tessera.Runtime
             OverchargeState stageOverchargeState,
             string roundDisplayName,
             SlotPairDeviceDefinitionSO[] opponentSlotPairDevices,
-            FirstTurnPolicy firstTurnPolicy)
+            FirstTurnPolicy firstTurnPolicy,
+            EnemyIntent openingIntent)
         {
             RuleContext = ruleContext;
             PlayerHPAtStart = playerHPAtStart;
@@ -65,6 +67,7 @@ namespace Tessera.Runtime
             RoundDisplayName = roundDisplayName ?? string.Empty;
             OpponentSlotPairDevices = opponentSlotPairDevices;
             FirstTurnPolicy = firstTurnPolicy;
+            OpeningIntent = openingIntent ?? EnemyIntent.None();
         }
     }
 
@@ -253,10 +256,10 @@ namespace Tessera.Runtime
     /// <summary>Gameplay Presenter가 Round 승리를 Runtime으로 전달하는 이벤트다.</summary>
     public readonly struct GameplayRoundWonEvent
     {
-        public CastSubmitResult Result { get; }
+        public ClashResolveResult Result { get; }
         public int PlayerHPAfterRound { get; }
 
-        public GameplayRoundWonEvent(CastSubmitResult result, int playerHPAfterRound)
+        public GameplayRoundWonEvent(ClashResolveResult result, int playerHPAfterRound)
         {
             Result = result;
             PlayerHPAfterRound = playerHPAfterRound;
@@ -266,10 +269,10 @@ namespace Tessera.Runtime
     /// <summary>Gameplay Presenter가 Round 패배를 Runtime으로 전달하는 이벤트다.</summary>
     public readonly struct GameplayRoundLostEvent
     {
-        public CastSubmitResult Result { get; }
+        public ClashResolveResult Result { get; }
         public int PlayerHPAfterRound { get; }
 
-        public GameplayRoundLostEvent(CastSubmitResult result, int playerHPAfterRound)
+        public GameplayRoundLostEvent(ClashResolveResult result, int playerHPAfterRound)
         {
             Result = result;
             PlayerHPAfterRound = playerHPAfterRound;

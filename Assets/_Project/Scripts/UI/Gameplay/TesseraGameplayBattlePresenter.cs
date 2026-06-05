@@ -27,16 +27,7 @@ namespace Tessera.UI
             RoundEnded
         }
 
-        /// <summary>상대 턴 처리 방식을 정의한다.</summary>
-        private enum OpponentTurnMode
-        {
-            None = 0,
-            IntentOnly = 1,
-            SymmetricDiceDevice = 2
-        }
-
-        [Header("Round Rule")]
-        [SerializeField] private bool useBossRule = true;
+        [Header("Round Simulator")]
         [SerializeField] private bool useFixedSeed = true;
         [SerializeField] private int seed = 12345;
 
@@ -51,11 +42,8 @@ namespace Tessera.UI
         [Header("Runtime Player Slot Pair Devices Debug Mirror")]
         [SerializeField, ReadOnlyInspector] private SlotPairDeviceDefinitionSO[] slotPairDevices = new SlotPairDeviceDefinitionSO[5];
 
-        [Header("Opponent Slot Pair Devices")]
-        [SerializeField] private SlotPairDeviceDefinitionSO[] opponentSlotPairDevices = new SlotPairDeviceDefinitionSO[5];
-
-        [Header("Legacy Canvas Device Slot Views")]
-        [SerializeField] private DeviceSlotView[] deviceSlotViews = new DeviceSlotView[5]; // 기존 device slot
+        [Header("Runtime Opponent Slot Pair Devices Debug Mirror")]
+        [SerializeField, ReadOnlyInspector] private SlotPairDeviceDefinitionSO[] opponentSlotPairDevices = new SlotPairDeviceDefinitionSO[5];
 
         [Header("3D Device Views")]
         [SerializeField] private DeviceRack3DView playerDeviceRack3DView; // 플레이어 device slot
@@ -128,9 +116,6 @@ namespace Tessera.UI
         [SerializeField] private TMP_Text opponentHPText;
         [SerializeField] private TMP_Text playerHPText;
 
-        [Header("Dice Views")]
-        [SerializeField] private DiceSlotView[] trayDiceSlots = new DiceSlotView[5];
-
         [Header("Cast Popup")]
         [SerializeField] private CastCandidatePopupView castCandidatePopupView;
 
@@ -142,16 +127,9 @@ namespace Tessera.UI
         [SerializeField] private bool autoStartNextAttemptAfterCast = true;
         [SerializeField] private float autoNextAttemptDelay = 0.8f;
         [SerializeField] private float enemyTurnStartDelay = 0.7f;
-        [SerializeField] private float enemyTurnAfterActionDelay = 0.9f;
-        [SerializeField] private OpponentTurnMode opponentTurnMode = OpponentTurnMode.IntentOnly;
+        [SerializeField] private float enemyClashResultRevealDelay = 0.75f;
+        [SerializeField] private float enemyTurnToPlayerDelay = 0.7f;
         [SerializeField] private bool playEnemyDiceCupPresentation = true;
-
-        [Header("Enemy Intent")]
-        [SerializeField] private int enemyIntentBaseDamage = 8;
-        [SerializeField] private int enemyIntentDamagePerAttempt = 2;
-        [SerializeField] private int enemyIntentDamagePerStageThreat = 2;
-        [SerializeField] private int enemyIntentDamageCap = 24;
-        [SerializeField] private bool enemyIntentUsesStageThreat = true;
 
         [Header("Enemy Turn Dice Presentation")]
         [SerializeField] private float ownerDiceRestMoveDuration = 0.4f;
@@ -161,14 +139,12 @@ namespace Tessera.UI
         [Header("Money Overlay")]
         [SerializeField] private TMP_Text moneyText;
 
-        [Header("Debug Start")]
-        [SerializeField] private bool autoStartDebugRoundOnStart = true;
-
         [Header("External Input Lock")]
         [SerializeField] private bool externalGameplayInputLocked;
         [SerializeField] private string externalGameplayInputLockReason = "Gameplay input is locked.";
 
         private readonly int[] lockedDiceIndexBySlot = { -1, -1, -1, -1, -1 };
+        private string currentRoundDisplayName = "Round";
 
         private CoreRoundSimulator simulator;
         private RoundState roundState;
@@ -185,14 +161,16 @@ namespace Tessera.UI
         private CancellationTokenSource slotPairSequenceCts;
         private BattleInteractionState interactionState = BattleInteractionState.None;
         private FirstTurnPolicy currentFirstTurnPolicy = FirstTurnPolicy.PlayerFirst;
+        private ClashCastResult pendingOpponentClashResult;
+        private ClashResolveResult lastClashResolveResult;
 
         #region Event
 
         /// <summary>Round 승리 확정</summary>
-        public event Action<CastSubmitResult> RoundWon;
+        public event Action<ClashResolveResult> RoundWon;
 
         /// <summary>Round 패배 확정</summary>
-        public event Action<CastSubmitResult> RoundLost;
+        public event Action<ClashResolveResult> RoundLost;
 
         #endregion
 
@@ -238,11 +216,11 @@ namespace Tessera.UI
         /// <summary>Inspector 배열 길이를 고정 슬롯 수에 맞게 보정한다.</summary>
         private void OnValidate()
         {
-            if (slotPairDevices == null || slotPairDevices.Length != TesseraRunSession.MaxDeviceSlots)
-                slotPairDevices = ResizeDeviceArray(slotPairDevices, TesseraRunSession.MaxDeviceSlots);
+            if (slotPairDevices == null || slotPairDevices.Length != SlotPairDamageCalculator.SlotPairCount)
+                slotPairDevices = ResizeDeviceArray(slotPairDevices, SlotPairDamageCalculator.SlotPairCount);
 
-            if (opponentSlotPairDevices == null || opponentSlotPairDevices.Length != TesseraRunSession.MaxDeviceSlots)
-                opponentSlotPairDevices = ResizeDeviceArray(opponentSlotPairDevices, TesseraRunSession.MaxDeviceSlots);
+            if (opponentSlotPairDevices == null || opponentSlotPairDevices.Length != SlotPairDamageCalculator.SlotPairCount)
+                opponentSlotPairDevices = ResizeDeviceArray(opponentSlotPairDevices, SlotPairDamageCalculator.SlotPairCount);
         }
 
         /// <summary>Device 배열 길이를 지정 길이로 보정한다.</summary>
@@ -263,37 +241,6 @@ namespace Tessera.UI
             return resized;
         }
 
-        /// <summary>씬 시작 시 테스트 Round를 시작한다.</summary>
-        private void Start()
-        {
-            if (autoStartDebugRoundOnStart)
-                StartDebugRound();
-        }
-
-        /// <summary>새 테스트 Round를 시작한다.</summary>
-        public void StartDebugRound()
-        {
-            RoundRuleContext ruleContext = useBossRule
-                ? RoundRuleContext.CreateDebugAcesBoss()
-                : RoundRuleContext.CreateDefault();
-
-            OverchargeState debugOvercharge = runSession != null
-                ? runSession.StageOverchargeState
-                : new OverchargeState();
-
-            int debugPlayerHP = runSession != null
-                ? runSession.PlayerCurrentHP
-                : ruleContext.PlayerMaxHP;
-
-            StartRound(
-                ruleContext,
-                debugPlayerHP,
-                debugOvercharge,
-                "Debug Round",
-                opponentSlotPairDevices,
-                FirstTurnPolicy.PlayerFirst);
-        }
-
         /// <summary>외부 Stage/Bounty Flow에서 지정한 규칙, 상대 Device, 이월 HP/Overcharge 상태로 새 Round를 시작한다.</summary>
         public void StartRound(
             RoundRuleContext ruleContext,
@@ -301,7 +248,8 @@ namespace Tessera.UI
             OverchargeState stageOverchargeState,
             string roundDisplayName,
             SlotPairDeviceDefinitionSO[] roundOpponentSlotPairDevices,
-            FirstTurnPolicy firstTurnPolicy)
+            FirstTurnPolicy firstTurnPolicy,
+            EnemyIntent openingIntent)
         {
             if (ruleContext == null)
             {
@@ -316,6 +264,7 @@ namespace Tessera.UI
             }
 
             roundState = simulator.StartRound(ruleContext, carriedPlayerHP, stageOverchargeState);
+            currentRoundDisplayName = string.IsNullOrWhiteSpace(roundDisplayName) ? "Round" : roundDisplayName;
             roundEndNotified = false;
             SetInteractionState(BattleInteractionState.PlayerIdle);
 
@@ -334,7 +283,13 @@ namespace Tessera.UI
 
             SyncDevicesFromRunSession();
             SetOpponentSlotPairDevices(roundOpponentSlotPairDevices);
+
             currentFirstTurnPolicy = firstTurnPolicy;
+            pendingOpponentClashResult = null;
+            lastClashResolveResult = null;
+
+            RefreshClashDamageTexts();
+            ApplyOpeningIntentToCurrentAttempt(openingIntent, firstTurnPolicy);
 
             CancelSlotPairEvaluationSequence();
             ClearSlotPairEvaluationHighlights();
@@ -346,13 +301,13 @@ namespace Tessera.UI
             SetExternalGameplayInputLocked(false, string.Empty);
             RefreshAll(message);
 
-            if (currentFirstTurnPolicy == FirstTurnPolicy.OpponentFirst)
+            if (roundState.CurrentAttempt.InitiativeOwner == InitiativeOwnerType.Opponent)
                 StartOpponentFirstTurnAsync().Forget();
             else
                 PreparePlayerFirstRoundDicePresentationAsync().Forget();
         }
 
-        /// <summary>OpponentFirst Round 시작 흐름을 처리한다.</summary>
+        /// <summary>Opponent 선공 Attempt 시작 흐름을 처리한다.</summary>
         private async UniTaskVoid StartOpponentFirstTurnAsync()
         {
             if (roundState == null)
@@ -361,24 +316,74 @@ namespace Tessera.UI
             SetInteractionState(BattleInteractionState.EnemyTurn);
             RefreshDiceInteractionState();
 
-            if (diceTray3DView != null && diceTray3DView.HasDiceSet(DiceOwnerType.Player))
+            await MovePlayerDiceSetToRestIfNeededAsync();
+
+            List<int> enemyDiceValues = CreateRandomEnemyDiceValues();
+            List<bool> enemyLockStates = CreateEnemyDiceLockStates(enemyDiceValues.Count);
+
+            await PlayEnemyDiceCupPresentationAsync(enemyDiceValues, enemyLockStates);
+
+            bool built = simulator.TryBuildBestOpponentClashCastResult(
+                roundState,
+                enemyDiceValues,
+                CreateOpponentDeviceDefinitions(),
+                out pendingOpponentClashResult);
+
+            if (!built || pendingOpponentClashResult == null)
             {
-                await diceTray3DView.MoveDiceSetToRestAsync(
-                    DiceOwnerType.Player,
-                    ownerDiceRestMoveDuration,
-                    this.GetCancellationTokenOnDestroy());
+                SetMessage("Opponent failed to prepare clash.");
+                SetInteractionState(BattleInteractionState.PlayerIdle);
+                await PreparePlayerFirstRoundDicePresentationAsync();
+                RefreshAll("Player turn. Roll the dice.");
+                return;
             }
 
-            CastSubmitResult virtualResult = null;
+            SetMessage(BuildOpponentTargetMessage(pendingOpponentClashResult));
+            RefreshClashDamageTexts();
 
-            await PlayEnemyTurnPresentationIfNeededAsync(virtualResult);
+            if (enemyClashResultRevealDelay > 0f)
+            {
+                await UniTask.Delay(
+                    TimeSpan.FromSeconds(enemyClashResultRevealDelay),
+                    cancellationToken: this.GetCancellationTokenOnDestroy());
+            }
 
-            if (roundState == null || roundState.IsRoundEnded)
-                return;
+            // 상대 선공 결과를 공개한 뒤, 플레이어 턴으로 넘기기 전에 상대 Dice를 RestPoint로 1회만 회수한다.
+            await MoveOpponentDiceSetToRestIfNeededAsync();
+
+            if (enemyTurnToPlayerDelay > 0f)
+            {
+                await UniTask.Delay(
+                    TimeSpan.FromSeconds(enemyTurnToPlayerDelay),
+                    cancellationToken: this.GetCancellationTokenOnDestroy());
+            }
 
             SetInteractionState(BattleInteractionState.PlayerIdle);
-            PreparePlayerFirstRoundDicePresentationAsync().Forget();
-            RefreshAll("Player turn. Roll the dice.");
+
+            // 위에서 상대 Dice를 이미 회수했으므로 Prepare 단계에서는 Opponent 회수를 생략한다.
+            await PreparePlayerFirstRoundDicePresentationAsync(false);
+
+            RefreshAll($"Beat Damage {pendingOpponentClashResult.FinalDamage}, or use Broken Cast to reduce incoming damage.");
+        }
+
+        /// <summary>상대 선공 Clash 결과를 플레이어에게 보여줄 메시지로 변환한다.</summary>
+        private string BuildOpponentTargetMessage(ClashCastResult opponentResult)
+        {
+            if (opponentResult == null)
+                return "Opponent failed to prepare clash.";
+
+            string castName = CastBoardCatalog.GetDisplayName(opponentResult.PatternType);
+            string forceValue = opponentResult.SlotPairDamagePreview != null
+                ? opponentResult.SlotPairDamagePreview.FormatFinalForce()
+                : "-";
+
+            int score = opponentResult.SlotPairDamagePreview != null
+                ? opponentResult.SlotPairDamagePreview.FinalScore
+                : 0;
+
+            return
+                $"Opponent set target: {castName} / " +
+                $"Score {score} x Force {forceValue} = Damage {opponentResult.FinalDamage}.";
         }
 
         /// <summary>외부 RunSession을 연결하고 장착 Device/Money 상태를 동기화한다.</summary>
@@ -688,30 +693,27 @@ namespace Tessera.UI
             // 제출 직전 비어 있는 Lock 슬롯을 DiceIndex 오름차순으로 자동 채운다.
             EnsureAllDiceAssignedToLockSlots();
 
-            bool submitted = simulator.TrySubmitSpecificCast(
+            bool built = simulator.TryBuildPlayerClashCastResult(
                 roundState,
                 selectedPatternType,
                 CreateLockSlotDiceIndexList(),
                 CreatePlayerDeviceDefinitions(),
-                out CastSubmitResult result);
+                out ClashCastResult playerResult);
 
-            if (!submitted)
+            if (!built || playerResult == null)
             {
                 RefreshAll("Selected cast cannot be submitted.");
                 return;
             }
 
-            // 제출 성공 즉시 Attempt 표시를 감소시킨다.
-            RefreshTableHologramBattleMeta();
-
-            // 제출 후에는 Core 결과를 그대로 보존해야 한다.
             SetInteractionState(BattleInteractionState.CastResolving);
-            selectedPatternType = result.PatternResult.PatternType;
-            currentSlotPairPreview = result.SlotPairDamagePreview;
-            currentPreviewTableRuleResult = result.TableRuleEvaluationResult;
+            selectedPatternType = playerResult.PatternType;
+            currentSlotPairPreview = playerResult.SlotPairDamagePreview;
+            currentPreviewTableRuleResult = playerResult.TableRuleEvaluationResult;
 
-            RefreshAll(BuildSubmitMessage(result));
-            PlaySubmittedCastFlowAsync(result).Forget();
+            RefreshClashDamageTexts();
+            RefreshAll(BuildClashCastMessage(playerResult));
+            PlaySubmittedClashFlowAsync(playerResult).Forget();
         }
 
         /// <summary>Broken Cast를 SlotPair 계산값으로 제출한다.</summary>
@@ -744,30 +746,27 @@ namespace Tessera.UI
             // Broken Cast도 SlotPair 연출 대상이므로 5칸을 먼저 채운다.
             EnsureAllDiceAssignedToLockSlots();
 
-            bool submitted = simulator.TrySubmitSpecificCast(
+            bool built = simulator.TryBuildPlayerClashCastResult(
                 roundState,
                 RollPatternType.BrokenCast,
                 CreateLockSlotDiceIndexList(),
                 CreatePlayerDeviceDefinitions(),
-                out CastSubmitResult result);
+                out ClashCastResult playerResult);
 
-            if (!submitted)
+            if (!built || playerResult == null)
             {
                 RefreshAll("Broken Cast cannot be submitted.");
                 return;
             }
 
-            // 제출 성공 즉시 Attempt 표시를 감소시킨다.
-            RefreshTableHologramBattleMeta();
-
-            // 제출 후에는 Core 결과를 그대로 보존해야 한다.
             SetInteractionState(BattleInteractionState.CastResolving);
-            selectedPatternType = result.PatternResult.PatternType;
-            currentSlotPairPreview = result.SlotPairDamagePreview;
-            currentPreviewTableRuleResult = result.TableRuleEvaluationResult;
+            selectedPatternType = playerResult.PatternType;
+            currentSlotPairPreview = playerResult.SlotPairDamagePreview;
+            currentPreviewTableRuleResult = playerResult.TableRuleEvaluationResult;
 
-            RefreshAll(BuildSubmitMessage(result));
-            PlaySubmittedCastFlowAsync(result).Forget();
+            RefreshClashDamageTexts();
+            RefreshAll(BuildClashCastMessage(playerResult));
+            PlaySubmittedClashFlowAsync(playerResult).Forget();
         }
 
         /// <summary>다음 Attempt 시작을 시도한다.</summary>
@@ -799,7 +798,11 @@ namespace Tessera.UI
             selectedPatternType = RollPatternType.None;
             currentSlotPairPreview = null;
             currentPreviewTableRuleResult = null;
+            pendingOpponentClashResult = null;
+            lastClashResolveResult = null;
 
+            ClearClashDamageTexts();
+            ApplyOpeningIntentToCurrentAttempt(roundState.CurrentEnemyIntent, currentFirstTurnPolicy);
             ClearLockSlotMapping();
 
             for (int diceIndex = 0; diceIndex < roundState.Dice.Count; diceIndex++)
@@ -813,8 +816,15 @@ namespace Tessera.UI
             if (diceTray3DView != null)
                 diceTray3DView.RestoreAllDiceToTray(roundState.GetCurrentDiceValues(), lockedDiceMoveDuration);
 
-            SetInteractionState(BattleInteractionState.PlayerIdle);
-            RefreshAll("Next attempt started. Roll the dice.");
+            if (roundState.CurrentAttempt.InitiativeOwner == InitiativeOwnerType.Opponent)
+            {
+                StartOpponentFirstTurnAsync().Forget();
+            }
+            else
+            {
+                SetInteractionState(BattleInteractionState.PlayerIdle);
+                RefreshAll("Next attempt started. Roll the dice.");
+            }
         }
 
         /// <summary>Cast 후보 Popup 표시 여부를 토글한다.</summary>
@@ -834,36 +844,16 @@ namespace Tessera.UI
             RefreshAll(showCastCandidatePopup ? "Cast popup ON." : "Cast popup OFF.");
         }
 
-        /// <summary>주사위 슬롯 클릭 콜백과 3D Dice 표시 인덱스를 초기화한다.</summary>
+        /// <summary>3D DiceView 클릭 콜백을 초기화한다.</summary>
         private void InitializeDiceSlots()
         {
-            if (trayDiceSlots != null)
-            {
-                for (int i = 0; i < trayDiceSlots.Length; i++)
-                {
-                    if (trayDiceSlots[i] != null)
-                        trayDiceSlots[i].Initialize(i, ToggleDiceLock);
-                }
-            }
-
-            // 3D DiceView 클릭도 기존 ToggleDiceLock 흐름으로 연결한다.
             if (diceTray3DView != null)
                 diceTray3DView.Initialize(ToggleDiceLock);
         }
 
-        /// <summary>Device 슬롯 드래그 재정렬과 3D 표시 인덱스를 초기화한다.</summary>
+        /// <summary>3D Device 슬롯 표시 인덱스를 초기화한다.</summary>
         private void InitializeDeviceSlots()
         {
-            if (deviceSlotViews != null)
-            {
-                for (int i = 0; i < deviceSlotViews.Length; i++)
-                {
-                    if (deviceSlotViews[i] != null)
-                        deviceSlotViews[i].Initialize(i, this);
-                }
-            }
-
-            // 3D Device 슬롯은 표시용 인덱스만 초기화한다.
             if (playerDeviceRack3DView != null)
                 playerDeviceRack3DView.InitializeSlots();
 
@@ -1047,7 +1037,7 @@ namespace Tessera.UI
             if (roundState == null)
                 return;
 
-            SetText(roundTitleText, useBossRule ? "Boss Round" : "Round");
+            SetText(roundTitleText, currentRoundDisplayName);
             SetText(opponentHPText, $"Opponent HP {roundState.Encounter.OpponentCurrentHP}/{roundState.Encounter.OpponentMaxHP}");
 
             if (runSession != null && interactionState == BattleInteractionState.RoundEnded)
@@ -1057,6 +1047,7 @@ namespace Tessera.UI
 
             RefreshTableHologramBattleMeta();
             RefreshSelectedCastTexts();
+            RefreshClashDamageTexts();
         }
 
         private void RefreshMoneyOverlay()
@@ -1080,6 +1071,44 @@ namespace Tessera.UI
                 castName,
                 currentSlotPairPreview.FinalScore,
                 forceValue);
+        }
+
+        /// <summary>현재 Clash에서 비교할 플레이어/상대 피해 수치를 Hologram에 갱신한다.</summary>
+        private void RefreshClashDamageTexts()
+        {
+            int playerDamage = 0;
+            int opponentDamage = 0;
+
+            if (lastClashResolveResult != null)
+            {
+                playerDamage = lastClashResolveResult.PlayerResult != null
+                    ? lastClashResolveResult.PlayerResult.FinalDamage
+                    : 0;
+
+                opponentDamage = lastClashResolveResult.OpponentResult != null
+                    ? lastClashResolveResult.OpponentResult.FinalDamage
+                    : 0;
+            }
+            else
+            {
+                playerDamage = currentSlotPairPreview != null && currentPreviewTableRuleResult != null
+                    ? Mathf.Max(0, currentPreviewTableRuleResult.ModifiedDamage)
+                    : 0;
+
+                opponentDamage = pendingOpponentClashResult != null
+                    ? pendingOpponentClashResult.FinalDamage
+                    : 0;
+            }
+
+            if (useTableHologramView && tableHologramView != null)
+                tableHologramView.RefreshClashDamage(playerDamage, opponentDamage);
+        }
+
+        /// <summary>Clash 피해 비교 표시를 기본값으로 초기화한다.</summary>
+        private void ClearClashDamageTexts()
+        {
+            if (useTableHologramView && tableHologramView != null)
+                tableHologramView.ClearClashDamage();
         }
 
         /// <summary>테이블 홀로그램의 제한 자원 정보를 갱신한다.</summary>
@@ -1138,7 +1167,7 @@ namespace Tessera.UI
         }
 
         /// <summary>테이블 홀로그램에 현재 SlotPair 계산 단계를 표시한다.</summary>
-        private void RefreshTableHologramSlotPairStep(CastSubmitResult result, SlotPairDamageStep step)
+        private void RefreshTableHologramSlotPairStep(ClashCastResult result, SlotPairDamageStep step)
         {
             if (!useTableHologramView) return;
             if (tableHologramView == null) return;
@@ -1312,59 +1341,30 @@ namespace Tessera.UI
             return value.ToString("0.##");
         }
 
-        /// <summary>Tray 주사위와 Lock 표시를 갱신한다.</summary>
+        /// <summary>3D Tray 주사위와 Lock 표시를 갱신한다.</summary>
         private void RefreshDiceViews()
         {
             IReadOnlyList<int> diceValues = roundState.GetCurrentDiceValues();
 
-            if (trayDiceSlots != null)
-            {
-                for (int i = 0; i < trayDiceSlots.Length; i++)
-                {
-                    if (trayDiceSlots[i] == null)
-                        continue;
+            if (diceTray3DView == null)
+                return;
 
-                    bool isLocked = i < roundState.Dice.Count && roundState.Dice[i].IsLocked;
+            IReadOnlyList<bool> lockStates = CreateDiceLockStates();
 
-                    // Legacy Canvas Tray는 원본 DiceIndex를 그대로 유지한다.
-                    trayDiceSlots[i].BindTrayDice(i, diceValues[i], isLocked);
-                }
-            }
+            diceTray3DView.SetDiceForDeviceSlotLockPresentation(
+                diceValues,
+                lockStates,
+                lockedDiceMoveDuration);
 
-            if (diceTray3DView != null)
-            {
-                IReadOnlyList<bool> lockStates = CreateDiceLockStates();
-
-                diceTray3DView.SetDiceForDeviceSlotLockPresentation(
-                    diceValues,
-                    lockStates,
-                    lockedDiceMoveDuration);
-
-                RefreshDeviceSlotLockedDicePresentation(false);
-            }
+            RefreshDeviceSlotLockedDicePresentation(false);
         }
 
-        /// <summary>Device Slot View 5개를 현재 slotPairDevices 배열 기준으로 갱신한다.</summary>
+        /// <summary>3D Device Rack을 현재 Player/Opponent Device 배열 기준으로 갱신한다.</summary>
         private void RefreshDeviceSlotViews()
         {
-            if (deviceSlotViews != null)
-            {
-                for (int i = 0; i < deviceSlotViews.Length; i++)
-                {
-                    if (deviceSlotViews[i] == null)
-                        continue;
-
-                    // Legacy Canvas Device 슬롯은 기존 프로토타입 호환용으로 유지한다.
-                    SlotPairDeviceDefinitionSO device = GetSlotPairDeviceOrNull(i);
-                    deviceSlotViews[i].SetDevice(device);
-                }
-            }
-
-            // 3D 테이블 위 플레이어 Device 슬롯도 같은 장착 상태를 표시한다.
             if (playerDeviceRack3DView != null)
                 playerDeviceRack3DView.SetDevices(slotPairDevices);
 
-            // 상대 Device 슬롯은 StageRoundDefinitionSO에서 생성한 로드아웃을 표시한다.
             if (opponentDeviceRack3DView != null)
                 opponentDeviceRack3DView.SetDevices(opponentSlotPairDevices);
 
@@ -1887,6 +1887,28 @@ namespace Tessera.UI
             }
         }
 
+        /// <summary>Opening EnemyIntent를 현재 Attempt Initiative에 반영한다. Intent가 없으면 FirstTurnPolicy를 fallback으로 사용한다.</summary>
+        private void ApplyOpeningIntentToCurrentAttempt(EnemyIntent openingIntent, FirstTurnPolicy fallbackFirstTurnPolicy)
+        {
+            if (roundState == null)
+                return;
+
+            if (roundState.CurrentAttempt == null)
+                return;
+
+            if (openingIntent != null)
+            {
+                simulator.ApplyEnemyIntentToCurrentAttempt(roundState, openingIntent);
+                return;
+            }
+
+            InitiativeOwnerType initiativeOwner = fallbackFirstTurnPolicy == FirstTurnPolicy.OpponentFirst
+                ? InitiativeOwnerType.Opponent
+                : InitiativeOwnerType.Player;
+
+            roundState.CurrentAttempt.SetInitiativeOwner(initiativeOwner);
+        }
+
         /// <summary>slotPairDevices 배열 크기를 SlotPairCount 기준으로 보정한다.</summary>
         private void EnsureSlotPairDeviceArraySize()
         {
@@ -1915,8 +1937,8 @@ namespace Tessera.UI
             return earnedMoney;
         }
 
-        /// <summary>Round 종료 결과 이벤트를 중복 없이 외부 Root로 전달한다.</summary>
-        private void NotifyRoundEndIfNeeded(CastSubmitResult result)
+        /// <summary>Clash 종료 결과 이벤트를 중복 없이 외부 Root로 전달한다.</summary>
+        private void NotifyRoundEndIfNeeded(ClashResolveResult result)
         {
             if (result == null)
                 return;
@@ -1924,8 +1946,8 @@ namespace Tessera.UI
             if (roundEndNotified)
                 return;
 
-            bool isWon = result.IsRoundWon || (roundState != null && roundState.IsRoundWon);
-            bool isLost = result.IsRoundLost || (roundState != null && roundState.IsRoundLost);
+            bool isWon = result.OutcomeType == RoundOutcomeType.Won || (roundState != null && roundState.IsRoundWon);
+            bool isLost = result.OutcomeType == RoundOutcomeType.Lost || (roundState != null && roundState.IsRoundLost);
 
             if (isWon)
             {
@@ -1941,42 +1963,123 @@ namespace Tessera.UI
             }
         }
 
-        /// <summary>Cast 제출 이후 SlotPair 연출, Round 종료 확인, 다음 Attempt 자동 진행을 순서대로 처리한다.</summary>
-        private async UniTaskVoid PlaySubmittedCastFlowAsync(CastSubmitResult result)
+        /// <summary>플레이어 Cast 제출 이후 SlotPair 연출, 상대 후공 계산, Clash 판정을 순서대로 처리한다.</summary>
+        private async UniTaskVoid PlaySubmittedClashFlowAsync(ClashCastResult playerResult)
         {
-            if (result == null)
+            if (playerResult == null)
                 return;
 
-            // Cast 제출 후 계산 연출이 끝난 뒤 후속 흐름을 진행한다.
-            await PlaySlotPairEvaluationSequenceAsync(result);
+            await PlaySlotPairEvaluationSequenceAsync(playerResult);
 
-            await PlayEnemyTurnPresentationIfNeededAsync(result);
+            if (pendingOpponentClashResult == null)
+                await BuildOpponentClashResultAfterPlayerSubmitAsync();
 
-            NotifyRoundEndIfNeeded(result);
-
-            if (IsRoundEndResult(result))
+            if (pendingOpponentClashResult == null)
             {
-                ForceRoundEndDiceTrayState(result);
+                SetMessage("Opponent clash result is missing.");
+                SetInteractionState(BattleInteractionState.PlayerIdle);
                 return;
             }
 
-            await TryAutoStartNextAttemptAfterCastAsync(result);
+            lastClashResolveResult = simulator.ResolveClash(
+                roundState,
+                playerResult,
+                pendingOpponentClashResult);
+
+            RefreshClashDamageTexts();
+            LogClashResolveResult(lastClashResolveResult);
+            RefreshLeftInfoTexts();
+            SetMessage(lastClashResolveResult.Message);
+
+            if (enemyTurnToPlayerDelay > 0f)
+            {
+                await UniTask.Delay(
+                    TimeSpan.FromSeconds(enemyTurnToPlayerDelay),
+                    cancellationToken: this.GetCancellationTokenOnDestroy());
+            }
+
+            // 피해 적용과 결과 메시지 출력이 끝난 뒤 다음 Roll 전까지 이전 DamageText를 남기지 않는다.
+            ClearClashDamageTexts();
+
+            if (roundState.IsRoundEnded)
+            {
+                NotifyRoundEndIfNeeded(lastClashResolveResult);
+                ForceRoundEndDiceTrayState(lastClashResolveResult);
+                return;
+            }
+
+            await TryAutoStartNextAttemptAfterClashAsync();
         }
 
-        /// <summary>Cast 결과 또는 현재 RoundState 기준으로 Round 종료 여부를 확인한다.</summary>
-        private bool IsRoundEndResult(CastSubmitResult result)
+        /// <summary>Clash 판정 결과를 디버그 로그로 출력한다.</summary>
+        private void LogClashResolveResult(ClashResolveResult result)
         {
             if (result == null)
-                return false;
+                return;
 
-            if (result.IsRoundWon || result.IsRoundLost)
-                return true;
+            string winnerText = result.Winner.HasValue
+                ? result.Winner.Value.ToString()
+                : "Tie";
 
-            return roundState != null && roundState.IsRoundEnded;
+            Debug.Log(
+                $"[Tessera][Clash] Attempt={result.AttemptNumber} | " +
+                $"Winner={winnerText} | " +
+                $"PlayerCast={(result.PlayerResult != null ? result.PlayerResult.PatternType.ToString() : "None")} | " +
+                $"PlayerDamage={(result.PlayerResult != null ? result.PlayerResult.FinalDamage.ToString() : "0")} | " +
+                $"OpponentCast={(result.OpponentResult != null ? result.OpponentResult.PatternType.ToString() : "None")} | " +
+                $"OpponentDamage={(result.OpponentResult != null ? result.OpponentResult.FinalDamage.ToString() : "0")} | " +
+                $"DamageToPlayer={result.DamageToPlayer} | " +
+                $"DamageToOpponent={result.DamageToOpponent} | " +
+                $"BrokenDefense={result.PlayerUsedBrokenCastDefense} | " +
+                $"Overcharge+={result.GrantedOverchargeAmount} | " +
+                $"Outcome={result.OutcomeType}");
+        }
+
+        /// <summary>플레이어 선공 이후 상대 후공 Clash 결과를 생성한다.</summary>
+        private async UniTask BuildOpponentClashResultAfterPlayerSubmitAsync()
+        {
+            SetInteractionState(BattleInteractionState.EnemyTurn);
+            RefreshDiceInteractionState();
+
+            await MovePlayerDiceSetToRestIfNeededAsync();
+
+            if (enemyTurnStartDelay > 0f)
+            {
+                await UniTask.Delay(
+                    TimeSpan.FromSeconds(enemyTurnStartDelay),
+                    cancellationToken: this.GetCancellationTokenOnDestroy());
+            }
+
+            List<int> enemyDiceValues = CreateRandomEnemyDiceValues();
+            List<bool> enemyLockStates = CreateEnemyDiceLockStates(enemyDiceValues.Count);
+
+            await PlayEnemyDiceCupPresentationAsync(enemyDiceValues, enemyLockStates);
+
+            bool built = simulator.TryBuildBestOpponentClashCastResult(
+                roundState,
+                enemyDiceValues,
+                CreateOpponentDeviceDefinitions(),
+                out pendingOpponentClashResult);
+
+            if (built && pendingOpponentClashResult != null)
+            {
+                SetMessage(BuildOpponentTargetMessage(pendingOpponentClashResult));
+                RefreshClashDamageTexts();
+
+                if (enemyClashResultRevealDelay > 0f)
+                {
+                    await UniTask.Delay(
+                        TimeSpan.FromSeconds(enemyClashResultRevealDelay),
+                        cancellationToken: this.GetCancellationTokenOnDestroy());
+                }
+            }
+
+            // 상대 후공 계산이 끝나면 Clash 판정 전에 상대 Dice를 RestPoint로 회수한다.
+            await MoveOpponentDiceSetToRestIfNeededAsync();
         }
 
         /// <summary>Round 종료 후 Dice를 Tray에 고정하고 StageFlow 후속 전환을 기다리는 상태로 만든다.</summary>
-        private void ForceRoundEndDiceTrayState(CastSubmitResult result)
+        private void ForceRoundEndDiceTrayState(ClashResolveResult result)
         {
             if (roundState == null)
                 return;
@@ -1987,7 +2090,7 @@ namespace Tessera.UI
             ClearLockSlotMapping();
 
             for (int diceIndex = 0; diceIndex < roundState.Dice.Count; diceIndex++)
-                simulator.SetDiceLocked(roundState, diceIndex, false);
+                roundState.GetDice(diceIndex).SetLocked(false);
 
             if (diceTray3DView != null)
             {
@@ -1995,7 +2098,7 @@ namespace Tessera.UI
                 diceTray3DView.RestoreAllDiceToTray(roundState.GetCurrentDiceValues(), lockedDiceMoveDuration);
             }
 
-            bool isWon = result.IsRoundWon || roundState.IsRoundWon;
+            bool isWon = roundState.IsRoundWon;
 
             string message = isWon
                 ? "Round won. Awaiting bounty decision."
@@ -2005,18 +2108,17 @@ namespace Tessera.UI
                 $"[Tessera][RoundEnd] {message} " +
                 $"OpponentHP={roundState.Encounter.OpponentCurrentHP}/{roundState.Encounter.OpponentMaxHP} | " +
                 $"PlayerHP={roundState.Encounter.PlayerCurrentHP}/{roundState.Encounter.PlayerMaxHP} | " +
-                $"DamageApplied={result.DamageApplied}");
+                $"DamageToOpponent={(result != null ? result.DamageToOpponent.ToString() : "0")} | " +
+                $"DamageToPlayer={(result != null ? result.DamageToPlayer.ToString() : "0")}");
 
             RefreshAll(message);
+            ClearClashDamageTexts();
         }
 
         /// <summary>Round가 끝나지 않았으면 다음 Attempt를 자동으로 시작한다.</summary>
-        private async UniTask TryAutoStartNextAttemptAfterCastAsync(CastSubmitResult result)
+        private async UniTask TryAutoStartNextAttemptAfterClashAsync()
         {
             if (!autoStartNextAttemptAfterCast)
-                return;
-
-            if (result == null)
                 return;
 
             if (roundState == null)
@@ -2048,13 +2150,12 @@ namespace Tessera.UI
         }
 
         /// <summary>Cast 제출 후 SlotPair 계산 순서 연출을 비동기로 재생한다.</summary>
-        private async UniTask PlaySlotPairEvaluationSequenceAsync(CastSubmitResult result)
+        private async UniTask PlaySlotPairEvaluationSequenceAsync(ClashCastResult result)
         {
             if (!playSlotPairSequenceOnSubmit) return;
             if (result == null) return;
             if (result.SlotPairDamagePreview == null) return;
 
-            // 이전 SlotPair 연출이 남아 있으면 중단하고 새 연출을 시작한다.
             CancelSlotPairEvaluationSequence();
 
             CancellationTokenSource currentCts = new CancellationTokenSource();
@@ -2072,7 +2173,6 @@ namespace Tessera.UI
             }
             catch (OperationCanceledException)
             {
-                // 새 라운드/시도 전환 시 정상 취소된다.
                 LogSlotPairSequenceCanceled();
             }
             finally
@@ -2105,7 +2205,7 @@ namespace Tessera.UI
 
         /// <summary>SlotPairDamagePreview의 Step 목록을 기준으로 DeviceSlot과 Dice 반응 연출을 순차 재생한다.</summary>
         private async UniTask PlaySlotPairEvaluationSequenceInternalAsync(
-            CastSubmitResult result,
+            ClashCastResult result,
             CancellationToken cancellationToken)
         {
             ClearSlotPairEvaluationHighlights();
@@ -2143,230 +2243,6 @@ namespace Tessera.UI
             }
         }
 
-        /// <summary>현재 상대 턴 모드에 따라 상대 턴 처리를 분기한다.</summary>
-        private async UniTask PlayEnemyTurnPresentationIfNeededAsync(CastSubmitResult result)
-        {
-            if (roundState == null)
-                return;
-
-            if (roundState.IsRoundEnded)
-                return;
-
-            if (roundState.Encounter.IsOpponentDefeated)
-                return;
-
-            switch (opponentTurnMode)
-            {
-                case OpponentTurnMode.None:
-                    await PlayNoOpponentTurnAsync();
-                    break;
-
-                case OpponentTurnMode.IntentOnly:
-                    await PlayIntentOnlyEnemyTurnAsync();
-                    break;
-
-                case OpponentTurnMode.SymmetricDiceDevice:
-                    await PlaySymmetricEnemyDiceDeviceTurnAsync(result);
-                    break;
-            }
-        }
-
-        /// <summary>상대 턴을 수행하지 않고 다음 Attempt로 넘기기 위한 최소 정리만 수행한다.</summary>
-        private async UniTask PlayNoOpponentTurnAsync()
-        {
-            SetInteractionState(BattleInteractionState.EnemyTurn);
-            RefreshDiceInteractionState();
-
-            await MovePlayerDiceSetToRestIfNeededAsync();
-
-            if (enemyTurnStartDelay > 0f)
-            {
-                await UniTask.Delay(
-                    TimeSpan.FromSeconds(enemyTurnStartDelay),
-                    cancellationToken: this.GetCancellationTokenOnDestroy());
-            }
-
-            SetMessage("Enemy turn skipped.");
-        }
-
-        /// <summary>예고형 Intent 기반 상대 턴을 처리한다.</summary>
-        private async UniTask PlayIntentOnlyEnemyTurnAsync()
-        {
-            if (roundState == null)
-                return;
-
-            SetInteractionState(BattleInteractionState.EnemyTurn);
-            SetMessage("Enemy intent.");
-            RefreshDiceInteractionState();
-
-            await MovePlayerDiceSetToRestIfNeededAsync();
-
-            if (enemyTurnStartDelay > 0f)
-            {
-                await UniTask.Delay(
-                    TimeSpan.FromSeconds(enemyTurnStartDelay),
-                    cancellationToken: this.GetCancellationTokenOnDestroy());
-            }
-
-            int damage = CalculateEnemyIntentDamage();
-            int playerHPBefore = roundState.Encounter.PlayerCurrentHP;
-
-            bool applied = ApplyEnemyIntentDamageToPlayer(damage);
-
-            int playerHPAfter = roundState.Encounter.PlayerCurrentHP;
-
-            Debug.Log(
-                $"[Tessera][EnemyIntent] Applied={applied} | " +
-                $"Damage={damage} | " +
-                $"PlayerHP={playerHPBefore}->{playerHPAfter} | " +
-                $"Attempt={(roundState.CurrentAttempt != null ? roundState.CurrentAttempt.AttemptNumber.ToString() : "-")} | " +
-                $"StageThreat={(runSession != null ? runSession.StageThreatLevel.ToString() : "0")}");
-
-            if (applied && damage > 0)
-                SetMessage($"Enemy intent: player took {damage} damage.");
-            else
-                SetMessage("Enemy intent: no damage.");
-
-            RefreshLeftInfoTexts();
-
-            if (enemyTurnAfterActionDelay > 0f)
-            {
-                await UniTask.Delay(
-                    TimeSpan.FromSeconds(enemyTurnAfterActionDelay),
-                    cancellationToken: this.GetCancellationTokenOnDestroy());
-            }
-        }
-
-        /// <summary>현재 Attempt와 StageThreat를 기준으로 Enemy Intent 피해량을 계산한다.</summary>
-        private int CalculateEnemyIntentDamage()
-        {
-            int attemptNumber = 1;
-
-            if (roundState != null && roundState.CurrentAttempt != null)
-                attemptNumber = Mathf.Max(1, roundState.CurrentAttempt.AttemptNumber);
-
-            int stageThreat = runSession != null
-                ? Mathf.Max(0, runSession.StageThreatLevel)
-                : 0;
-
-            int damage = enemyIntentBaseDamage;
-            damage += Mathf.Max(0, attemptNumber - 1) * enemyIntentDamagePerAttempt;
-
-            if (enemyIntentUsesStageThreat)
-                damage += stageThreat * enemyIntentDamagePerStageThreat;
-
-            if (enemyIntentDamageCap > 0)
-                damage = Mathf.Min(damage, enemyIntentDamageCap);
-
-            return Mathf.Max(0, damage);
-        }
-
-        /// <summary>Enemy Intent 피해를 Player HP에 적용한다.</summary>
-        private bool ApplyEnemyIntentDamageToPlayer(int damage)
-        {
-            if (damage <= 0)
-                return false;
-
-            if (roundState == null || roundState.Encounter == null)
-                return false;
-
-            // TODO:
-            // CoreRoundSimulator 또는 RoundState/Encounter 최신본 기준으로
-            // TryResolveEnemyIntentTurn / ApplyDamageToPlayer 계열 API를 추가한 뒤 이곳에서 호출한다.
-            //
-            // 현재 Presenter 기준에서는 PlayerCurrentHP 직접 setter/API가 확인되지 않으므로
-            // 임시로 false를 반환한다.
-
-            return false;
-        }
-
-        /// <summary>상대 주사위와 상대 Device 계산을 사용하는 대칭형 상대 턴을 처리한다.</summary>
-        private async UniTask PlaySymmetricEnemyDiceDeviceTurnAsync(CastSubmitResult result)
-        {
-            if (roundState == null)
-                return;
-
-            if (roundState.IsRoundEnded)
-                return;
-
-            if (roundState.Encounter.IsOpponentDefeated)
-                return;
-
-            SetInteractionState(BattleInteractionState.EnemyTurn);
-            SetMessage("Enemy turn.");
-            RefreshDiceInteractionState();
-
-            await MovePlayerDiceSetToRestIfNeededAsync();
-
-            if (enemyTurnStartDelay > 0f)
-            {
-                await UniTask.Delay(
-                    TimeSpan.FromSeconds(enemyTurnStartDelay),
-                    cancellationToken: this.GetCancellationTokenOnDestroy());
-            }
-
-            List<int> enemyDiceValues = CreateRandomEnemyDiceValues();
-            List<bool> enemyLockStates = CreateEnemyDiceLockStates(enemyDiceValues.Count);
-
-            await PlayEnemyDiceCupPresentationAsync(enemyDiceValues, enemyLockStates);
-
-            int playerHPBeforeEnemyTurn = roundState.Encounter.PlayerCurrentHP;
-
-            bool resolved = simulator.TryResolveEnemyTurnWithDice(
-                roundState,
-                enemyDiceValues,
-                CreateOpponentDeviceDefinitions(),
-                out EnemyIntentResult enemyIntentResult,
-                out RoundOutcomeType enemyTurnOutcome,
-                out PatternResult enemyPatternResult,
-                out SlotPairDamagePreview enemyPreview,
-                out TableRuleEvaluationResult enemyTableRuleResult);
-
-            int playerHPAfterEnemyTurn = roundState.Encounter.PlayerCurrentHP;
-
-            Debug.Log(
-                $"[Tessera][EnemyTurn] Resolved={resolved} | " +
-                $"Dice=[{FormatIntListForLog(enemyDiceValues)}] | " +
-                $"Pattern={(enemyPatternResult != null ? enemyPatternResult.PatternType.ToString() : "None")} | " +
-                $"Score={(enemyPreview != null ? enemyPreview.FinalScore.ToString() : "-")} | " +
-                $"Force={(enemyPreview != null ? enemyPreview.FormatFinalForce() : "-")} | " +
-                $"Damage={(enemyIntentResult != null ? enemyIntentResult.DamageToPlayer.ToString() : "0")} | " +
-                $"PlayerHP={playerHPBeforeEnemyTurn}->{playerHPAfterEnemyTurn} | " +
-                $"Outcome={enemyTurnOutcome} | " +
-                $"Devices={FormatOpponentDeviceLoadoutForLog()}");
-
-            if (!resolved || enemyIntentResult == null || !enemyIntentResult.DidExecute)
-            {
-                SetMessage("Enemy turn: no action.");
-            }
-            else if (enemyPreview != null && enemyPatternResult != null)
-            {
-                SetMessage(
-                    $"Enemy used {enemyPatternResult.PatternType}: Score {enemyPreview.FinalScore} x Force {enemyPreview.FormatFinalForce()} = Damage {enemyIntentResult.DamageToPlayer}.");
-            }
-            else
-            {
-                SetMessage($"Enemy turn: player took {enemyIntentResult.DamageToPlayer} damage.");
-            }
-
-            RefreshLeftInfoTexts();
-
-            if (enemyTurnAfterActionDelay > 0f)
-            {
-                await UniTask.Delay(
-                    TimeSpan.FromSeconds(enemyTurnAfterActionDelay),
-                    cancellationToken: this.GetCancellationTokenOnDestroy());
-            }
-
-            if (diceTray3DView != null && diceTray3DView.HasDiceSet(DiceOwnerType.Opponent))
-            {
-                await diceTray3DView.MoveDiceSetToRestAsync(
-                    DiceOwnerType.Opponent,
-                    ownerDiceRestMoveDuration,
-                    this.GetCancellationTokenOnDestroy());
-            }
-        }
-
         /// <summary>플레이어 Dice 세트를 RestPoint로 회수한다.</summary>
         private async UniTask MovePlayerDiceSetToRestIfNeededAsync()
         {
@@ -2397,8 +2273,8 @@ namespace Tessera.UI
                 this.GetCancellationTokenOnDestroy());
         }
 
-        /// <summary>Round 시작 시 Dice 소유자별 표시 상태를 초기화한다.</summary>
-        private async UniTaskVoid PreparePlayerFirstRoundDicePresentationAsync()
+        /// <summary>Round 시작 시 Player Dice 표시 상태를 초기화한다.</summary>
+        private async UniTask PreparePlayerFirstRoundDicePresentationAsync(bool moveOpponentDiceToRest = true)
         {
             if (diceTray3DView == null)
                 return;
@@ -2409,7 +2285,7 @@ namespace Tessera.UI
             IReadOnlyList<int> diceValues = roundState.GetCurrentDiceValues();
             List<bool> lockStates = CreateDiceLockStates();
 
-            if (diceTray3DView.HasDiceSet(DiceOwnerType.Opponent))
+            if (moveOpponentDiceToRest && diceTray3DView.HasDiceSet(DiceOwnerType.Opponent))
             {
                 await diceTray3DView.MoveDiceSetToRestAsync(
                     DiceOwnerType.Opponent,
@@ -2606,19 +2482,22 @@ namespace Tessera.UI
             slotPairSequenceCts = null;
         }
 
-        /// <summary>제출 결과 메시지를 생성한다.</summary>
-        private string BuildSubmitMessage(CastSubmitResult result)
+        /// <summary>Clash Cast 결과 메시지를 생성한다.</summary>
+        private string BuildClashCastMessage(ClashCastResult result)
         {
             if (result == null)
                 return "Submit failed.";
 
-            if (result.IsRoundWon && runSession == null)
-                earnedMoney += 20;
-
             if (result.SlotPairDamagePreview != null)
-                return $"{result.PatternResult.PatternType}: Score {result.SlotPairDamagePreview.FinalScore} x Force {result.SlotPairDamagePreview.FormatFinalForce()} = Damage {result.DamageApplied}.";
+            {
+                return
+                    $"{result.PatternResult.PatternType}: " +
+                    $"Score {result.SlotPairDamagePreview.FinalScore} x " +
+                    $"Force {result.SlotPairDamagePreview.FormatFinalForce()} = " +
+                    $"Damage {result.FinalDamage}.";
+            }
 
-            return $"{result.PatternResult.PatternType} dealt {result.DamageApplied}.";
+            return $"{result.PatternResult.PatternType}: Damage {result.FinalDamage}.";
         }
 
         /// <summary>전투 진행 메시지를 로그로 남긴다.</summary>
@@ -2826,7 +2705,7 @@ namespace Tessera.UI
         #region Debug
 
         /// <summary>SlotPair 계산 시작 로그를 출력한다.</summary>
-        private void LogSlotPairSequenceStarted(CastSubmitResult result)
+        private void LogSlotPairSequenceStarted(ClashCastResult result)
         {
             if (!logSlotPairEvaluationSteps)
                 return;
@@ -2839,11 +2718,11 @@ namespace Tessera.UI
                 $"FinalScore={result.SlotPairDamagePreview.FinalScore} | " +
                 $"FinalForce={result.SlotPairDamagePreview.FormatFinalForce()} | " +
                 $"DamageBeforeRules={result.SlotPairDamagePreview.DamageBeforeTableRules} | " +
-                $"DamageApplied={result.DamageApplied}");
+                $"DamageApplied={result.FinalDamage}");
         }
 
         /// <summary>SlotPair 계산 Step 로그를 출력한다.</summary>
-        private void LogSlotPairStep(CastSubmitResult result, SlotPairDamageStep step)
+        private void LogSlotPairStep(ClashCastResult result, SlotPairDamageStep step)
         {
             if (!logSlotPairEvaluationSteps)
                 return;
@@ -2865,7 +2744,7 @@ namespace Tessera.UI
         }
 
         /// <summary>SlotPair 계산 종료 로그를 출력한다.</summary>
-        private void LogSlotPairSequenceCompleted(CastSubmitResult result)
+        private void LogSlotPairSequenceCompleted(ClashCastResult result)
         {
             if (!logSlotPairEvaluationSteps)
                 return;
@@ -2877,7 +2756,7 @@ namespace Tessera.UI
                 $"[Tessera][SlotPair] Sequence Complete | Cast={result.PatternResult.PatternType} | " +
                 $"FinalScore={result.SlotPairDamagePreview.FinalScore} | " +
                 $"FinalForce={result.SlotPairDamagePreview.FormatFinalForce()} | " +
-                $"DamageApplied={result.DamageApplied}");
+                $"DamageApplied={result.FinalDamage}");
         }
 
         /// <summary>SlotPair 계산 취소 로그를 출력한다.</summary>

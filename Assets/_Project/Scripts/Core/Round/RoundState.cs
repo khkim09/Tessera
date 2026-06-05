@@ -190,6 +190,16 @@ namespace Tessera.Core
             CurrentEnemyIntent = enemyIntent ?? EnemyIntent.None();
         }
 
+        /// <summary>현재 Enemy Intent의 Initiative를 현재 Attempt에 적용한다.</summary>
+        internal void ApplyCurrentIntentInitiativeToAttempt()
+        {
+            if (CurrentAttempt == null)
+                throw new InvalidOperationException("현재 Attempt가 없습니다.");
+
+            EnemyIntent intent = CurrentEnemyIntent ?? EnemyIntent.None();
+            CurrentAttempt.SetInitiativeOwner(intent.InitiativeOwner);
+        }
+
         /// <summary>Cast 제출 결과를 기록한다.</summary>
         internal void AddSubmitResult(CastSubmitResult result)
         {
@@ -198,6 +208,12 @@ namespace Tessera.Core
 
             _submitResults.Add(result);
             AddPatternUse(result.PatternResult.PatternType);
+        }
+
+        /// <summary>Clash에서 사용된 Cast 카테고리 사용 횟수를 기록한다.</summary>
+        internal void AddClashPatternUse(RollPatternType patternType)
+        {
+            AddPatternUse(patternType);
         }
 
         /// <summary>Round를 승리 상태로 종료한다.</summary>

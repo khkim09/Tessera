@@ -60,6 +60,10 @@ namespace Tessera.Data
         [SerializeField] private int maxOpponentDeviceCount = 5;
         [SerializeField] private bool allowDuplicateOpponentDevices = true;
 
+        [Header("Enemy Intent")]
+        [SerializeField] private EnemyIntentDefinitionSO openingIntent;
+        [SerializeField] private EnemyIntentDefinitionSO[] intentDeck;
+
         [Header("Turn Order")]
         [SerializeField] private FirstTurnPolicy firstTurnPolicy = FirstTurnPolicy.PlayerFirst;
 
@@ -116,6 +120,12 @@ namespace Tessera.Data
 
         /// <summary>상대 Device 중복 장착 허용 여부.</summary>
         public bool AllowDuplicateOpponentDevices => allowDuplicateOpponentDevices;
+
+        /// <summary>Round 시작 Attempt에서 사용할 기본 상대 Intent 정의.</summary>
+        public EnemyIntentDefinitionSO OpeningIntent => openingIntent;
+
+        /// <summary>Round 중 선택될 수 있는 상대 Intent 후보 목록.</summary>
+        public IReadOnlyList<EnemyIntentDefinitionSO> IntentDeck => intentDeck;
 
         /// <summary>StageThreat 없이 RoundRuleContext를 생성한다.</summary>
         public RoundRuleContext BuildRuleContext(int runPlayerMaxHP)
@@ -224,6 +234,30 @@ namespace Tessera.Data
             }
 
             return result;
+        }
+
+        /// <summary>Round 시작 시 사용할 Core EnemyIntent를 생성한다.</summary>
+        public EnemyIntent BuildOpeningEnemyIntent()
+        {
+            if (openingIntent != null)
+                return openingIntent.ToCoreIntent(enemyStrikeDamage);
+
+            InitiativeOwnerType fallbackInitiativeOwner = firstTurnPolicy == FirstTurnPolicy.OpponentFirst
+                ? InitiativeOwnerType.Opponent
+                : InitiativeOwnerType.Player;
+
+            EnemyIntentType fallbackIntentType = fallbackInitiativeOwner == InitiativeOwnerType.Opponent
+                ? EnemyIntentType.Strike
+                : EnemyIntentType.None;
+
+            return new EnemyIntent(
+                fallbackIntentType,
+                Mathf.Max(0, enemyStrikeDamage),
+                string.IsNullOrWhiteSpace(intentDescription) ? "Opening intent." : intentDescription,
+                fallbackInitiativeOwner == InitiativeOwnerType.Opponent
+                    ? EnemyIntentCategoryType.Aggression
+                    : EnemyIntentCategoryType.Tactics,
+                fallbackInitiativeOwner);
         }
     }
 }

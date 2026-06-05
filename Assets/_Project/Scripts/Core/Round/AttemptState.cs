@@ -2,7 +2,7 @@
 
 namespace Tessera.Core
 {
-    /// <summary>현재 Attempt 번호, 리롤 자원, 제출 가능 상태, 제출 여부를 관리한다.</summary>
+    /// <summary>현재 Attempt 번호, 리롤 자원, 제출 가능 상태, Clash 진행 상태를 관리한다.</summary>
     public class AttemptState
     {
         /// <summary>현재 Attempt 번호.</summary>
@@ -23,8 +23,29 @@ namespace Tessera.Core
         /// <summary>Cast 제출 가능 상태가 된 원인.</summary>
         public CastReadinessSource CastReadinessSource { get; private set; }
 
-        /// <summary>이 Attempt가 이미 제출되었는지 확인한다.</summary>
+        /// <summary>이 Attempt의 Clash가 이미 해결되었는지 확인한다.</summary>
         public bool IsSubmitted { get; private set; }
+
+        /// <summary>이번 Attempt의 선공 주체.</summary>
+        public InitiativeOwnerType InitiativeOwner { get; private set; }
+
+        /// <summary>플레이어 Clash Cast 결과.</summary>
+        public ClashCastResult PlayerClashResult { get; private set; }
+
+        /// <summary>상대 Clash Cast 결과.</summary>
+        public ClashCastResult OpponentClashResult { get; private set; }
+
+        /// <summary>Clash 판정 결과.</summary>
+        public ClashResolveResult ClashResolveResult { get; private set; }
+
+        /// <summary>플레이어 결과가 확정되었는지 확인한다.</summary>
+        public bool HasPlayerClashResult => PlayerClashResult != null;
+
+        /// <summary>상대 결과가 확정되었는지 확인한다.</summary>
+        public bool HasOpponentClashResult => OpponentClashResult != null;
+
+        /// <summary>양측 결과가 모두 있어 Clash 판정 가능한지 확인한다.</summary>
+        public bool CanResolveClash => HasPlayerClashResult && HasOpponentClashResult && ClashResolveResult == null;
 
         /// <summary>Attempt 상태를 생성한다.</summary>
         public AttemptState(int attemptNumber, int maxRegularRerolls, int freeRerollTokens)
@@ -45,6 +66,10 @@ namespace Tessera.Core
             CanSubmitCast = false;
             CastReadinessSource = CastReadinessSource.None;
             IsSubmitted = false;
+            InitiativeOwner = InitiativeOwnerType.Opponent;
+            PlayerClashResult = null;
+            OpponentClashResult = null;
+            ClashResolveResult = null;
         }
 
         /// <summary>일반 리롤 1회 사용을 시도한다.</summary>
@@ -105,10 +130,56 @@ namespace Tessera.Core
             CastReadinessSource = CastReadinessSource.None;
         }
 
+        /// <summary>Attempt의 선공 주체를 설정한다.</summary>
+        public void SetInitiativeOwner(InitiativeOwnerType initiativeOwner)
+        {
+            if (IsSubmitted)
+                return;
+
+            InitiativeOwner = initiativeOwner;
+        }
+
+        /// <summary>플레이어 Clash Cast 결과를 기록한다.</summary>
+        public void SetPlayerClashResult(ClashCastResult result)
+        {
+            if (result == null)
+                throw new ArgumentNullException(nameof(result));
+
+            if (IsSubmitted)
+                return;
+
+            PlayerClashResult = result;
+        }
+
+        /// <summary>상대 Clash Cast 결과를 기록한다.</summary>
+        public void SetOpponentClashResult(ClashCastResult result)
+        {
+            if (result == null)
+                throw new ArgumentNullException(nameof(result));
+
+            if (IsSubmitted)
+                return;
+
+            OpponentClashResult = result;
+        }
+
         /// <summary>이 Attempt를 제출 완료 상태로 변경한다.</summary>
         public void MarkSubmitted()
         {
             IsSubmitted = true;
+        }
+
+        /// <summary>Clash 판정 결과를 기록하고 Attempt를 완료 처리한다.</summary>
+        public void MarkClashResolved(ClashResolveResult result)
+        {
+            if (result == null)
+                throw new ArgumentNullException(nameof(result));
+
+            if (IsSubmitted)
+                return;
+
+            ClashResolveResult = result;
+            MarkSubmitted();
         }
     }
 }

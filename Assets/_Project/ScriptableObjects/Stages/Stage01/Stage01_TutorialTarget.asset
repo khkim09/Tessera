@@ -47,4 +47,4 @@ MonoBehaviour:
   minOpponentDeviceCount: 0
   maxOpponentDeviceCount: 1
   allowDuplicateOpponentDevices: 0
-  firstTurnPolicy: 0
+  firstTurnPolicy: 1

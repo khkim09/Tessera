@@ -277,6 +277,8 @@ namespace Tessera.Runtime
             SlotPairDeviceDefinitionSO[] opponentDevices =
                 node.Definition.BuildOpponentSlotPairDeviceLoadout(opponentDeviceSeed);
 
+            EnemyIntent openingIntent = node.Definition.BuildOpeningEnemyIntent();
+
             TesseraEventBus.Publish(
                 new StageRoundStartRequestedEvent(
                     ruleContext,
@@ -284,7 +286,8 @@ namespace Tessera.Runtime
                     runSession.StageOverchargeState,
                     node.Definition.DisplayName,
                     opponentDevices,
-                    node.Definition.FirstTurnPolicy));
+                    node.Definition.FirstTurnPolicy,
+                    openingIntent));
 
             TesseraEventBus.Publish(new GameModeChangeRequestedEvent(GameModeType.Gameplay, node.Definition.DisplayName));
             PublishStageEconomyChanged($"Bounty started: {node.Definition.DisplayName}");
@@ -800,7 +803,7 @@ namespace Tessera.Runtime
         }
 
         /// <summary>Round 승리 후 남은 Attempt 수를 계산한다.</summary>
-        private static int ResolveRemainingAttempts(StageBountyNodeState node, CastSubmitResult result)
+        private static int ResolveRemainingAttempts(StageBountyNodeState node, ClashResolveResult result)
         {
             if (node == null || node.Definition == null || result == null)
                 return 0;

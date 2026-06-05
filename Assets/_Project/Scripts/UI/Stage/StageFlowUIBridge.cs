@@ -135,7 +135,8 @@ namespace Tessera.UI
                 gameEvent.StageOverchargeState,
                 gameEvent.RoundDisplayName,
                 gameEvent.OpponentSlotPairDevices,
-                gameEvent.FirstTurnPolicy);
+                gameEvent.FirstTurnPolicy,
+                gameEvent.OpeningIntent);
         }
 
         /// <summary>Bounty Board 표시 요청을 View에 전달한다.</summary>
@@ -293,14 +294,14 @@ namespace Tessera.UI
         }
 
         /// <summary>Gameplay Presenter의 Round 승리 이벤트를 Runtime 이벤트로 변환한다.</summary>
-        private void HandleRoundWon(CastSubmitResult result)
+        private void HandleRoundWon(ClashResolveResult result)
         {
             int playerHP = GetCurrentPlayerHPFromPresenter();
             TesseraEventBus.Publish(new GameplayRoundWonEvent(result, playerHP));
         }
 
         /// <summary>Gameplay Presenter의 Round 패배 이벤트를 Runtime 이벤트로 변환한다.</summary>
-        private void HandleRoundLost(CastSubmitResult result)
+        private void HandleRoundLost(ClashResolveResult result)
         {
             int playerHP = GetCurrentPlayerHPFromPresenter();
             TesseraEventBus.Publish(new GameplayRoundLostEvent(result, playerHP));
