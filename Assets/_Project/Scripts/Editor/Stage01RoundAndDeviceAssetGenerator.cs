@@ -233,7 +233,6 @@ namespace Tessera.Editor
                 nonAcesDamagePercent: 50,
                 disableChance: false,
                 disableBrokenCastReward: false,
-                firstTurnPolicy: FirstTurnPolicy.PlayerFirst,
                 opponentDevicePool: new SlotPairDeviceDefinitionSO[]
                 {
                     deviceDiceValueDoubler,
@@ -293,7 +292,6 @@ namespace Tessera.Editor
                 nonAcesDamagePercent: 50,
                 disableChance: false,
                 disableBrokenCastReward: false,
-                firstTurnPolicy: FirstTurnPolicy.PlayerFirst,
                 opponentDevicePool: new SlotPairDeviceDefinitionSO[]
                 {
                     deviceDiceValueDoubler,
@@ -355,7 +353,6 @@ namespace Tessera.Editor
                 nonAcesDamagePercent: 50,
                 disableChance: false,
                 disableBrokenCastReward: false,
-                firstTurnPolicy: FirstTurnPolicy.PlayerFirst,
                 opponentDevicePool: new SlotPairDeviceDefinitionSO[]
                 {
                     deviceDiceValueDoubler,
@@ -419,7 +416,6 @@ namespace Tessera.Editor
                 nonAcesDamagePercent: 50,
                 disableChance: false,
                 disableBrokenCastReward: false,
-                firstTurnPolicy: FirstTurnPolicy.PlayerFirst,
                 opponentDevicePool: new SlotPairDeviceDefinitionSO[]
                 {
                     deviceDiceValueDoubler,
@@ -465,7 +461,6 @@ namespace Tessera.Editor
             int nonAcesDamagePercent,
             bool disableChance,
             bool disableBrokenCastReward,
-            FirstTurnPolicy firstTurnPolicy,
             SlotPairDeviceDefinitionSO[] opponentDevicePool,
             int minOpponentDeviceCount,
             int maxOpponentDeviceCount,
@@ -495,7 +490,6 @@ namespace Tessera.Editor
             so.FindProperty("nonAcesDamagePercent").intValue = nonAcesDamagePercent;
             so.FindProperty("disableChance").boolValue = disableChance;
             so.FindProperty("disableBrokenCastReward").boolValue = disableBrokenCastReward;
-            so.FindProperty("firstTurnPolicy").enumValueIndex = (int)firstTurnPolicy;
 
             // Opponent Device Pool 배열 설정
             SerializedProperty poolProp = so.FindProperty("opponentDevicePool");

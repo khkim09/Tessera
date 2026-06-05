@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Tessera.Core;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -64,9 +65,6 @@ namespace Tessera.Data
         [SerializeField] private EnemyIntentDefinitionSO openingIntent;
         [SerializeField] private EnemyIntentDefinitionSO[] intentDeck;
 
-        [Header("Turn Order")]
-        [SerializeField] private FirstTurnPolicy firstTurnPolicy = FirstTurnPolicy.PlayerFirst;
-
         /// <summary>라운드 고유 ID.</summary>
         public string RoundId => string.IsNullOrWhiteSpace(roundId) ? name : roundId;
 
@@ -125,16 +123,13 @@ namespace Tessera.Data
         public EnemyIntentDefinitionSO OpeningIntent => openingIntent;
 
         /// <summary>Round 중 선택될 수 있는 상대 Intent 후보 목록.</summary>
-        public IReadOnlyList<EnemyIntentDefinitionSO> IntentDeck => intentDeck;
+        public IReadOnlyList<EnemyIntentDefinitionSO> IntentDeck => intentDeck ?? Array.Empty<EnemyIntentDefinitionSO>();
 
         /// <summary>StageThreat 없이 RoundRuleContext를 생성한다.</summary>
         public RoundRuleContext BuildRuleContext(int runPlayerMaxHP)
         {
             return BuildRuleContext(runPlayerMaxHP, 0);
         }
-
-        /// <summary>Round 시작 선공 정책.</summary>
-        public FirstTurnPolicy FirstTurnPolicy => firstTurnPolicy;
 
         /// <summary>StageThreatLevel 보정을 반영하여 RoundRuleContext를 생성한다.</summary>
         public RoundRuleContext BuildRuleContext(int runPlayerMaxHP, int stageThreatLevel)
@@ -242,22 +237,50 @@ namespace Tessera.Data
             if (openingIntent != null)
                 return openingIntent.ToCoreIntent(enemyStrikeDamage);
 
-            InitiativeOwnerType fallbackInitiativeOwner = firstTurnPolicy == FirstTurnPolicy.OpponentFirst
-                ? InitiativeOwnerType.Opponent
-                : InitiativeOwnerType.Player;
-
-            EnemyIntentType fallbackIntentType = fallbackInitiativeOwner == InitiativeOwnerType.Opponent
-                ? EnemyIntentType.Strike
-                : EnemyIntentType.None;
-
             return new EnemyIntent(
-                fallbackIntentType,
+                EnemyIntentType.Strike,
                 Mathf.Max(0, enemyStrikeDamage),
-                string.IsNullOrWhiteSpace(intentDescription) ? "Opening intent." : intentDescription,
-                fallbackInitiativeOwner == InitiativeOwnerType.Opponent
-                    ? EnemyIntentCategoryType.Aggression
-                    : EnemyIntentCategoryType.Tactics,
-                fallbackInitiativeOwner);
+                string.IsNullOrWhiteSpace(intentDescription) ? "Opening strike." : intentDescription,
+                EnemyIntentCategoryType.Aggression,
+                InitiativeOwnerType.Opponent);
+        }
+
+        /// <summary>지정 Attempt에서 사용할 EnemyIntentDefinitionSO를 선택한다.</summary>
+        public EnemyIntentDefinitionSO SelectIntentDefinitionForAttempt(int attemptNumber, int seed)
+        {
+            if (attemptNumber <= 1)
+                return openingIntent;
+
+            if (intentDeck == null || intentDeck.Length <= 0)
+                return openingIntent;
+
+            List<EnemyIntentDefinitionSO> candidates = new List<EnemyIntentDefinitionSO>();
+
+            for (int i = 0; i < intentDeck.Length; i++)
+            {
+                if (intentDeck[i] != null)
+                    candidates.Add(intentDeck[i]);
+            }
+
+            if (candidates.Count <= 0)
+                return openingIntent;
+
+            int resolvedSeed = seed + attemptNumber * 397;
+            System.Random random = new System.Random(resolvedSeed);
+            int selectedIndex = random.Next(0, candidates.Count);
+
+            return candidates[selectedIndex];
+        }
+
+        /// <summary>지정 Attempt에서 사용할 Core EnemyIntent를 생성한다.</summary>
+        public EnemyIntent BuildEnemyIntentForAttempt(int attemptNumber, int seed)
+        {
+            EnemyIntentDefinitionSO selectedIntent = SelectIntentDefinitionForAttempt(attemptNumber, seed);
+
+            if (selectedIntent != null)
+                return selectedIntent.ToCoreIntent(enemyStrikeDamage);
+
+            return BuildOpeningEnemyIntent();
         }
     }
 }

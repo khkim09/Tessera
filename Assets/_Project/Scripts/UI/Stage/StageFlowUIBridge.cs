@@ -135,7 +135,7 @@ namespace Tessera.UI
                 gameEvent.StageOverchargeState,
                 gameEvent.RoundDisplayName,
                 gameEvent.OpponentSlotPairDevices,
-                gameEvent.FirstTurnPolicy,
+                gameEvent.RoundDefinition,
                 gameEvent.OpeningIntent);
         }
 

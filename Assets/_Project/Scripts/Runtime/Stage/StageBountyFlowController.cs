@@ -286,7 +286,7 @@ namespace Tessera.Runtime
                     runSession.StageOverchargeState,
                     node.Definition.DisplayName,
                     opponentDevices,
-                    node.Definition.FirstTurnPolicy,
+                    node.Definition,
                     openingIntent));
 
             TesseraEventBus.Publish(new GameModeChangeRequestedEvent(GameModeType.Gameplay, node.Definition.DisplayName));

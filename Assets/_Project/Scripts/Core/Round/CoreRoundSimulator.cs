@@ -359,8 +359,19 @@ namespace Tessera.Core
             roundState.AddClashPatternUse(opponentResult.PatternType);
 
             RoundOutcomeType outcomeType = ResolveRoundOutcomeAfterClash(roundState);
-            bool canStartNextAttempt = outcomeType == RoundOutcomeType.Ongoing && !roundState.IsLastAttempt();
-            string message = BuildClashMessage(winner, damageToPlayer, damageToOpponent, playerUsedBrokenCastDefense, outcomeType);
+
+            bool canStartNextAttempt =
+                outcomeType == RoundOutcomeType.Ongoing &&
+                !roundState.IsLastAttempt() &&
+                roundState.RemainingRoundRolls > 0;
+
+            string message = BuildClashMessage(
+                roundState,
+                winner,
+                damageToPlayer,
+                damageToOpponent,
+                playerUsedBrokenCastDefense,
+                outcomeType);
 
             ClashResolveResult result = new ClashResolveResult(
                 roundState.CurrentAttempt.AttemptNumber,
@@ -387,8 +398,21 @@ namespace Tessera.Core
             return result;
         }
 
-        /// <summary>제출 이후 다음 Attempt 시작을 시도한다.</summary>
+        /// <summary>제출 이후 다음 Attempt 시작을 시도한다. 현재 Round 기본 EnemyIntent를 사용한다.</summary>
         public bool TryStartNextAttempt(RoundState roundState)
+        {
+            if (roundState == null)
+                throw new ArgumentNullException(nameof(roundState));
+
+            EnemyIntent fallbackIntent = EnemyIntent.Strike(roundState.RuleContext.EnemyStrikeDamage);
+
+            return TryStartNextAttempt(roundState, fallbackIntent);
+        }
+
+        /// <summary>제출 이후 지정한 EnemyIntent를 적용해 다음 Attempt 시작을 시도한다.</summary>
+        public bool TryStartNextAttempt(
+            RoundState roundState,
+            EnemyIntent nextEnemyIntent)
         {
             if (roundState == null)
                 throw new ArgumentNullException(nameof(roundState));
@@ -402,13 +426,21 @@ namespace Tessera.Core
             if (roundState.CurrentAttempt.AttemptNumber >= roundState.RuleContext.MaxAttempts)
                 return false;
 
+            if (roundState.RemainingRoundRolls <= 0)
+                return false;
+
             int nextAttemptNumber = roundState.CurrentAttempt.AttemptNumber + 1;
             AttemptState nextAttempt = CreateAttempt(roundState.Overcharge, nextAttemptNumber);
             List<DiceInstance> dice = diceRoller.CreateRolledStandardDiceSet(roundState.RuleContext.DiceCount);
 
             roundState.StartAttempt(nextAttempt, dice);
-            roundState.SetEnemyIntent(EnemyIntent.Strike(roundState.RuleContext.EnemyStrikeDamage));
+
+            EnemyIntent resolvedIntent = nextEnemyIntent
+                ?? EnemyIntent.Strike(roundState.RuleContext.EnemyStrikeDamage);
+
+            roundState.SetEnemyIntent(resolvedIntent);
             roundState.ApplyCurrentIntentInitiativeToAttempt();
+
             return true;
         }
 
@@ -581,40 +613,28 @@ namespace Tessera.Core
             return diceIndexes;
         }
 
-        /// <summary>Clash 이후 Round 결과를 판정한다.</summary>
+        /// <summary>Clash 이후 승리/패배/진행 상태를 판정한다.</summary>
         private static RoundOutcomeType ResolveRoundOutcomeAfterClash(RoundState roundState)
         {
+            if (roundState == null)
+                throw new ArgumentNullException(nameof(roundState));
+
             if (roundState.Encounter.IsOpponentDefeated)
                 return RoundOutcomeType.Won;
 
             if (roundState.Encounter.IsPlayerDefeated)
                 return RoundOutcomeType.Lost;
 
-            if (roundState.IsLastAttempt())
+            if (roundState.CurrentAttempt == null)
                 return RoundOutcomeType.Lost;
 
-            if (ShouldLoseBecauseNoRoundRollsRemain(roundState))
+            if (roundState.CurrentAttempt.AttemptNumber >= roundState.RuleContext.MaxAttempts)
+                return RoundOutcomeType.Lost;
+
+            if (roundState.RemainingRoundRolls <= 0)
                 return RoundOutcomeType.Lost;
 
             return RoundOutcomeType.Ongoing;
-        }
-
-        /// <summary>다음 Attempt는 남아 있지만 Round Roll Pool이 없어 더 이상 유효하게 진행할 수 없는지 확인한다.</summary>
-        private static bool ShouldLoseBecauseNoRoundRollsRemain(RoundState roundState)
-        {
-            if (roundState == null)
-                return false;
-
-            if (roundState.CurrentAttempt == null)
-                return false;
-
-            if (!roundState.CurrentAttempt.IsSubmitted)
-                return false;
-
-            if (roundState.RemainingRoundRolls > 0)
-                return false;
-
-            return !roundState.IsLastAttempt();
         }
 
         private static void ValidatePlayableRound(RoundState roundState)
@@ -626,7 +646,9 @@ namespace Tessera.Core
                 throw new InvalidOperationException("이미 종료된 Round입니다.");
         }
 
+        /// <summary>Clash 결과 메시지를 생성한다.</summary>
         private static string BuildClashMessage(
+            RoundState roundState,
             ClashParticipantType? winner,
             int damageToPlayer,
             int damageToOpponent,
@@ -637,7 +659,19 @@ namespace Tessera.Core
                 return $"Clash won. Opponent took {damageToOpponent} damage.";
 
             if (outcomeType == RoundOutcomeType.Lost)
-                return $"Clash lost. Player took {damageToPlayer} damage.";
+            {
+                if (roundState != null && roundState.Encounter.IsPlayerDefeated)
+                    return $"Round lost. Player HP reached 0 after taking {damageToPlayer} damage.";
+
+                if (roundState != null && roundState.CurrentAttempt != null &&
+                    roundState.CurrentAttempt.AttemptNumber >= roundState.RuleContext.MaxAttempts)
+                    return "Round lost. No attempts remain.";
+
+                if (roundState != null && roundState.RemainingRoundRolls <= 0)
+                    return "Round lost. No round rolls remain.";
+
+                return $"Round lost. Player took {damageToPlayer} damage.";
+            }
 
             if (winner == ClashParticipantType.Player)
                 return $"Player wins clash. Opponent took {damageToOpponent} damage.";

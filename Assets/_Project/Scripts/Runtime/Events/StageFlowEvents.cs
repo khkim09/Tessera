@@ -41,7 +41,7 @@ namespace Tessera.Runtime
         }
     }
 
-    /// <summary>Stage Round 시작 요청 이벤트다. UI Bridge가 Gameplay Presenter에 전달한다.</summary>
+    /// <summary>StageFlow가 Gameplay Round 시작을 요청하는 이벤트다.</summary>
     public readonly struct StageRoundStartRequestedEvent
     {
         public RoundRuleContext RuleContext { get; }
@@ -49,16 +49,17 @@ namespace Tessera.Runtime
         public OverchargeState StageOverchargeState { get; }
         public string RoundDisplayName { get; }
         public SlotPairDeviceDefinitionSO[] OpponentSlotPairDevices { get; }
-        public FirstTurnPolicy FirstTurnPolicy { get; }
+        public StageRoundDefinitionSO RoundDefinition { get; }
         public EnemyIntent OpeningIntent { get; }
 
+        /// <summary>Gameplay Round 시작 요청 이벤트를 생성한다.</summary>
         public StageRoundStartRequestedEvent(
             RoundRuleContext ruleContext,
             int playerHPAtStart,
             OverchargeState stageOverchargeState,
             string roundDisplayName,
             SlotPairDeviceDefinitionSO[] opponentSlotPairDevices,
-            FirstTurnPolicy firstTurnPolicy,
+            StageRoundDefinitionSO roundDefinition,
             EnemyIntent openingIntent)
         {
             RuleContext = ruleContext;
@@ -66,7 +67,7 @@ namespace Tessera.Runtime
             StageOverchargeState = stageOverchargeState;
             RoundDisplayName = roundDisplayName ?? string.Empty;
             OpponentSlotPairDevices = opponentSlotPairDevices;
-            FirstTurnPolicy = firstTurnPolicy;
+            RoundDefinition = roundDefinition;
             OpeningIntent = openingIntent ?? EnemyIntent.None();
         }
     }

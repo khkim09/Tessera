@@ -50,4 +50,6 @@ MonoBehaviour:
   minOpponentDeviceCount: 3
   maxOpponentDeviceCount: 5
   allowDuplicateOpponentDevices: 0
-  firstTurnPolicy: 0
+  openingIntent: {fileID: 11400000, guid: 1477729695c9c49439b2ee1b39b8c34a, type: 2}
+  intentDeck:
+  - {fileID: 11400000, guid: 1477729695c9c49439b2ee1b39b8c34a, type: 2}

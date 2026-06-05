@@ -160,9 +160,10 @@ namespace Tessera.UI
         private bool roundEndNotified;
         private CancellationTokenSource slotPairSequenceCts;
         private BattleInteractionState interactionState = BattleInteractionState.None;
-        private FirstTurnPolicy currentFirstTurnPolicy = FirstTurnPolicy.PlayerFirst;
         private ClashCastResult pendingOpponentClashResult;
         private ClashResolveResult lastClashResolveResult;
+        private StageRoundDefinitionSO currentRoundDefinition;
+        private EnemyIntentDefinitionSO currentEnemyIntentDefinition;
 
         #region Event
 
@@ -248,7 +249,7 @@ namespace Tessera.UI
             OverchargeState stageOverchargeState,
             string roundDisplayName,
             SlotPairDeviceDefinitionSO[] roundOpponentSlotPairDevices,
-            FirstTurnPolicy firstTurnPolicy,
+            StageRoundDefinitionSO roundDefinition,
             EnemyIntent openingIntent)
         {
             if (ruleContext == null)
@@ -264,6 +265,11 @@ namespace Tessera.UI
             }
 
             roundState = simulator.StartRound(ruleContext, carriedPlayerHP, stageOverchargeState);
+            currentRoundDefinition = roundDefinition;
+            currentEnemyIntentDefinition = currentRoundDefinition != null
+                ? currentRoundDefinition.SelectIntentDefinitionForAttempt(1, seed)
+                : null;
+
             currentRoundDisplayName = string.IsNullOrWhiteSpace(roundDisplayName) ? "Round" : roundDisplayName;
             roundEndNotified = false;
             SetInteractionState(BattleInteractionState.PlayerIdle);
@@ -284,12 +290,11 @@ namespace Tessera.UI
             SyncDevicesFromRunSession();
             SetOpponentSlotPairDevices(roundOpponentSlotPairDevices);
 
-            currentFirstTurnPolicy = firstTurnPolicy;
             pendingOpponentClashResult = null;
             lastClashResolveResult = null;
 
             RefreshClashDamageTexts();
-            ApplyOpeningIntentToCurrentAttempt(openingIntent, firstTurnPolicy);
+            ApplyOpeningIntentToCurrentAttempt(openingIntent);
 
             CancelSlotPairEvaluationSequence();
             ClearSlotPairEvaluationHighlights();
@@ -338,6 +343,8 @@ namespace Tessera.UI
                 return;
             }
 
+            LogOpponentClashCastResult("OpponentFirst", pendingOpponentClashResult);
+
             SetMessage(BuildOpponentTargetMessage(pendingOpponentClashResult));
             RefreshClashDamageTexts();
 
@@ -373,17 +380,22 @@ namespace Tessera.UI
                 return "Opponent failed to prepare clash.";
 
             string castName = CastBoardCatalog.GetDisplayName(opponentResult.PatternType);
-            string forceValue = opponentResult.SlotPairDamagePreview != null
-                ? opponentResult.SlotPairDamagePreview.FormatFinalForce()
-                : "-";
 
             int score = opponentResult.SlotPairDamagePreview != null
                 ? opponentResult.SlotPairDamagePreview.FinalScore
                 : 0;
 
-            return
-                $"Opponent set target: {castName} / " +
-                $"Score {score} x Force {forceValue} = Damage {opponentResult.FinalDamage}.";
+            string force = opponentResult.SlotPairDamagePreview != null
+                ? opponentResult.SlotPairDamagePreview.FormatFinalForce()
+                : "-";
+
+            int rawDamage = opponentResult.SlotPairDamagePreview != null
+                ? opponentResult.SlotPairDamagePreview.DamageBeforeTableRules
+                : opponentResult.FinalDamage;
+
+            return rawDamage == opponentResult.FinalDamage
+                ? $"Opponent set target: {castName} / Score {score} x Force {force} = Damage {opponentResult.FinalDamage}."
+                : $"Opponent set target: {castName} / Score {score} x Force {force} = Raw {rawDamage} → Damage {opponentResult.FinalDamage}.";
         }
 
         /// <summary>외부 RunSession을 연결하고 장착 Device/Money 상태를 동기화한다.</summary>
@@ -786,7 +798,12 @@ namespace Tessera.UI
 
             SetInteractionState(BattleInteractionState.AttemptTransition);
 
-            bool started = simulator.TryStartNextAttempt(roundState);
+            int nextAttemptNumber = roundState.CurrentAttempt.AttemptNumber + 1;
+            EnemyIntent nextIntent = BuildEnemyIntentForAttempt(nextAttemptNumber);
+
+            bool started = simulator.TryStartNextAttempt(
+                roundState,
+                nextIntent);
 
             if (!started)
             {
@@ -802,7 +819,7 @@ namespace Tessera.UI
             lastClashResolveResult = null;
 
             ClearClashDamageTexts();
-            ApplyOpeningIntentToCurrentAttempt(roundState.CurrentEnemyIntent, currentFirstTurnPolicy);
+            ApplyOpeningIntentToCurrentAttempt(roundState.CurrentEnemyIntent);
             ClearLockSlotMapping();
 
             for (int diceIndex = 0; diceIndex < roundState.Dice.Count; diceIndex++)
@@ -1887,8 +1904,8 @@ namespace Tessera.UI
             }
         }
 
-        /// <summary>Opening EnemyIntent를 현재 Attempt Initiative에 반영한다. Intent가 없으면 FirstTurnPolicy를 fallback으로 사용한다.</summary>
-        private void ApplyOpeningIntentToCurrentAttempt(EnemyIntent openingIntent, FirstTurnPolicy fallbackFirstTurnPolicy)
+        /// <summary>Opening EnemyIntent를 현재 Attempt Initiative에 반영한다.</summary>
+        private void ApplyOpeningIntentToCurrentAttempt(EnemyIntent openingIntent)
         {
             if (roundState == null)
                 return;
@@ -1896,17 +1913,9 @@ namespace Tessera.UI
             if (roundState.CurrentAttempt == null)
                 return;
 
-            if (openingIntent != null)
-            {
-                simulator.ApplyEnemyIntentToCurrentAttempt(roundState, openingIntent);
-                return;
-            }
-
-            InitiativeOwnerType initiativeOwner = fallbackFirstTurnPolicy == FirstTurnPolicy.OpponentFirst
-                ? InitiativeOwnerType.Opponent
-                : InitiativeOwnerType.Player;
-
-            roundState.CurrentAttempt.SetInitiativeOwner(initiativeOwner);
+            simulator.ApplyEnemyIntentToCurrentAttempt(
+                roundState,
+                openingIntent ?? EnemyIntent.Strike(roundState.RuleContext.EnemyStrikeDamage));
         }
 
         /// <summary>slotPairDevices 배열 크기를 SlotPairCount 기준으로 보정한다.</summary>
@@ -2024,8 +2033,10 @@ namespace Tessera.UI
             Debug.Log(
                 $"[Tessera][Clash] Attempt={result.AttemptNumber} | " +
                 $"Winner={winnerText} | " +
+                $"PlayerDice=[{FormatDiceValuesForLog(result.PlayerResult != null ? result.PlayerResult.DiceValues : null)}] | " +
                 $"PlayerCast={(result.PlayerResult != null ? result.PlayerResult.PatternType.ToString() : "None")} | " +
                 $"PlayerDamage={(result.PlayerResult != null ? result.PlayerResult.FinalDamage.ToString() : "0")} | " +
+                $"OpponentDice=[{FormatDiceValuesForLog(result.OpponentResult != null ? result.OpponentResult.DiceValues : null)}] | " +
                 $"OpponentCast={(result.OpponentResult != null ? result.OpponentResult.PatternType.ToString() : "None")} | " +
                 $"OpponentDamage={(result.OpponentResult != null ? result.OpponentResult.FinalDamage.ToString() : "0")} | " +
                 $"DamageToPlayer={result.DamageToPlayer} | " +
@@ -2033,6 +2044,60 @@ namespace Tessera.UI
                 $"BrokenDefense={result.PlayerUsedBrokenCastDefense} | " +
                 $"Overcharge+={result.GrantedOverchargeAmount} | " +
                 $"Outcome={result.OutcomeType}");
+        }
+
+        /// <summary>상대가 확정한 Clash Cast 결과를 디버그 로그로 출력한다.</summary>
+        private void LogOpponentClashCastResult(string phaseName, ClashCastResult result)
+        {
+            if (result == null)
+                return;
+
+            int rawDamage = result.SlotPairDamagePreview != null
+                ? result.SlotPairDamagePreview.DamageBeforeTableRules
+                : result.FinalDamage;
+
+            int finalScore = result.SlotPairDamagePreview != null
+                ? result.SlotPairDamagePreview.FinalScore
+                : 0;
+
+            string finalForce = result.SlotPairDamagePreview != null
+                ? result.SlotPairDamagePreview.FormatFinalForce()
+                : "-";
+
+            string intentName = currentEnemyIntentDefinition != null
+                ? currentEnemyIntentDefinition.DisplayName
+                : "Fallback";
+
+            string initiativeName = roundState != null && roundState.CurrentAttempt != null
+                ? roundState.CurrentAttempt.InitiativeOwner.ToString()
+                : "-";
+
+            string useDevicesText = currentEnemyIntentDefinition != null
+                ? currentEnemyIntentDefinition.UseOpponentDevices.ToString()
+                : "Fallback";
+
+            string chooseBestText = currentEnemyIntentDefinition != null
+                ? currentEnemyIntentDefinition.ChooseBestAvailableCast.ToString()
+                : "Fallback";
+
+            string attemptNumberText = roundState != null && roundState.CurrentAttempt != null
+                ? roundState.CurrentAttempt.AttemptNumber.ToString()
+                : "-";
+
+            Debug.Log(
+                $"[Tessera][OpponentCast] Phase={phaseName} | " +
+                $"Attempt={attemptNumberText} | " +
+                $"Intent={intentName} | " +
+                $"Initiative={initiativeName} | " +
+                $"UseDevices={useDevicesText} | " +
+                $"ChooseBest={chooseBestText} | " +
+                $"Dice=[{FormatDiceValuesForLog(result.DiceValues)}] | " +
+                $"Cast={result.PatternType} | " +
+                $"Score={finalScore} | " +
+                $"Force={finalForce} | " +
+                $"RawDamage={rawDamage} | " +
+                $"FinalDamage={result.FinalDamage} | " +
+                $"Loadout={FormatOpponentDeviceLoadoutForLog()}");
         }
 
         /// <summary>플레이어 선공 이후 상대 후공 Clash 결과를 생성한다.</summary>
@@ -2063,6 +2128,8 @@ namespace Tessera.UI
 
             if (built && pendingOpponentClashResult != null)
             {
+                LogOpponentClashCastResult("OpponentSecond", pendingOpponentClashResult);
+
                 SetMessage(BuildOpponentTargetMessage(pendingOpponentClashResult));
                 RefreshClashDamageTexts();
 
@@ -2649,6 +2716,15 @@ namespace Tessera.UI
             return values;
         }
 
+        /// <summary>정수 목록을 로그 출력용 문자열로 변환한다.</summary>
+        private string FormatDiceValuesForLog(IReadOnlyList<int> diceValues)
+        {
+            if (diceValues == null || diceValues.Count <= 0)
+                return "-";
+
+            return string.Join(",", diceValues);
+        }
+
         /// <summary>정수 리스트를 로그 표시용 문자열로 변환한다.</summary>
         private static string FormatIntListForLog(IReadOnlyList<int> values)
         {
@@ -2700,6 +2776,41 @@ namespace Tessera.UI
                 lockStates.Add(false);
 
             return lockStates;
+        }
+
+        /// <summary>지정 Attempt 번호에서 사용할 EnemyIntent를 생성한다.</summary>
+        private EnemyIntent BuildEnemyIntentForAttempt(int attemptNumber)
+        {
+            if (currentRoundDefinition != null)
+            {
+                currentEnemyIntentDefinition = currentRoundDefinition.SelectIntentDefinitionForAttempt(
+                    attemptNumber,
+                    seed);
+
+                EnemyIntent intent = currentRoundDefinition.BuildEnemyIntentForAttempt(
+                    attemptNumber,
+                    seed);
+
+                Debug.Log(
+                    $"[Tessera][Intent] Attempt={attemptNumber} | " +
+                    $"Intent={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.DisplayName : "Fallback")} | " +
+                    $"Initiative={intent.InitiativeOwner} | " +
+                    $"Category={intent.CategoryType} | " +
+                    $"UseOpponentDevices={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.UseOpponentDevices.ToString() : "Fallback")} | " +
+                    $"ChooseBest={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.ChooseBestAvailableCast.ToString() : "Fallback")}");
+
+                return intent;
+            }
+
+            currentEnemyIntentDefinition = null;
+
+            if (roundState != null && roundState.CurrentEnemyIntent != null)
+                return roundState.CurrentEnemyIntent;
+
+            if (roundState != null)
+                return EnemyIntent.Strike(roundState.RuleContext.EnemyStrikeDamage);
+
+            return EnemyIntent.None();
         }
 
         #region Debug
