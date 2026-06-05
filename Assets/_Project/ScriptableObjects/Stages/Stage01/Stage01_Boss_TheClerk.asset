@@ -17,6 +17,10 @@ MonoBehaviour:
   roundType: 1
   tutorialForcedRound: 0
   initiallyAvailable: 1
+  bountyDescription: The stage boss. Clear this bounty to settle the ledger and leave
+    the stage.
+  intentDescription: Rolls after your Cast and strikes harder as the table gets dangerous.
+  specialRuleDescription: Non-Aces Cast damage is reduced.
   baseRewardMoney: 25
   bountyRank: 3
   rewardOvercharge: 0

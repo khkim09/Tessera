@@ -8,6 +8,7 @@ using Tessera.Runtime;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using Tessera.Infrastructure;
 
 namespace Tessera.UI
 {
@@ -26,6 +27,14 @@ namespace Tessera.UI
             RoundEnded
         }
 
+        /// <summary>상대 턴 처리 방식을 정의한다.</summary>
+        private enum OpponentTurnMode
+        {
+            None = 0,
+            IntentOnly = 1,
+            SymmetricDiceDevice = 2
+        }
+
         [Header("Round Rule")]
         [SerializeField] private bool useBossRule = true;
         [SerializeField] private bool useFixedSeed = true;
@@ -39,8 +48,8 @@ namespace Tessera.UI
         [SerializeField] private int die4 = 5;
         [SerializeField] private int die5 = 5;
 
-        [Header("Slot Pair Devices")]
-        [SerializeField] private SlotPairDeviceDefinitionSO[] slotPairDevices = new SlotPairDeviceDefinitionSO[5];
+        [Header("Runtime Player Slot Pair Devices Debug Mirror")]
+        [SerializeField, ReadOnlyInspector] private SlotPairDeviceDefinitionSO[] slotPairDevices = new SlotPairDeviceDefinitionSO[5];
 
         [Header("Opponent Slot Pair Devices")]
         [SerializeField] private SlotPairDeviceDefinitionSO[] opponentSlotPairDevices = new SlotPairDeviceDefinitionSO[5];
@@ -134,7 +143,15 @@ namespace Tessera.UI
         [SerializeField] private float autoNextAttemptDelay = 0.8f;
         [SerializeField] private float enemyTurnStartDelay = 0.7f;
         [SerializeField] private float enemyTurnAfterActionDelay = 0.9f;
+        [SerializeField] private OpponentTurnMode opponentTurnMode = OpponentTurnMode.IntentOnly;
         [SerializeField] private bool playEnemyDiceCupPresentation = true;
+
+        [Header("Enemy Intent")]
+        [SerializeField] private int enemyIntentBaseDamage = 8;
+        [SerializeField] private int enemyIntentDamagePerAttempt = 2;
+        [SerializeField] private int enemyIntentDamagePerStageThreat = 2;
+        [SerializeField] private int enemyIntentDamageCap = 24;
+        [SerializeField] private bool enemyIntentUsesStageThreat = true;
 
         [Header("Enemy Turn Dice Presentation")]
         [SerializeField] private float ownerDiceRestMoveDuration = 0.4f;
@@ -216,6 +233,34 @@ namespace Tessera.UI
         {
             // 진행 중인 SlotPair 연출을 안전하게 중단한다.
             CancelSlotPairEvaluationSequence();
+        }
+
+        /// <summary>Inspector 배열 길이를 고정 슬롯 수에 맞게 보정한다.</summary>
+        private void OnValidate()
+        {
+            if (slotPairDevices == null || slotPairDevices.Length != TesseraRunSession.MaxDeviceSlots)
+                slotPairDevices = ResizeDeviceArray(slotPairDevices, TesseraRunSession.MaxDeviceSlots);
+
+            if (opponentSlotPairDevices == null || opponentSlotPairDevices.Length != TesseraRunSession.MaxDeviceSlots)
+                opponentSlotPairDevices = ResizeDeviceArray(opponentSlotPairDevices, TesseraRunSession.MaxDeviceSlots);
+        }
+
+        /// <summary>Device 배열 길이를 지정 길이로 보정한다.</summary>
+        private static SlotPairDeviceDefinitionSO[] ResizeDeviceArray(
+            SlotPairDeviceDefinitionSO[] source,
+            int targetLength)
+        {
+            SlotPairDeviceDefinitionSO[] resized = new SlotPairDeviceDefinitionSO[targetLength];
+
+            if (source == null)
+                return resized;
+
+            int copyCount = Mathf.Min(source.Length, targetLength);
+
+            for (int i = 0; i < copyCount; i++)
+                resized[i] = source[i];
+
+            return resized;
         }
 
         /// <summary>씬 시작 시 테스트 Round를 시작한다.</summary>
@@ -347,6 +392,25 @@ namespace Tessera.UI
                 RefreshAll(null);
             else
                 RefreshDeviceSlotViews();
+        }
+
+        /// <summary>RunSession의 현재 장착 Device를 Presenter Debug Mirror와 DeviceSlot View에 다시 반영한다.</summary>
+        public void RefreshEquippedDevicesFromRunSession(string reason)
+        {
+            SyncDevicesFromRunSession();
+
+            if (roundState != null)
+            {
+                BuildCurrentSlotPairPreview();
+                RefreshSelectedCastTexts();
+                RefreshAll(reason);
+                return;
+            }
+
+            RefreshDeviceSlotViews();
+
+            if (!string.IsNullOrWhiteSpace(reason))
+                SetMessage(reason);
         }
 
         /// <summary>Workshop/StageFlow에서 변경된 플레이어 HP를 TableScreen 표시 텍스트에 반영한다.</summary>
@@ -2079,8 +2143,145 @@ namespace Tessera.UI
             }
         }
 
-        /// <summary>상대 턴을 공용 DiceTray/DiceCup과 상대 Dice 세트 기반 자동 Cast 계산으로 재생한다.</summary>
+        /// <summary>현재 상대 턴 모드에 따라 상대 턴 처리를 분기한다.</summary>
         private async UniTask PlayEnemyTurnPresentationIfNeededAsync(CastSubmitResult result)
+        {
+            if (roundState == null)
+                return;
+
+            if (roundState.IsRoundEnded)
+                return;
+
+            if (roundState.Encounter.IsOpponentDefeated)
+                return;
+
+            switch (opponentTurnMode)
+            {
+                case OpponentTurnMode.None:
+                    await PlayNoOpponentTurnAsync();
+                    break;
+
+                case OpponentTurnMode.IntentOnly:
+                    await PlayIntentOnlyEnemyTurnAsync();
+                    break;
+
+                case OpponentTurnMode.SymmetricDiceDevice:
+                    await PlaySymmetricEnemyDiceDeviceTurnAsync(result);
+                    break;
+            }
+        }
+
+        /// <summary>상대 턴을 수행하지 않고 다음 Attempt로 넘기기 위한 최소 정리만 수행한다.</summary>
+        private async UniTask PlayNoOpponentTurnAsync()
+        {
+            SetInteractionState(BattleInteractionState.EnemyTurn);
+            RefreshDiceInteractionState();
+
+            await MovePlayerDiceSetToRestIfNeededAsync();
+
+            if (enemyTurnStartDelay > 0f)
+            {
+                await UniTask.Delay(
+                    TimeSpan.FromSeconds(enemyTurnStartDelay),
+                    cancellationToken: this.GetCancellationTokenOnDestroy());
+            }
+
+            SetMessage("Enemy turn skipped.");
+        }
+
+        /// <summary>예고형 Intent 기반 상대 턴을 처리한다.</summary>
+        private async UniTask PlayIntentOnlyEnemyTurnAsync()
+        {
+            if (roundState == null)
+                return;
+
+            SetInteractionState(BattleInteractionState.EnemyTurn);
+            SetMessage("Enemy intent.");
+            RefreshDiceInteractionState();
+
+            await MovePlayerDiceSetToRestIfNeededAsync();
+
+            if (enemyTurnStartDelay > 0f)
+            {
+                await UniTask.Delay(
+                    TimeSpan.FromSeconds(enemyTurnStartDelay),
+                    cancellationToken: this.GetCancellationTokenOnDestroy());
+            }
+
+            int damage = CalculateEnemyIntentDamage();
+            int playerHPBefore = roundState.Encounter.PlayerCurrentHP;
+
+            bool applied = ApplyEnemyIntentDamageToPlayer(damage);
+
+            int playerHPAfter = roundState.Encounter.PlayerCurrentHP;
+
+            Debug.Log(
+                $"[Tessera][EnemyIntent] Applied={applied} | " +
+                $"Damage={damage} | " +
+                $"PlayerHP={playerHPBefore}->{playerHPAfter} | " +
+                $"Attempt={(roundState.CurrentAttempt != null ? roundState.CurrentAttempt.AttemptNumber.ToString() : "-")} | " +
+                $"StageThreat={(runSession != null ? runSession.StageThreatLevel.ToString() : "0")}");
+
+            if (applied && damage > 0)
+                SetMessage($"Enemy intent: player took {damage} damage.");
+            else
+                SetMessage("Enemy intent: no damage.");
+
+            RefreshLeftInfoTexts();
+
+            if (enemyTurnAfterActionDelay > 0f)
+            {
+                await UniTask.Delay(
+                    TimeSpan.FromSeconds(enemyTurnAfterActionDelay),
+                    cancellationToken: this.GetCancellationTokenOnDestroy());
+            }
+        }
+
+        /// <summary>현재 Attempt와 StageThreat를 기준으로 Enemy Intent 피해량을 계산한다.</summary>
+        private int CalculateEnemyIntentDamage()
+        {
+            int attemptNumber = 1;
+
+            if (roundState != null && roundState.CurrentAttempt != null)
+                attemptNumber = Mathf.Max(1, roundState.CurrentAttempt.AttemptNumber);
+
+            int stageThreat = runSession != null
+                ? Mathf.Max(0, runSession.StageThreatLevel)
+                : 0;
+
+            int damage = enemyIntentBaseDamage;
+            damage += Mathf.Max(0, attemptNumber - 1) * enemyIntentDamagePerAttempt;
+
+            if (enemyIntentUsesStageThreat)
+                damage += stageThreat * enemyIntentDamagePerStageThreat;
+
+            if (enemyIntentDamageCap > 0)
+                damage = Mathf.Min(damage, enemyIntentDamageCap);
+
+            return Mathf.Max(0, damage);
+        }
+
+        /// <summary>Enemy Intent 피해를 Player HP에 적용한다.</summary>
+        private bool ApplyEnemyIntentDamageToPlayer(int damage)
+        {
+            if (damage <= 0)
+                return false;
+
+            if (roundState == null || roundState.Encounter == null)
+                return false;
+
+            // TODO:
+            // CoreRoundSimulator 또는 RoundState/Encounter 최신본 기준으로
+            // TryResolveEnemyIntentTurn / ApplyDamageToPlayer 계열 API를 추가한 뒤 이곳에서 호출한다.
+            //
+            // 현재 Presenter 기준에서는 PlayerCurrentHP 직접 setter/API가 확인되지 않으므로
+            // 임시로 false를 반환한다.
+
+            return false;
+        }
+
+        /// <summary>상대 주사위와 상대 Device 계산을 사용하는 대칭형 상대 턴을 처리한다.</summary>
+        private async UniTask PlaySymmetricEnemyDiceDeviceTurnAsync(CastSubmitResult result)
         {
             if (roundState == null)
                 return;
@@ -2095,8 +2296,6 @@ namespace Tessera.UI
             SetMessage("Enemy turn.");
             RefreshDiceInteractionState();
 
-            // EnemyTurn으로 넘어가는 즉시 Player Dice를 Tray에서 치운다.
-            // enemyTurnStartDelay 동안에도 Player Dice가 남아 보이지 않도록 한다.
             await MovePlayerDiceSetToRestIfNeededAsync();
 
             if (enemyTurnStartDelay > 0f)

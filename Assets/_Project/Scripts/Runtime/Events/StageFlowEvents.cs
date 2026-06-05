@@ -1,4 +1,5 @@
-﻿using Tessera.Core;
+﻿using System.Collections.Generic;
+using Tessera.Core;
 using Tessera.Data;
 
 namespace Tessera.Runtime
@@ -121,17 +122,23 @@ namespace Tessera.Runtime
         public StageBountyBoardState BoardState { get; }
         public StageShopReasonType ReasonType { get; }
         public string Message { get; }
+        public IReadOnlyList<ShopInventorySlot> ProductSlots { get; }
+        public StageWorkshopRulesSO WorkshopRules { get; }
 
         public StageShopShowRequestedEvent(
             TesseraRunSession runSession,
             StageBountyBoardState boardState,
             StageShopReasonType reasonType,
-            string message)
+            string message,
+            IReadOnlyList<ShopInventorySlot> productSlots,
+            StageWorkshopRulesSO workshopRules)
         {
             RunSession = runSession;
             BoardState = boardState;
             ReasonType = reasonType;
             Message = message ?? string.Empty;
+            ProductSlots = productSlots;
+            WorkshopRules = workshopRules;
         }
     }
 
@@ -217,6 +224,30 @@ namespace Tessera.Runtime
     /// <summary>UI에서 Workshop Tier 업그레이드를 눌렀을 때 Runtime으로 보내는 이벤트다.</summary>
     public readonly struct StageShopUpgradeTierRequestedEvent
     {
+    }
+
+    /// <summary>UI에서 Shop 상품 구매 확정을 눌렀을 때 Runtime으로 보내는 이벤트다.</summary>
+    public readonly struct StageShopProductBuyConfirmedEvent
+    {
+        public int ProductSlotIndex { get; }
+
+        public StageShopProductBuyConfirmedEvent(int productSlotIndex)
+        {
+            ProductSlotIndex = productSlotIndex;
+        }
+    }
+
+    /// <summary>Shop에서 Player Device 장착 상태가 변경되었음을 알리는 이벤트다.</summary>
+    public readonly struct StageShopPlayerDevicesChangedEvent
+    {
+        public TesseraRunSession RunSession { get; }
+        public string Reason { get; }
+
+        public StageShopPlayerDevicesChangedEvent(TesseraRunSession runSession, string reason)
+        {
+            RunSession = runSession;
+            Reason = reason ?? string.Empty;
+        }
     }
 
     /// <summary>Gameplay Presenter가 Round 승리를 Runtime으로 전달하는 이벤트다.</summary>

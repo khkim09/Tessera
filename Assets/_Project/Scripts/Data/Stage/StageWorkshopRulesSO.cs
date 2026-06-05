@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
 namespace Tessera.Data
 {
@@ -18,6 +19,11 @@ namespace Tessera.Data
         [SerializeField] private int maxTierUpgradePerVisit = 1;
         [SerializeField] private int tierIncreasePerUpgrade = 1;
 
+        [Header("Shop Inventory")]
+        [SerializeField] private ShopProductDefinitionSO[] productPool;
+        [SerializeField] private int productSlotCount = 3;
+        [SerializeField] private bool allowDuplicateProducts;
+
         /// <summary>Workshop 진입 시 기본 Tier.</summary>
         public int BaseWorkshopTier => Mathf.Max(1, baseWorkshopTier);
 
@@ -35,6 +41,15 @@ namespace Tessera.Data
 
         /// <summary>업그레이드 1회당 증가하는 Workshop Tier.</summary>
         public int TierIncreasePerUpgrade => Mathf.Max(1, tierIncreasePerUpgrade);
+
+        /// <summary>이 Stage Workshop에서 등장 가능한 Shop 상품 후보 풀을 반환한다.</summary>
+        public IReadOnlyList<ShopProductDefinitionSO> ProductPool => productPool;
+
+        /// <summary>Shop에 표시할 상품 슬롯 수를 반환한다.</summary>
+        public int ProductSlotCount => Mathf.Max(1, productSlotCount);
+
+        /// <summary>Shop 상품 중복 등장을 허용하는지 반환한다.</summary>
+        public bool AllowDuplicateProducts => allowDuplicateProducts;
 
         /// <summary>현재 Workshop Tier 기준으로 상품 최대 Tier를 계산한다.</summary>
         public int ResolveAllowedProductMaxTier(int currentWorkshopTier)

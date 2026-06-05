@@ -281,8 +281,8 @@ namespace Tessera.Core
             return true;
         }
 
-        /// <summary>상대 턴에서 기존 고정 Intent를 실행한다. 주사위 기반 상대 턴 미구현 또는 폴백용이다.</summary>
-        public bool TryResolveEnemyTurn(
+        /// <summary>현재 Round의 Enemy Intent를 실행하고 플레이어 피해 및 Round 결과를 갱신한다.</summary>
+        public bool TryResolveEnemyIntentTurn(
             RoundState roundState,
             out EnemyIntentResult enemyIntentResult,
             out RoundOutcomeType outcomeType)
@@ -313,6 +313,18 @@ namespace Tessera.Core
             outcomeType = ResolveRoundOutcomeAfterEnemyTurn(roundState);
             ApplyEnemyTurnOutcome(roundState, outcomeType);
             return enemyIntentResult.DidExecute;
+        }
+
+        /// <summary>상대 턴에서 기존 고정 Intent를 실행한다. 호환용 래퍼다.</summary>
+        public bool TryResolveEnemyTurn(
+            RoundState roundState,
+            out EnemyIntentResult enemyIntentResult,
+            out RoundOutcomeType outcomeType)
+        {
+            return TryResolveEnemyIntentTurn(
+                roundState,
+                out enemyIntentResult,
+                out outcomeType);
         }
 
         /// <summary>상대 주사위 값과 Device를 기준으로 가장 강한 Cast 피해 미리보기를 생성한다.</summary>

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Tessera.Data;
 using UnityEngine;
 
@@ -13,6 +14,9 @@ namespace Tessera.UI
         /// <summary>슬롯 개수를 반환한다.</summary>
         public int SlotCount => slots != null ? slots.Length : 0;
 
+        /// <summary>Rack 내부 DeviceSlot 클릭 이벤트.</summary>
+        public event Action<int> SlotClicked;
+
         /// <summary>인스펙터에서 슬롯을 자동 수집한다.</summary>
         private void Reset()
         {
@@ -25,6 +29,18 @@ namespace Tessera.UI
         {
             // 슬롯 순서와 이름이 맞는지 초기화한다.
             InitializeSlots();
+        }
+
+        /// <summary>슬롯 클릭 이벤트를 구독한다.</summary>
+        private void OnEnable()
+        {
+            SubscribeSlotClickEvents();
+        }
+
+        /// <summary>슬롯 클릭 이벤트를 해제한다.</summary>
+        private void OnDisable()
+        {
+            UnsubscribeSlotClickEvents();
         }
 
         /// <summary>슬롯 배열의 각 슬롯에 인덱스를 부여한다.</summary>
@@ -238,6 +254,43 @@ namespace Tessera.UI
                 return Quaternion.identity;
 
             return slotTransform.rotation;
+        }
+
+        /// <summary>자식 DeviceSlot 클릭 이벤트를 구독한다.</summary>
+        private void SubscribeSlotClickEvents()
+        {
+            if (slots == null)
+                return;
+
+            for (int i = 0; i < slots.Length; i++)
+            {
+                if (slots[i] == null)
+                    continue;
+
+                slots[i].Clicked -= HandleSlotClicked;
+                slots[i].Clicked += HandleSlotClicked;
+            }
+        }
+
+        /// <summary>자식 DeviceSlot 클릭 이벤트 구독을 해제한다.</summary>
+        private void UnsubscribeSlotClickEvents()
+        {
+            if (slots == null)
+                return;
+
+            for (int i = 0; i < slots.Length; i++)
+            {
+                if (slots[i] == null)
+                    continue;
+
+                slots[i].Clicked -= HandleSlotClicked;
+            }
+        }
+
+        /// <summary>자식 슬롯 클릭을 Rack 단위 이벤트로 전달한다.</summary>
+        private void HandleSlotClicked(int slotIndex)
+        {
+            SlotClicked?.Invoke(slotIndex);
         }
     }
 }

@@ -17,6 +17,9 @@ MonoBehaviour:
   roundType: 0
   tutorialForcedRound: 1
   initiallyAvailable: 1
+  bountyDescription: A basic target. Learn the table and break through its HP.
+  intentDescription: Rolls after your Cast and lands a light strike.
+  specialRuleDescription: No special table rule.
   baseRewardMoney: 10
   bountyRank: 1
   rewardOvercharge: 0

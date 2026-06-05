@@ -18,6 +18,11 @@ namespace Tessera.Data
         [SerializeField] private bool tutorialForcedRound;
         [SerializeField] private bool initiallyAvailable = true;
 
+        [Header("Bounty Card Text")]
+        [SerializeField, TextArea(2, 4)] private string bountyDescription;
+        [SerializeField, TextArea(1, 3)] private string intentDescription;
+        [SerializeField, TextArea(1, 3)] private string specialRuleDescription;
+
         [Header("Rewards")]
         [FormerlySerializedAs("rewardMoney")]
         [SerializeField] private int baseRewardMoney = 20;
@@ -72,6 +77,15 @@ namespace Tessera.Data
 
         /// <summary>초기 선택 가능 여부.</summary>
         public bool InitiallyAvailable => initiallyAvailable;
+
+        /// <summary>수배지 카드에 표시할 간단 설명.</summary>
+        public string BountyDescription => bountyDescription ?? string.Empty;
+
+        /// <summary>수배지 카드에 표시할 상대 Intent 설명.</summary>
+        public string IntentDescription => intentDescription ?? string.Empty;
+
+        /// <summary>수배지 카드에 표시할 특수 규칙 설명.</summary>
+        public string SpecialRuleDescription => specialRuleDescription ?? string.Empty;
 
         /// <summary>수배지 승리 시 PendingMoneyReward에 들어갈 기본 Money 보상.</summary>
         public int BaseRewardMoney => Mathf.Max(0, baseRewardMoney);

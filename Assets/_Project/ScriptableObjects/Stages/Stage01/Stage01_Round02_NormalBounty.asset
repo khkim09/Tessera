@@ -17,6 +17,10 @@ MonoBehaviour:
   roundType: 0
   tutorialForcedRound: 0
   initiallyAvailable: 1
+  bountyDescription: A tougher bounty for testing Chain Rush. Higher HP and fewer
+    safe turns.
+  intentDescription: Rolls after your Cast and deals steady pressure.
+  specialRuleDescription: StageThreat makes this fight more punishing.
   baseRewardMoney: 15
   bountyRank: 2
   rewardOvercharge: 0

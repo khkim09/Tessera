@@ -1,5 +1,6 @@
 ﻿using System;
 using Tessera.Core;
+using Tessera.Data;
 using Tessera.Runtime;
 using UnityEngine;
 
@@ -10,6 +11,7 @@ namespace Tessera.UI
     {
         [Header("Gameplay")]
         [SerializeField] private TesseraGameplayBattlePresenter gameplayPresenter;
+        [SerializeField] private DeviceRack3DView playerDeviceRackForShop;
 
         [Header("Stage UI")]
         [SerializeField] private BountyBoardView bountyBoardView;
@@ -24,6 +26,7 @@ namespace Tessera.UI
         private IDisposable shopShowSubscription;
         private IDisposable playerHPDisplayRefreshSubscription;
         private IDisposable overchargeDisplayRefreshSubscription;
+        private IDisposable shopPlayerDevicesChangedSubscription;
 
         /// <summary>이벤트 구독 및 View 이벤트 연결을 수행한다.</summary>
         private void OnEnable()
@@ -35,6 +38,8 @@ namespace Tessera.UI
             shopShowSubscription = TesseraEventBus.Subscribe<StageShopShowRequestedEvent>(HandleShopShowRequested);
             playerHPDisplayRefreshSubscription = TesseraEventBus.Subscribe<PlayerHPDisplayRefreshRequestedEvent>(HandlePlayerHPDisplayRefreshRequested);
             overchargeDisplayRefreshSubscription = TesseraEventBus.Subscribe<OverchargeDisplayRefreshRequestedEvent>(HandleOverchargeDisplayRefreshRequested);
+            shopPlayerDevicesChangedSubscription = TesseraEventBus.Subscribe<StageShopPlayerDevicesChangedEvent>(HandleShopPlayerDevicesChanged);
+
             if (gameplayPresenter != null)
             {
                 gameplayPresenter.RoundWon += HandleRoundWon;
@@ -62,6 +67,7 @@ namespace Tessera.UI
                 shopFlowView.ContinueRequested += HandleShopContinueRequested;
                 shopFlowView.RepairRequested += HandleShopRepairRequested;
                 shopFlowView.UpgradeTierRequested += HandleShopUpgradeTierRequested;
+                shopFlowView.ProductBuyConfirmed += HandleShopProductBuyConfirmed;
             }
         }
 
@@ -75,6 +81,7 @@ namespace Tessera.UI
             shopShowSubscription?.Dispose();
             playerHPDisplayRefreshSubscription?.Dispose();
             overchargeDisplayRefreshSubscription?.Dispose();
+            shopPlayerDevicesChangedSubscription?.Dispose();
 
             roundStartSubscription = null;
             bountyBoardShowSubscription = null;
@@ -83,6 +90,7 @@ namespace Tessera.UI
             shopShowSubscription = null;
             playerHPDisplayRefreshSubscription = null;
             overchargeDisplayRefreshSubscription = null;
+            shopPlayerDevicesChangedSubscription = null;
 
             if (gameplayPresenter != null)
             {
@@ -111,6 +119,7 @@ namespace Tessera.UI
                 shopFlowView.ContinueRequested -= HandleShopContinueRequested;
                 shopFlowView.RepairRequested -= HandleShopRepairRequested;
                 shopFlowView.UpgradeTierRequested -= HandleShopUpgradeTierRequested;
+                shopFlowView.ProductBuyConfirmed -= HandleShopProductBuyConfirmed;
             }
         }
 
@@ -170,7 +179,11 @@ namespace Tessera.UI
                 gameEvent.RunSession,
                 gameEvent.BoardState,
                 gameEvent.ReasonType,
-                gameEvent.Message);
+                gameEvent.Message,
+                gameEvent.ProductSlots,
+                gameEvent.WorkshopRules);
+
+            RefreshPlayerDeviceRackForShop(gameEvent.RunSession);
         }
 
         /// <summary>StageFlow에서 변경된 플레이어 HP 표시 갱신 요청을 Gameplay Presenter에 전달한다.</summary>
@@ -248,6 +261,35 @@ namespace Tessera.UI
         private void HandleShopUpgradeTierRequested()
         {
             TesseraEventBus.Publish(new StageShopUpgradeTierRequestedEvent());
+        }
+
+        /// <summary>Shop 상품 구매 확정을 Runtime 이벤트로 변환한다.</summary>
+        private void HandleShopProductBuyConfirmed(int productSlotIndex)
+        {
+            TesseraEventBus.Publish(new StageShopProductBuyConfirmedEvent(productSlotIndex));
+        }
+
+        /// <summary>Shop에서 Player Device 장착 변경 이벤트를 받으면 3D Rack과 Gameplay Presenter 표시를 갱신한다.</summary>
+        private void HandleShopPlayerDevicesChanged(StageShopPlayerDevicesChangedEvent gameEvent)
+        {
+            RefreshPlayerDeviceRackForShop(gameEvent.RunSession);
+
+            if (gameplayPresenter != null)
+                gameplayPresenter.RefreshEquippedDevicesFromRunSession(gameEvent.Reason);
+        }
+
+        /// <summary>Shop 화면에서 Player DeviceRack3D를 RunSession 장착 상태와 동기화한다.</summary>
+        private void RefreshPlayerDeviceRackForShop(TesseraRunSession runSession)
+        {
+            if (playerDeviceRackForShop == null || runSession == null)
+                return;
+
+            SlotPairDeviceDefinitionSO[] devices = new SlotPairDeviceDefinitionSO[TesseraRunSession.MaxDeviceSlots];
+
+            for (int i = 0; i < devices.Length; i++)
+                devices[i] = runSession.EquippedSlotPairDevices[i];
+
+            playerDeviceRackForShop.SetDevices(devices);
         }
 
         /// <summary>Gameplay Presenter의 Round 승리 이벤트를 Runtime 이벤트로 변환한다.</summary>

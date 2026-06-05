@@ -1,4 +1,5 @@
-﻿using Tessera.Core;
+﻿using System.Collections.Generic;
+using Tessera.Core;
 using Tessera.Data;
 using UnityEngine;
 
@@ -37,6 +38,7 @@ namespace Tessera.Runtime
         private int currentStageIndex;
         private bool isInitialized;
         private int currentWorkshopTierUpgradeCount;
+        private readonly List<ShopInventorySlot> currentShopInventorySlots = new List<ShopInventorySlot>();
 
         private System.IDisposable bountySelectedSubscription;
         private System.IDisposable rewardDecisionSubscription;
@@ -44,6 +46,7 @@ namespace Tessera.Runtime
         private System.IDisposable shopContinueSubscription;
         private System.IDisposable shopRepairSubscription;
         private System.IDisposable shopUpgradeTierSubscription;
+        private System.IDisposable shopProductBuyConfirmedSubscription;
         private System.IDisposable roundWonSubscription;
         private System.IDisposable roundLostSubscription;
         private System.IDisposable economyRefreshSubscription;
@@ -62,10 +65,10 @@ namespace Tessera.Runtime
             shopContinueSubscription = TesseraEventBus.Subscribe<StageShopContinueRequestedEvent>(HandleShopContinueRequested);
             shopRepairSubscription = TesseraEventBus.Subscribe<StageShopRepairRequestedEvent>(HandleShopRepairRequested);
             shopUpgradeTierSubscription = TesseraEventBus.Subscribe<StageShopUpgradeTierRequestedEvent>(HandleShopUpgradeTierRequested);
+            shopProductBuyConfirmedSubscription = TesseraEventBus.Subscribe<StageShopProductBuyConfirmedEvent>(HandleShopProductBuyConfirmed);
             roundWonSubscription = TesseraEventBus.Subscribe<GameplayRoundWonEvent>(HandleRoundWon);
             roundLostSubscription = TesseraEventBus.Subscribe<GameplayRoundLostEvent>(HandleRoundLost);
             economyRefreshSubscription = TesseraEventBus.Subscribe<StageEconomyRefreshRequestedEvent>(HandleStageEconomyRefreshRequested);
-
             isInitialized = true;
         }
 
@@ -103,9 +106,11 @@ namespace Tessera.Runtime
             shopContinueSubscription?.Dispose();
             shopRepairSubscription?.Dispose();
             shopUpgradeTierSubscription?.Dispose();
+            shopProductBuyConfirmedSubscription?.Dispose();
             roundWonSubscription?.Dispose();
             roundLostSubscription?.Dispose();
             economyRefreshSubscription?.Dispose();
+
             bountySelectedSubscription = null;
             rewardDecisionSubscription = null;
             failureDecisionSubscription = null;
@@ -115,6 +120,7 @@ namespace Tessera.Runtime
             roundWonSubscription = null;
             roundLostSubscription = null;
             economyRefreshSubscription = null;
+            shopProductBuyConfirmedSubscription = null;
         }
 
         /// <summary>지정 Stage를 시작한다.</summary>
@@ -131,6 +137,7 @@ namespace Tessera.Runtime
             currentStageState = new StageBountyBoardState(stageDefinition);
             currentShopReasonType = StageShopReasonType.None;
             currentShopMessage = string.Empty;
+            currentShopInventorySlots.Clear();
 
             runSession.SetCurrentStageIndex(stageIndex, resetStageChain: true);
 
@@ -140,15 +147,7 @@ namespace Tessera.Runtime
 
             ShowBountyBoard("Choose a bounty.");
 
-            // StageBountyNodeState tutorialNode = currentStageState.FindTutorialForcedNode();
-
-            // if (tutorialNode != null)
-            // {
-            //     StartBountyRound(tutorialNode);
-            //     return;
-            // }
-
-            // ShowBountyBoard("Choose your first bounty.");
+            currentShopInventorySlots.Clear();
         }
 
         /// <summary>Bounty Board를 표시한다.</summary>
@@ -210,14 +209,26 @@ namespace Tessera.Runtime
             currentShopMessage = message ?? string.Empty;
 
             if (resetVisitLimit)
+            {
                 ResetWorkshopVisitLimits();
+                RegenerateShopInventory();
+            }
+
+            StageWorkshopRulesSO rules = ResolveCurrentWorkshopRules();
 
             TesseraEventBus.Publish(
                 new StageShopShowRequestedEvent(
                     runSession,
                     currentStageState,
                     currentShopReasonType,
-                    currentShopMessage));
+                    currentShopMessage,
+                    currentShopInventorySlots,
+                    rules));
+
+            TesseraEventBus.Publish(
+                new StageShopPlayerDevicesChangedEvent(
+                    runSession,
+                    "Shop view refreshed."));
 
             TesseraEventBus.Publish(new StageShopEnterRequestedEvent(currentShopReasonType, currentShopMessage));
             TesseraEventBus.Publish(new GameModeChangeRequestedEvent(GameModeType.Shop, currentShopMessage));
@@ -590,13 +601,174 @@ namespace Tessera.Runtime
             runSession.SetWorkshopTier(runSession.CurrentWorkshopTier + tierIncrease);
             currentWorkshopTierUpgradeCount++;
 
+            RegenerateShopInventory();
+
             PublishOverchargeDisplayRefresh(
                 $"Workshop Tier upgraded. Overcharge {runSession.StageOverchargeState.CurrentOvercharge}.");
 
             ShowShop(
                 currentShopReasonType,
-                $"Workshop Tier upgraded to {runSession.CurrentWorkshopTier}. Overcharge -{overchargeCost}. Upgrade {currentWorkshopTierUpgradeCount}/{maxUpgradeCount}.",
+                $"Workshop Tier upgraded to {runSession.CurrentWorkshopTier}. Overcharge -{overchargeCost}. Upgrade {currentWorkshopTierUpgradeCount}/{maxUpgradeCount}. Shop inventory refreshed.",
                 false);
+        }
+
+        /// <summary>Shop 상품 구매 확인을 처리한다. Device 상품은 결제 후 첫 빈 Player DeviceSlot에 즉시 장착한다.</summary>
+        private void HandleShopProductBuyConfirmed(StageShopProductBuyConfirmedEvent gameEvent)
+        {
+            if (runSession == null)
+                return;
+
+            ShopInventorySlot slot = FindShopInventorySlot(gameEvent.ProductSlotIndex);
+
+            if (slot == null || slot.ProductDefinition == null)
+            {
+                ShowShop(currentShopReasonType, "Invalid shop product.", false);
+                return;
+            }
+
+            if (slot.IsSoldOut)
+            {
+                ShowShop(currentShopReasonType, "This product is already sold out.", false);
+                return;
+            }
+
+            ShopProductDefinitionSO product = slot.ProductDefinition;
+
+            if (!product.IsPurchasableInCurrentBuild())
+            {
+                ShowShop(currentShopReasonType, "This product type is not implemented yet.", false);
+                return;
+            }
+
+            if (product.ProductType != ShopProductType.Device || product.DeviceDefinition == null)
+            {
+                ShowShop(currentShopReasonType, "Only Device products can be purchased in this version.", false);
+                return;
+            }
+
+            if (!runSession.HasEmptyDeviceSlot())
+            {
+                ShowShop(
+                    currentShopReasonType,
+                    "Device slots are full. Sell an equipped Device before buying a new one.",
+                    false);
+                return;
+            }
+
+            if (runSession.Money < slot.MoneyPrice)
+            {
+                ShowShop(currentShopReasonType, "Not enough Money.", false);
+                return;
+            }
+
+            if (runSession.Overcharge < slot.OverchargePrice)
+            {
+                ShowShop(currentShopReasonType, "Not enough Overcharge.", false);
+                return;
+            }
+
+            if (!runSession.TrySpendMoney(slot.MoneyPrice))
+            {
+                ShowShop(currentShopReasonType, "Not enough Money.", false);
+                return;
+            }
+
+            if (!runSession.TrySpendOvercharge(slot.OverchargePrice))
+            {
+                runSession.AddMoney(slot.MoneyPrice);
+                ShowShop(currentShopReasonType, "Not enough Overcharge.", false);
+                return;
+            }
+
+            if (!runSession.TryEquipDeviceToFirstEmptySlot(product.DeviceDefinition, out int equippedSlotIndex))
+            {
+                runSession.AddMoney(slot.MoneyPrice);
+
+                if (slot.OverchargePrice > 0)
+                    runSession.AddOvercharge(slot.OverchargePrice);
+
+                ShowShop(
+                    currentShopReasonType,
+                    "Device slots are full. Sell an equipped Device before buying a new one.",
+                    false);
+                return;
+            }
+
+            slot.MarkSoldOut();
+
+            string purchaseMessage =
+                $"Purchased {product.DisplayName}. Equipped to DeviceSlot {equippedSlotIndex + 1}.";
+
+            TesseraEventBus.Publish(
+                new StageShopPlayerDevicesChangedEvent(
+                    runSession,
+                    purchaseMessage));
+
+            // Overcharge/HUD는 갱신만 수행한다. 구매 메시지는 StageShopPlayerDevicesChangedEvent 경로에서 1회만 표시한다.
+            PublishOverchargeDisplayRefresh(string.Empty);
+            PublishStageEconomyChanged(string.Empty);
+
+            ShowShop(currentShopReasonType, purchaseMessage, false);
+        }
+
+        /// <summary>현재 Workshop Tier 기준으로 Shop 상품 목록을 재생성한다.</summary>
+        private void RegenerateShopInventory()
+        {
+            currentShopInventorySlots.Clear();
+
+            StageWorkshopRulesSO rules = ResolveCurrentWorkshopRules();
+
+            if (rules == null || runSession == null)
+                return;
+
+            int seed = CreateShopInventorySeed();
+            List<ShopInventorySlot> generatedSlots = ShopInventoryGenerator.Generate(
+                rules,
+                runSession.CurrentWorkshopTier,
+                seed);
+
+            for (int i = 0; i < generatedSlots.Count; i++)
+                currentShopInventorySlots.Add(generatedSlots[i]);
+        }
+
+        /// <summary>Shop 상품 슬롯 인덱스로 현재 상품 슬롯을 찾는다.</summary>
+        private ShopInventorySlot FindShopInventorySlot(int slotIndex)
+        {
+            for (int i = 0; i < currentShopInventorySlots.Count; i++)
+            {
+                ShopInventorySlot slot = currentShopInventorySlots[i];
+
+                if (slot != null && slot.SlotIndex == slotIndex)
+                    return slot;
+            }
+
+            return null;
+        }
+
+        /// <summary>Shop 상품 목록 생성을 위한 Seed를 만든다.</summary>
+        private int CreateShopInventorySeed()
+        {
+            int stageNumber = currentStageState != null && currentStageState.StageDefinition != null
+                ? currentStageState.StageDefinition.StageNumber
+                : 1;
+
+            int stageThreat = currentStageState != null
+                ? currentStageState.StageThreatLevel
+                : 0;
+
+            int chainCount = currentStageState != null
+                ? currentStageState.ChainCount
+                : 0;
+
+            int workshopTier = runSession != null
+                ? runSession.CurrentWorkshopTier
+                : 1;
+
+            return stageNumber * 100000
+                    + workshopTier * 10000
+                    + stageThreat * 1000
+                    + chainCount * 100
+                    + Mathf.Abs(Time.frameCount % 100);
         }
 
         /// <summary>다음 Stage로 이동한다.</summary>

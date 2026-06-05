@@ -1,4 +1,5 @@
-﻿using Tessera.Runtime;
+﻿using Tessera.Data;
+using Tessera.Runtime;
 using UnityEngine;
 
 namespace Tessera.UI
@@ -17,6 +18,12 @@ namespace Tessera.UI
         [Header("Flow")]
         [SerializeField] private StageBountyFlowController stageBountyFlowController;
 
+        [Header("Gameplay")]
+        [SerializeField] private TesseraGameplayBattlePresenter gameplayPresenter;
+
+        [Header("Debug Starting Devices")]
+        [SerializeField] private SlotPairDeviceDefinitionSO[] debugStartingPlayerDevices = new SlotPairDeviceDefinitionSO[TesseraRunSession.MaxDeviceSlots];
+
         [Header("Debug Start")]
         [SerializeField] private int startMoney = 30;
         [SerializeField] private int playerMaxHP = 100;
@@ -28,12 +35,16 @@ namespace Tessera.UI
         /// <summary>현재 RunSession을 반환한다.</summary>
         public TesseraRunSession RunSession => runSession;
 
-        /// <summary>RunSession 생성, StageFlow 초기화, GameMode 이벤트 구독을 수행한다.</summary>
+        /// <summary>RunSession 생성, 디버그 시작 장비 주입, StageFlow 초기화, GameMode 이벤트 구독을 수행한다.</summary>
         private void Awake()
         {
             // TesseraEventBus.ClearAll();
 
             runSession = new TesseraRunSession(startMoney, playerMaxHP);
+            runSession.SetEquippedDevices(debugStartingPlayerDevices);
+
+            if (gameplayPresenter != null)
+                gameplayPresenter.BindRunSession(runSession);
 
             if (stageBountyFlowController != null)
                 stageBountyFlowController.Initialize(runSession);

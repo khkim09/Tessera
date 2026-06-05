@@ -1,4 +1,5 @@
-﻿using Tessera.Core;
+﻿using System.Collections.Generic;
+using Tessera.Core;
 using Tessera.Data;
 using UnityEngine;
 
@@ -228,6 +229,17 @@ namespace Tessera.Runtime
             return true;
         }
 
+        /// <summary>초기 장착 Device 배열을 RunSession에 복사한다. 디버그 시작 장비 또는 세이브 로드 복원에 사용한다.</summary>
+        public void SetEquippedDevices(IReadOnlyList<SlotPairDeviceDefinitionSO> devices)
+        {
+            for (int i = 0; i < equippedSlotPairDevices.Length; i++)
+            {
+                equippedSlotPairDevices[i] = devices != null && i < devices.Count
+                    ? devices[i]
+                    : null;
+            }
+        }
+
         /// <summary>현재 장착 Device 슬롯 두 개를 서로 교체한다.</summary>
         public bool SwapEquippedDevices(int sourceSlotIndex, int targetSlotIndex)
         {
@@ -247,8 +259,58 @@ namespace Tessera.Runtime
             return true;
         }
 
+        /// <summary>현재 빈 Device 슬롯이 있는지 확인한다.</summary>
+        public bool HasEmptyDeviceSlot()
+        {
+            return FindFirstEmptyDeviceSlotIndex() >= 0;
+        }
+
+        /// <summary>현재 장착된 Device 개수를 반환한다.</summary>
+        public int GetEquippedDeviceCount()
+        {
+            int count = 0;
+
+            for (int i = 0; i < equippedSlotPairDevices.Length; i++)
+            {
+                if (equippedSlotPairDevices[i] != null)
+                    count++;
+            }
+
+            return count;
+        }
+
+        /// <summary>지정 슬롯의 Device를 반환한다.</summary>
+        public SlotPairDeviceDefinitionSO GetEquippedDevice(int slotIndex)
+        {
+            if (!IsValidDeviceSlotIndex(slotIndex))
+                return null;
+
+            return equippedSlotPairDevices[slotIndex];
+        }
+
+        /// <summary>지정 슬롯에 Device를 배치하고 기존 Device를 반환한다.</summary>
+        public bool TryPlaceDeviceToSlot(
+            int slotIndex,
+            SlotPairDeviceDefinitionSO device,
+            out SlotPairDeviceDefinitionSO previousDevice)
+        {
+            previousDevice = null;
+
+            if (!IsValidDeviceSlotIndex(slotIndex))
+                return false;
+
+            if (device == null)
+                return false;
+
+            previousDevice = equippedSlotPairDevices[slotIndex];
+            equippedSlotPairDevices[slotIndex] = device;
+            return true;
+        }
+
         /// <summary>첫 번째 빈 Device 슬롯에 Device를 장착한다.</summary>
-        public bool TryEquipDeviceToFirstEmptySlot(SlotPairDeviceDefinitionSO device, out int equippedSlotIndex)
+        public bool TryEquipDeviceToFirstEmptySlot(
+            SlotPairDeviceDefinitionSO device,
+            out int equippedSlotIndex)
         {
             equippedSlotIndex = -1;
 
@@ -263,6 +325,21 @@ namespace Tessera.Runtime
             equippedSlotPairDevices[emptySlotIndex] = device;
             equippedSlotIndex = emptySlotIndex;
             return true;
+        }
+
+        /// <summary>지정 Device 슬롯을 비우고 제거된 Device를 반환한다.</summary>
+        public bool ClearEquippedDeviceSlot(
+            int slotIndex,
+            out SlotPairDeviceDefinitionSO removedDevice)
+        {
+            removedDevice = null;
+
+            if (!IsValidDeviceSlotIndex(slotIndex))
+                return false;
+
+            removedDevice = equippedSlotPairDevices[slotIndex];
+            equippedSlotPairDevices[slotIndex] = null;
+            return removedDevice != null;
         }
 
         /// <summary>현재 Overcharge 값을 직접 지정한다.</summary>

@@ -17,6 +17,10 @@ MonoBehaviour:
   roundType: 0
   tutorialForcedRound: 0
   initiallyAvailable: 1
+  bountyDescription: A standard bounty. Test your first Device setup against a low-pressure
+    target.
+  intentDescription: Rolls after your Cast and lands a light strike.
+  specialRuleDescription: No special table rule.
   baseRewardMoney: 12
   bountyRank: 1
   rewardOvercharge: 0

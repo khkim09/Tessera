@@ -1,4 +1,5 @@
-﻿using Tessera.Data;
+﻿using System;
+using Tessera.Data;
 using TMPro;
 using UnityEngine;
 
@@ -27,6 +28,9 @@ namespace Tessera.UI
         /// <summary>현재 표시 중인 Device를 반환한다.</summary>
         public SlotPairDeviceDefinitionSO CurrentDevice => currentDevice;
 
+        /// <summary>DeviceSlot 클릭 이벤트.</summary>
+        public event Action<int> Clicked;
+
         /// <summary>컴포넌트가 추가될 때 기본 참조를 자동 보정한다.</summary>
         private void Reset()
         {
@@ -39,6 +43,24 @@ namespace Tessera.UI
         {
             // 원본 Material을 오염시키지 않도록 인스턴스를 사용한다.
             EnsureRuntimeMaterial();
+
+            // 자식 Collider 자동 Relay 등록 추가
+            RegisterClickRelays();
+        }
+
+        /// <summary>마우스 클릭을 슬롯 클릭 이벤트로 전달한다.</summary>
+        private void OnMouseDown()
+        {
+            NotifySlotClicked();
+        }
+
+        /// <summary>외부 Collider Relay에서 슬롯 클릭을 전달받는다.</summary>
+        public void NotifySlotClicked()
+        {
+            if (slotIndex < 0)
+                return;
+
+            Clicked?.Invoke(slotIndex);
         }
 
         /// <summary>슬롯 인덱스를 초기화한다.</summary>
@@ -127,6 +149,25 @@ namespace Tessera.UI
                 return;
 
             targetText.text = value;
+        }
+
+        /// <summary>자식 Collider에 클릭 Relay를 자동 등록한다.</summary>
+        private void RegisterClickRelays()
+        {
+            Collider[] childColliders = GetComponentsInChildren<Collider>(true);
+
+            for (int i = 0; i < childColliders.Length; i++)
+            {
+                if (childColliders[i] == null)
+                    continue;
+
+                DeviceSlotClickRelay3D relay = childColliders[i].GetComponent<DeviceSlotClickRelay3D>();
+
+                if (relay == null)
+                    relay = childColliders[i].gameObject.AddComponent<DeviceSlotClickRelay3D>();
+
+                relay.Bind(this);
+            }
         }
     }
 }

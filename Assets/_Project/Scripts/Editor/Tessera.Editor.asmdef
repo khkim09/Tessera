@@ -6,6 +6,7 @@
         "Tessera.Data",
         "Tessera.Runtime",
         "Tessera.UI",
+        "Tessera.Infrastructure",
         "Unity.TextMeshPro",
         "Unity.RenderPipelines.Core.Runtime"
     ],

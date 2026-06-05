@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Tessera.Runtime;
 using TMPro;
 using UnityEngine;
@@ -73,23 +74,47 @@ namespace Tessera.UI
             if (node == null || node.Definition == null)
                 return "-";
 
-            return $"{node.Definition.RoundType} / Rank {node.Definition.BountyRank}";
+            string roundTypeText = node.Definition.RoundType == Tessera.Core.StageRoundType.Boss
+                ? "Boss"
+                : "Bounty";
+
+            return $"{roundTypeText} · Rank {node.Definition.BountyRank}";
         }
 
-        /// <summary>카드 보상 텍스트를 생성한다.</summary>
+        /// <summary>카드 본문 설명 텍스트를 생성한다.</summary>
         private string BuildRewardText()
         {
             if (node == null || node.Definition == null)
                 return "-";
 
-            int baseReward = node.Definition.BaseRewardMoney;
-            int bountyRankBonus = node.Definition.BountyRank * 2;
-            int stageThreatBonus = boardState != null ? boardState.StageThreatLevel * 2 : 0;
+            List<string> lines = new List<string>();
 
-            return
-                $"Money +{baseReward}\n" +
-                $"Rank Bonus +{bountyRankBonus}\n" +
-                $"Threat Bonus +{stageThreatBonus}";
+            if (!string.IsNullOrWhiteSpace(node.Definition.BountyDescription))
+                lines.Add(node.Definition.BountyDescription);
+
+            if (!string.IsNullOrWhiteSpace(node.Definition.IntentDescription))
+                lines.Add($"Intent: {node.Definition.IntentDescription}");
+
+            if (!string.IsNullOrWhiteSpace(node.Definition.SpecialRuleDescription))
+                lines.Add($"Rule: {node.Definition.SpecialRuleDescription}");
+
+            if (lines.Count <= 0)
+                lines.Add(BuildFallbackDescription());
+
+            return string.Join("\n", lines);
+        }
+
+        /// <summary>SO 설명이 비어 있을 때 사용할 기본 설명을 생성한다.</summary>
+        private string BuildFallbackDescription()
+        {
+            if (node == null || node.Definition == null)
+                return "-";
+
+            string typeText = node.Definition.RoundType == Tessera.Core.StageRoundType.Boss
+                ? "Boss bounty."
+                : "Standard bounty.";
+
+            return $"{typeText}\nDefeat the opponent within limited attempts.";
         }
 
         /// <summary>StageThreat / Enraged 표시 텍스트를 생성한다.</summary>
