@@ -164,6 +164,9 @@ namespace Tessera.UI
         private ClashResolveResult lastClashResolveResult;
         private StageRoundDefinitionSO currentRoundDefinition;
         private EnemyIntentDefinitionSO currentEnemyIntentDefinition;
+        private InitiativeOwnerType lockedRoundInitiativeOwner = InitiativeOwnerType.Opponent;
+        private bool hasLockedRoundInitiativeOwner;
+        private DiceRoller opponentDiceRoller;
 
         #region Event
 
@@ -270,6 +273,9 @@ namespace Tessera.UI
                 ? currentRoundDefinition.SelectIntentDefinitionForAttempt(1, seed)
                 : null;
 
+            ResolveAndStoreRoundInitiativeOwner(openingIntent);
+            opponentDiceRoller = new DiceRoller(seed + 9109);
+
             currentRoundDisplayName = string.IsNullOrWhiteSpace(roundDisplayName) ? "Round" : roundDisplayName;
             roundEndNotified = false;
             SetInteractionState(BattleInteractionState.PlayerIdle);
@@ -294,7 +300,8 @@ namespace Tessera.UI
             lastClashResolveResult = null;
 
             RefreshClashDamageTexts();
-            ApplyOpeningIntentToCurrentAttempt(openingIntent);
+            EnemyIntent lockedOpeningIntent = BuildOpeningEnemyIntentWithLockedInitiative(openingIntent);
+            ApplyOpeningIntentToCurrentAttempt(lockedOpeningIntent);
 
             CancelSlotPairEvaluationSequence();
             ClearSlotPairEvaluationHighlights();
@@ -323,16 +330,7 @@ namespace Tessera.UI
 
             await MovePlayerDiceSetToRestIfNeededAsync();
 
-            List<int> enemyDiceValues = CreateRandomEnemyDiceValues();
-            List<bool> enemyLockStates = CreateEnemyDiceLockStates(enemyDiceValues.Count);
-
-            await PlayEnemyDiceCupPresentationAsync(enemyDiceValues, enemyLockStates);
-
-            bool built = simulator.TryBuildBestOpponentClashCastResult(
-                roundState,
-                enemyDiceValues,
-                CreateOpponentDeviceDefinitions(),
-                out pendingOpponentClashResult);
+            bool built = await BuildOpponentClashResultWithRollAIAsync("OpponentFirst", null);
 
             if (!built || pendingOpponentClashResult == null)
             {
@@ -1981,7 +1979,7 @@ namespace Tessera.UI
             await PlaySlotPairEvaluationSequenceAsync(playerResult);
 
             if (pendingOpponentClashResult == null)
-                await BuildOpponentClashResultAfterPlayerSubmitAsync();
+                await BuildOpponentClashResultAfterPlayerSubmitAsync(playerResult);
 
             if (pendingOpponentClashResult == null)
             {
@@ -2097,11 +2095,12 @@ namespace Tessera.UI
                 $"Force={finalForce} | " +
                 $"RawDamage={rawDamage} | " +
                 $"FinalDamage={result.FinalDamage} | " +
-                $"Loadout={FormatOpponentDeviceLoadoutForLog()}");
+                $"DiceLoadout={FormatOpponentDiceLoadoutDefinitionForLog()} | " +
+                $"DeviceLoadout={FormatOpponentDeviceLoadoutForLog()}"); ;
         }
 
-        /// <summary>플레이어 선공 이후 상대 후공 Clash 결과를 생성한다.</summary>
-        private async UniTask BuildOpponentClashResultAfterPlayerSubmitAsync()
+        /// <summary>플레이어 선공 이후 상대 후공 Clash 결과를 Opponent Roll AI로 생성한다.</summary>
+        private async UniTask BuildOpponentClashResultAfterPlayerSubmitAsync(ClashCastResult playerResult)
         {
             SetInteractionState(BattleInteractionState.EnemyTurn);
             RefreshDiceInteractionState();
@@ -2115,16 +2114,7 @@ namespace Tessera.UI
                     cancellationToken: this.GetCancellationTokenOnDestroy());
             }
 
-            List<int> enemyDiceValues = CreateRandomEnemyDiceValues();
-            List<bool> enemyLockStates = CreateEnemyDiceLockStates(enemyDiceValues.Count);
-
-            await PlayEnemyDiceCupPresentationAsync(enemyDiceValues, enemyLockStates);
-
-            bool built = simulator.TryBuildBestOpponentClashCastResult(
-                roundState,
-                enemyDiceValues,
-                CreateOpponentDeviceDefinitions(),
-                out pendingOpponentClashResult);
+            bool built = await BuildOpponentClashResultWithRollAIAsync("OpponentSecond", playerResult);
 
             if (built && pendingOpponentClashResult != null)
             {
@@ -2141,7 +2131,6 @@ namespace Tessera.UI
                 }
             }
 
-            // 상대 후공 계산이 끝나면 Clash 판정 전에 상대 Dice를 RestPoint로 회수한다.
             await MoveOpponentDiceSetToRestIfNeededAsync();
         }
 
@@ -2701,20 +2690,748 @@ namespace Tessera.UI
             targetButton.interactable = isInteractable;
         }
 
-        /// <summary>상대 턴 연출과 자동 Cast 계산에 사용할 임시 주사위 값을 생성한다.</summary>
-        private List<int> CreateRandomEnemyDiceValues()
+        #region Opponent Roll AI
+
+        /// <summary>상대 Roll AI를 실행해 최종 Opponent Clash 결과를 생성한다.</summary>
+        private async UniTask<bool> BuildOpponentClashResultWithRollAIAsync(string phaseName, ClashCastResult playerResult)
+        {
+            pendingOpponentClashResult = null;
+
+            int rollCount = ResolveOpponentRollCount();
+            bool chooseBestAvailableCast = ResolveOpponentChooseBestAvailableCast();
+            OpponentRollStrategyType rollStrategy = ResolveOpponentRollStrategy();
+
+            List<DiceInstance> opponentDiceInstances = CreateOpponentDiceInstances();
+            List<bool> lockStates = CreateEnemyDiceLockStates(opponentDiceInstances.Count);
+            List<SlotPairDeviceDefinition> opponentDevices = CreateOpponentDeviceDefinitions();
+
+            for (int rollIndex = 1; rollIndex <= rollCount; rollIndex++)
+            {
+                if (rollIndex > 1)
+                    RollUnlockedOpponentDiceInstances(opponentDiceInstances, lockStates);
+
+                List<int> enemyDiceValues = ExtractOpponentNumericDiceValues(opponentDiceInstances);
+
+                await PlayEnemyDiceCupPresentationAsync(enemyDiceValues, lockStates);
+
+                bool built = simulator.TryBuildBestOpponentClashCastResultPreview(
+                    roundState,
+                    enemyDiceValues,
+                    opponentDevices,
+                    chooseBestAvailableCast,
+                    out ClashCastResult candidateResult);
+
+                LogOpponentRollAIStep(
+                    phaseName,
+                    rollIndex,
+                    rollCount,
+                    enemyDiceValues,
+                    lockStates,
+                    candidateResult,
+                    playerResult);
+
+                if (!built || candidateResult == null)
+                {
+                    ClearEnemyDiceLocks(lockStates);
+                    ApplyLockStatesToOpponentDiceInstances(opponentDiceInstances, lockStates);
+                    continue;
+                }
+
+                if (ShouldStopOpponentRollAI(candidateResult, playerResult, rollIndex, rollCount))
+                {
+                    pendingOpponentClashResult = candidateResult;
+                    break;
+                }
+
+                ApplyOpponentRollStrategyLocks(enemyDiceValues, candidateResult, lockStates, rollStrategy);
+                ApplyLockStatesToOpponentDiceInstances(opponentDiceInstances, lockStates);
+
+                LogOpponentRollAILockDecision(
+                    phaseName,
+                    rollIndex,
+                    rollStrategy,
+                    enemyDiceValues,
+                    lockStates,
+                    candidateResult);
+            }
+
+            if (pendingOpponentClashResult == null)
+            {
+                List<int> finalDiceValues = ExtractOpponentNumericDiceValues(opponentDiceInstances);
+
+                bool built = simulator.TryBuildBestOpponentClashCastResultPreview(
+                    roundState,
+                    finalDiceValues,
+                    opponentDevices,
+                    chooseBestAvailableCast,
+                    out pendingOpponentClashResult);
+
+                if (!built || pendingOpponentClashResult == null)
+                    return false;
+            }
+
+            bool recorded = simulator.TryBuildBestOpponentClashCastResult(
+                roundState,
+                pendingOpponentClashResult.DiceValues,
+                opponentDevices,
+                chooseBestAvailableCast,
+                out ClashCastResult recordedResult);
+
+            if (!recorded || recordedResult == null)
+                return false;
+
+            pendingOpponentClashResult = recordedResult;
+            return true;
+        }
+
+        /// <summary>현재 Intent 기준 상대 최대 Roll 횟수를 반환한다.</summary>
+        private int ResolveOpponentRollCount()
+        {
+            if (currentEnemyIntentDefinition == null)
+                return 1;
+
+            return Mathf.Max(1, currentEnemyIntentDefinition.OpponentRollCount);
+        }
+
+        /// <summary>현재 Intent 기준 상대 Cast 선택 방식을 반환한다.</summary>
+        private bool ResolveOpponentChooseBestAvailableCast()
+        {
+            if (currentEnemyIntentDefinition == null)
+                return true;
+
+            return currentEnemyIntentDefinition.ChooseBestAvailableCast;
+        }
+
+        /// <summary>현재 Intent 기준 상대 Roll 유지 전략을 반환한다.</summary>
+        private OpponentRollStrategyType ResolveOpponentRollStrategy()
+        {
+            if (currentEnemyIntentDefinition == null)
+                return OpponentRollStrategyType.Balanced;
+
+            return currentEnemyIntentDefinition.RollStrategy;
+        }
+
+        /// <summary>현재 Intent와 비교 대상에 따라 상대 Roll 조기 중단 여부를 판단한다.</summary>
+        private bool ShouldStopOpponentRollAI(
+            ClashCastResult candidateResult,
+            ClashCastResult playerResult,
+            int rollIndex,
+            int maxRollCount)
+        {
+            if (candidateResult == null)
+                return false;
+
+            if (rollIndex >= maxRollCount)
+                return true;
+
+            if (currentEnemyIntentDefinition != null &&
+                currentEnemyIntentDefinition.TargetDamageToStop > 0 &&
+                candidateResult.FinalDamage >= currentEnemyIntentDefinition.TargetDamageToStop)
+            {
+                return true;
+            }
+
+            if (currentEnemyIntentDefinition != null &&
+                currentEnemyIntentDefinition.StopIfBeatsPlayerDamage &&
+                playerResult != null &&
+                candidateResult.FinalDamage > playerResult.FinalDamage)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>상대 주사위 잠금을 모두 해제한다.</summary>
+        private static void ClearEnemyDiceLocks(List<bool> lockStates)
+        {
+            if (lockStates == null)
+                return;
+
+            for (int i = 0; i < lockStates.Count; i++)
+                lockStates[i] = false;
+        }
+
+        /// <summary>Roll 전략에 따라 다음 Roll 전 유지할 상대 주사위를 결정한다.</summary>
+        private void ApplyOpponentRollStrategyLocks(
+            IReadOnlyList<int> diceValues,
+            ClashCastResult candidateResult,
+            List<bool> lockStates,
+            OpponentRollStrategyType rollStrategy)
+        {
+            ClearEnemyDiceLocks(lockStates);
+
+            if (diceValues == null || candidateResult == null || lockStates == null)
+                return;
+
+            switch (rollStrategy)
+            {
+                case OpponentRollStrategyType.GreedyBestDamage:
+                    ApplyGreedyBestDamageLocks(diceValues, candidateResult, lockStates);
+                    break;
+
+                case OpponentRollStrategyType.KeepHighestGroup:
+                    ApplyHighestGroupLocks(diceValues, lockStates);
+                    break;
+
+                case OpponentRollStrategyType.ChaseStraight:
+                    ApplyStraightChaseLocks(diceValues, lockStates);
+                    break;
+
+                case OpponentRollStrategyType.Balanced:
+                    ApplyBalancedOpponentLocks(diceValues, candidateResult, lockStates);
+                    break;
+
+                default:
+                    ApplyBalancedOpponentLocks(diceValues, candidateResult, lockStates);
+                    break;
+            }
+
+            EnsureAtLeastOneEnemyDieUnlocked(diceValues, lockStates);
+        }
+
+        /// <summary>현재 최고 피해 Cast에 직접 기여하는 주사위를 유지한다.</summary>
+        private static void ApplyGreedyBestDamageLocks(
+            IReadOnlyList<int> diceValues,
+            ClashCastResult candidateResult,
+            List<bool> lockStates)
+        {
+            RollPatternType patternType = candidateResult.PatternType;
+
+            if (patternType >= RollPatternType.Aces && patternType <= RollPatternType.Sixes)
+            {
+                int targetFace = (int)patternType;
+                LockFaceValue(diceValues, lockStates, targetFace);
+                return;
+            }
+
+            if (patternType == RollPatternType.ThreeOfAKind ||
+                patternType == RollPatternType.FourOfAKind ||
+                patternType == RollPatternType.Tessera)
+            {
+                ApplyHighestGroupLocks(diceValues, lockStates);
+                return;
+            }
+
+            if (patternType == RollPatternType.FullHouse)
+            {
+                LockPairOrBetterValues(diceValues, lockStates);
+                return;
+            }
+
+            if (patternType == RollPatternType.SmallStraight || patternType == RollPatternType.LargeStraight)
+            {
+                ApplyStraightChaseLocks(diceValues, lockStates);
+                return;
+            }
+
+            LockHighValueDice(diceValues, lockStates, 5);
+        }
+
+        /// <summary>상황별로 중복, 스트레이트, 고눈금 유지 전략을 선택한다.</summary>
+        private static void ApplyBalancedOpponentLocks(
+            IReadOnlyList<int> diceValues,
+            ClashCastResult candidateResult,
+            List<bool> lockStates)
+        {
+            RollPatternType patternType = candidateResult.PatternType;
+
+            if (patternType == RollPatternType.ThreeOfAKind ||
+                patternType == RollPatternType.FourOfAKind ||
+                patternType == RollPatternType.FullHouse ||
+                patternType == RollPatternType.Tessera)
+            {
+                ApplyGreedyBestDamageLocks(diceValues, candidateResult, lockStates);
+                return;
+            }
+
+            int longestStraightCount = CountBestStraightProgress(diceValues);
+
+            if (longestStraightCount >= 3)
+            {
+                ApplyStraightChaseLocks(diceValues, lockStates);
+                return;
+            }
+
+            int bestGroupCount = GetBestRepeatedFaceCount(diceValues);
+
+            if (bestGroupCount >= 2)
+            {
+                ApplyHighestGroupLocks(diceValues, lockStates);
+                return;
+            }
+
+            LockHighValueDice(diceValues, lockStates, 5);
+        }
+
+        /// <summary>가장 높은 중복 그룹 또는 가장 높은 단일 주사위를 유지한다.</summary>
+        private static void ApplyHighestGroupLocks(IReadOnlyList<int> diceValues, List<bool> lockStates)
+        {
+            int bestFace = FindBestRepeatedFace(diceValues);
+
+            if (bestFace <= 0)
+            {
+                LockHighestSingleDie(diceValues, lockStates);
+                return;
+            }
+
+            LockFaceValue(diceValues, lockStates, bestFace);
+        }
+
+        /// <summary>가장 완성도가 높은 스트레이트 후보의 서로 다른 눈금 1개씩을 유지한다.</summary>
+        private static void ApplyStraightChaseLocks(IReadOnlyList<int> diceValues, List<bool> lockStates)
+        {
+            int[] bestSequence = FindBestStraightSequence(diceValues);
+
+            if (bestSequence == null || bestSequence.Length <= 0)
+            {
+                LockHighestSingleDie(diceValues, lockStates);
+                return;
+            }
+
+            bool[] usedFaces = new bool[7];
+
+            for (int sequenceIndex = 0; sequenceIndex < bestSequence.Length; sequenceIndex++)
+            {
+                int face = bestSequence[sequenceIndex];
+
+                if (face < 1 || face > 6 || usedFaces[face])
+                    continue;
+
+                for (int diceIndex = 0; diceIndex < diceValues.Count; diceIndex++)
+                {
+                    if (diceValues[diceIndex] != face)
+                        continue;
+
+                    lockStates[diceIndex] = true;
+                    usedFaces[face] = true;
+                    break;
+                }
+            }
+        }
+
+        /// <summary>지정 눈금과 같은 주사위를 모두 유지한다.</summary>
+        private static void LockFaceValue(IReadOnlyList<int> diceValues, List<bool> lockStates, int faceValue)
+        {
+            for (int i = 0; i < diceValues.Count && i < lockStates.Count; i++)
+            {
+                if (diceValues[i] == faceValue)
+                    lockStates[i] = true;
+            }
+        }
+
+        /// <summary>2개 이상 나온 눈금의 주사위를 모두 유지한다.</summary>
+        private static void LockPairOrBetterValues(IReadOnlyList<int> diceValues, List<bool> lockStates)
+        {
+            int[] counts = BuildFaceCounts(diceValues);
+
+            for (int i = 0; i < diceValues.Count && i < lockStates.Count; i++)
+            {
+                int face = diceValues[i];
+
+                if (face >= 1 && face <= 6 && counts[face] >= 2)
+                    lockStates[i] = true;
+            }
+        }
+
+        /// <summary>지정 값 이상의 고눈금 주사위를 유지한다.</summary>
+        private static void LockHighValueDice(IReadOnlyList<int> diceValues, List<bool> lockStates, int minimumFaceValue)
+        {
+            bool lockedAny = false;
+
+            for (int i = 0; i < diceValues.Count && i < lockStates.Count; i++)
+            {
+                if (diceValues[i] < minimumFaceValue)
+                    continue;
+
+                lockStates[i] = true;
+                lockedAny = true;
+            }
+
+            if (!lockedAny)
+                LockHighestSingleDie(diceValues, lockStates);
+        }
+
+        /// <summary>가장 높은 단일 주사위 1개를 유지한다.</summary>
+        private static void LockHighestSingleDie(IReadOnlyList<int> diceValues, List<bool> lockStates)
+        {
+            int bestIndex = -1;
+            int bestValue = int.MinValue;
+
+            for (int i = 0; i < diceValues.Count && i < lockStates.Count; i++)
+            {
+                if (diceValues[i] <= bestValue)
+                    continue;
+
+                bestValue = diceValues[i];
+                bestIndex = i;
+            }
+
+            if (bestIndex >= 0)
+                lockStates[bestIndex] = true;
+        }
+
+        /// <summary>모든 주사위가 잠겨 다음 Roll이 무의미해지는 상황을 방지한다.</summary>
+        private static void EnsureAtLeastOneEnemyDieUnlocked(IReadOnlyList<int> diceValues, List<bool> lockStates)
+        {
+            if (lockStates == null || lockStates.Count <= 0)
+                return;
+
+            bool hasUnlocked = false;
+
+            for (int i = 0; i < lockStates.Count; i++)
+            {
+                if (lockStates[i])
+                    continue;
+
+                hasUnlocked = true;
+                break;
+            }
+
+            if (hasUnlocked)
+                return;
+
+            int unlockIndex = FindLowestValueDiceIndex(diceValues, lockStates.Count);
+
+            if (unlockIndex >= 0)
+                lockStates[unlockIndex] = false;
+        }
+
+        /// <summary>가장 낮은 값의 주사위 인덱스를 반환한다.</summary>
+        private static int FindLowestValueDiceIndex(IReadOnlyList<int> diceValues, int maxCount)
+        {
+            if (diceValues == null || diceValues.Count <= 0)
+                return -1;
+
+            int bestIndex = -1;
+            int bestValue = int.MaxValue;
+            int count = Mathf.Min(diceValues.Count, maxCount);
+
+            for (int i = 0; i < count; i++)
+            {
+                if (diceValues[i] >= bestValue)
+                    continue;
+
+                bestValue = diceValues[i];
+                bestIndex = i;
+            }
+
+            return bestIndex;
+        }
+
+        /// <summary>가장 좋은 중복 눈금을 반환한다. 중복이 없으면 0을 반환한다.</summary>
+        private static int FindBestRepeatedFace(IReadOnlyList<int> diceValues)
+        {
+            int[] counts = BuildFaceCounts(diceValues);
+            int bestFace = 0;
+            int bestCount = 1;
+
+            for (int face = 6; face >= 1; face--)
+            {
+                if (counts[face] <= bestCount)
+                    continue;
+
+                bestCount = counts[face];
+                bestFace = face;
+            }
+
+            return bestFace;
+        }
+
+        /// <summary>가장 높은 중복 개수를 반환한다.</summary>
+        private static int GetBestRepeatedFaceCount(IReadOnlyList<int> diceValues)
+        {
+            int[] counts = BuildFaceCounts(diceValues);
+            int bestCount = 0;
+
+            for (int face = 1; face <= 6; face++)
+            {
+                if (counts[face] > bestCount)
+                    bestCount = counts[face];
+            }
+
+            return bestCount;
+        }
+
+        /// <summary>눈금별 개수를 계산한다.</summary>
+        private static int[] BuildFaceCounts(IReadOnlyList<int> diceValues)
+        {
+            int[] counts = new int[7];
+
+            if (diceValues == null)
+                return counts;
+
+            for (int i = 0; i < diceValues.Count; i++)
+            {
+                int face = diceValues[i];
+
+                if (face < 1 || face > 6)
+                    continue;
+
+                counts[face]++;
+            }
+
+            return counts;
+        }
+
+        /// <summary>현재 주사위가 가진 최고 스트레이트 진행도를 반환한다.</summary>
+        private static int CountBestStraightProgress(IReadOnlyList<int> diceValues)
+        {
+            int[] sequence = FindBestStraightSequence(diceValues);
+            return sequence != null ? sequence.Length : 0;
+        }
+
+        /// <summary>현재 주사위에서 가장 많이 맞춰진 스트레이트 후보 눈금 배열을 반환한다.</summary>
+        private static int[] FindBestStraightSequence(IReadOnlyList<int> diceValues)
+        {
+            int[] lowLarge = { 1, 2, 3, 4, 5 };
+            int[] highLarge = { 2, 3, 4, 5, 6 };
+            int[] lowSmall = { 1, 2, 3, 4 };
+            int[] middleSmall = { 2, 3, 4, 5 };
+            int[] highSmall = { 3, 4, 5, 6 };
+
+            int[][] candidates =
+            {
+                lowLarge,
+                highLarge,
+                lowSmall,
+                middleSmall,
+                highSmall
+            };
+
+            bool[] exists = BuildFaceExists(diceValues);
+            int[] bestMatchedFaces = Array.Empty<int>();
+            int bestMatchCount = -1;
+
+            for (int i = 0; i < candidates.Length; i++)
+            {
+                int[] candidate = candidates[i];
+                List<int> matchedFaces = new List<int>();
+
+                for (int j = 0; j < candidate.Length; j++)
+                {
+                    int face = candidate[j];
+
+                    if (exists[face])
+                        matchedFaces.Add(face);
+                }
+
+                if (matchedFaces.Count < bestMatchCount)
+                    continue;
+
+                if (matchedFaces.Count == bestMatchCount && candidate.Length < bestMatchedFaces.Length)
+                    continue;
+
+                bestMatchCount = matchedFaces.Count;
+                bestMatchedFaces = matchedFaces.ToArray();
+            }
+
+            return bestMatchedFaces;
+        }
+
+        /// <summary>눈금 존재 여부를 계산한다.</summary>
+        private static bool[] BuildFaceExists(IReadOnlyList<int> diceValues)
+        {
+            bool[] exists = new bool[7];
+
+            if (diceValues == null)
+                return exists;
+
+            for (int i = 0; i < diceValues.Count; i++)
+            {
+                int face = diceValues[i];
+
+                if (face < 1 || face > 6)
+                    continue;
+
+                exists[face] = true;
+            }
+
+            return exists;
+        }
+
+        /// <summary>상대 Roll AI의 평가 결과를 로그로 출력한다.</summary>
+        private void LogOpponentRollAIStep(
+            string phaseName,
+            int rollIndex,
+            int maxRollCount,
+            IReadOnlyList<int> diceValues,
+            IReadOnlyList<bool> lockStates,
+            ClashCastResult candidateResult,
+            ClashCastResult playerResult)
+        {
+            string candidateText = candidateResult != null
+                ? $"{candidateResult.PatternType} / Damage {candidateResult.FinalDamage}"
+                : "None";
+
+            string playerDamageText = playerResult != null
+                ? playerResult.FinalDamage.ToString()
+                : "-";
+
+            Debug.Log(
+                $"[Tessera][OpponentRollAI] Phase={phaseName} | " +
+                $"Roll={rollIndex}/{maxRollCount} | " +
+                $"Intent={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.DisplayName : "Fallback")} | " +
+                $"Strategy={ResolveOpponentRollStrategy()} | " +
+                $"Dice=[{FormatDiceValuesForLog(diceValues)}] | " +
+                $"Locks=[{FormatBoolListForLog(lockStates)}] | " +
+                $"Candidate={candidateText} | " +
+                $"PlayerDamage={playerDamageText} | " +
+                $"TargetStop={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.TargetDamageToStop.ToString() : "0")} | " +
+                $"StopIfBeatsPlayer={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.StopIfBeatsPlayerDamage.ToString() : "False")}");
+        }
+
+        /// <summary>상대 Roll AI의 주사위 유지 결정을 로그로 출력한다.</summary>
+        private void LogOpponentRollAILockDecision(
+            string phaseName,
+            int rollIndex,
+            OpponentRollStrategyType rollStrategy,
+            IReadOnlyList<int> diceValues,
+            IReadOnlyList<bool> lockStates,
+            ClashCastResult candidateResult)
+        {
+            Debug.Log(
+                $"[Tessera][OpponentRollAI][Lock] Phase={phaseName} | " +
+                $"AfterRoll={rollIndex} | " +
+                $"Strategy={rollStrategy} | " +
+                $"Candidate={(candidateResult != null ? candidateResult.PatternType.ToString() : "None")} | " +
+                $"Damage={(candidateResult != null ? candidateResult.FinalDamage.ToString() : "0")} | " +
+                $"Dice=[{FormatDiceValuesForLog(diceValues)}] | " +
+                $"NextLocks=[{FormatBoolListForLog(lockStates)}]");
+        }
+
+        /// <summary>bool 목록을 로그 출력용 문자열로 변환한다.</summary>
+        private static string FormatBoolListForLog(IReadOnlyList<bool> values)
+        {
+            if (values == null || values.Count <= 0)
+                return "-";
+
+            List<string> parts = new List<string>(values.Count);
+
+            for (int i = 0; i < values.Count; i++)
+                parts.Add(values[i] ? "L" : "R");
+
+            return string.Join(",", parts);
+        }
+
+        /// <summary>현재 Round 정의를 기준으로 상대 DiceInstance 세트를 생성하고 첫 Roll까지 수행한다.</summary>
+        private List<DiceInstance> CreateOpponentDiceInstances()
         {
             int diceCount = roundState != null && roundState.RuleContext != null
                 ? roundState.RuleContext.DiceCount
                 : 5;
 
-            List<int> values = new List<int>(diceCount);
+            EnsureOpponentDiceRoller();
 
-            for (int i = 0; i < diceCount; i++)
-                values.Add(UnityEngine.Random.Range(1, 7));
+            EnemyDiceLoadoutDefinitionSO loadout = currentRoundDefinition != null
+                ? currentRoundDefinition.OpponentDiceLoadout
+                : null;
+
+            if (loadout != null)
+                return loadout.CreateRolledDiceSet(diceCount, opponentDiceRoller);
+
+            return opponentDiceRoller.CreateRolledStandardDiceSet(diceCount);
+        }
+
+        /// <summary>상대 DiceRoller가 없으면 생성한다.</summary>
+        private void EnsureOpponentDiceRoller()
+        {
+            if (opponentDiceRoller != null)
+                return;
+
+            opponentDiceRoller = new DiceRoller(seed + 9109);
+        }
+
+        /// <summary>잠기지 않은 상대 DiceInstance만 다시 굴린다.</summary>
+        private void RollUnlockedOpponentDiceInstances(
+            IReadOnlyList<DiceInstance> diceInstances,
+            IReadOnlyList<bool> lockStates)
+        {
+            if (diceInstances == null)
+                return;
+
+            EnsureOpponentDiceRoller();
+            ApplyLockStatesToOpponentDiceInstances(diceInstances, lockStates);
+            opponentDiceRoller.RollUnlocked(diceInstances);
+        }
+
+        /// <summary>상대 DiceInstance 목록에 lockStates를 반영한다.</summary>
+        private static void ApplyLockStatesToOpponentDiceInstances(
+            IReadOnlyList<DiceInstance> diceInstances,
+            IReadOnlyList<bool> lockStates)
+        {
+            if (diceInstances == null)
+                return;
+
+            for (int i = 0; i < diceInstances.Count; i++)
+            {
+                DiceInstance diceInstance = diceInstances[i];
+
+                if (diceInstance == null)
+                    continue;
+
+                bool isLocked = lockStates != null && i < lockStates.Count && lockStates[i];
+                diceInstance.SetLocked(isLocked);
+            }
+        }
+
+        /// <summary>상대 DiceInstance 목록에서 Pattern 평가용 숫자값 목록을 추출한다.</summary>
+        private List<int> ExtractOpponentNumericDiceValues(IReadOnlyList<DiceInstance> diceInstances)
+        {
+            List<int> values = new List<int>();
+
+            if (diceInstances == null)
+                return values;
+
+            for (int i = 0; i < diceInstances.Count; i++)
+            {
+                if (TryExtractPatternValueFromDiceInstance(diceInstances[i], out int value))
+                {
+                    values.Add(ClampDiceValue(value));
+                    continue;
+                }
+
+                Debug.LogWarning(
+                    $"[Tessera][OpponentDice] Unsupported or empty dice face. " +
+                    $"Index={i} | FallbackValue=1");
+
+                values.Add(1);
+            }
 
             return values;
         }
+
+        /// <summary>DiceInstance의 현재 면에서 Pattern 평가용 숫자값을 추출한다.</summary>
+        private static bool TryExtractPatternValueFromDiceInstance(DiceInstance diceInstance, out int value)
+        {
+            value = 0;
+
+            if (diceInstance == null)
+                return false;
+
+            DiceFace currentFace = diceInstance.CurrentFace;
+
+            if (!currentFace.IsNumber)
+                return false;
+
+            value = currentFace.NumberValue;
+            return true;
+        }
+
+        /// <summary>현재 상대 Dice 로드아웃 이름을 로그용 문자열로 반환한다.</summary>
+        private string FormatOpponentDiceLoadoutDefinitionForLog()
+        {
+            EnemyDiceLoadoutDefinitionSO loadout = currentRoundDefinition != null
+                ? currentRoundDefinition.OpponentDiceLoadout
+                : null;
+
+            if (loadout == null)
+                return "DefaultD6";
+
+            return loadout.DisplayName;
+        }
+
+        #endregion
 
         /// <summary>정수 목록을 로그 출력용 문자열로 변환한다.</summary>
         private string FormatDiceValuesForLog(IReadOnlyList<int> diceValues)
@@ -2778,9 +3495,11 @@ namespace Tessera.UI
             return lockStates;
         }
 
-        /// <summary>지정 Attempt 번호에서 사용할 EnemyIntent를 생성한다.</summary>
+        /// <summary>지정 Attempt 번호에서 사용할 EnemyIntent를 생성한다. Round Initiative는 Round 시작 시점 값으로 고정한다.</summary>
         private EnemyIntent BuildEnemyIntentForAttempt(int attemptNumber)
         {
+            InitiativeOwnerType roundInitiativeOwner = ResolveCurrentRoundInitiativeOwner();
+
             if (currentRoundDefinition != null)
             {
                 currentEnemyIntentDefinition = currentRoundDefinition.SelectIntentDefinitionForAttempt(
@@ -2789,12 +3508,15 @@ namespace Tessera.UI
 
                 EnemyIntent intent = currentRoundDefinition.BuildEnemyIntentForAttempt(
                     attemptNumber,
-                    seed);
+                    seed,
+                    roundInitiativeOwner);
 
                 Debug.Log(
                     $"[Tessera][Intent] Attempt={attemptNumber} | " +
                     $"Intent={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.DisplayName : "Fallback")} | " +
-                    $"Initiative={intent.InitiativeOwner} | " +
+                    $"RoundInitiative={roundInitiativeOwner} | " +
+                    $"IntentInitiative={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.InitiativeOwner.ToString() : "Fallback")} | " +
+                    $"InitiativeLocked=True | " +
                     $"Category={intent.CategoryType} | " +
                     $"UseOpponentDevices={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.UseOpponentDevices.ToString() : "Fallback")} | " +
                     $"ChooseBest={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.ChooseBestAvailableCast.ToString() : "Fallback")}");
@@ -2808,9 +3530,82 @@ namespace Tessera.UI
                 return roundState.CurrentEnemyIntent;
 
             if (roundState != null)
-                return EnemyIntent.Strike(roundState.RuleContext.EnemyStrikeDamage);
+            {
+                EnemyIntentType intentType = roundInitiativeOwner == InitiativeOwnerType.Opponent
+                    ? EnemyIntentType.Strike
+                    : EnemyIntentType.None;
+
+                return new EnemyIntent(
+                    intentType,
+                    roundState.RuleContext.EnemyStrikeDamage,
+                    "Fallback intent.",
+                    EnemyIntentCategoryType.Aggression,
+                    roundInitiativeOwner);
+            }
 
             return EnemyIntent.None();
+        }
+
+        /// <summary>Round 시작 시점의 Initiative를 저장한다.</summary>
+        private void ResolveAndStoreRoundInitiativeOwner(EnemyIntent openingIntent)
+        {
+            if (currentRoundDefinition != null)
+            {
+                lockedRoundInitiativeOwner = currentRoundDefinition.ResolveRoundInitiativeOwner();
+                hasLockedRoundInitiativeOwner = true;
+                return;
+            }
+
+            if (openingIntent != null)
+            {
+                lockedRoundInitiativeOwner = openingIntent.InitiativeOwner;
+                hasLockedRoundInitiativeOwner = true;
+                return;
+            }
+
+            lockedRoundInitiativeOwner = InitiativeOwnerType.Opponent;
+            hasLockedRoundInitiativeOwner = true;
+        }
+
+        /// <summary>현재 Round에서 고정 사용할 Initiative를 반환한다.</summary>
+        private InitiativeOwnerType ResolveCurrentRoundInitiativeOwner()
+        {
+            if (hasLockedRoundInitiativeOwner)
+                return lockedRoundInitiativeOwner;
+
+            if (currentRoundDefinition != null)
+                return currentRoundDefinition.ResolveRoundInitiativeOwner();
+
+            if (roundState != null && roundState.CurrentAttempt != null)
+                return roundState.CurrentAttempt.InitiativeOwner;
+
+            return InitiativeOwnerType.Opponent;
+        }
+
+        /// <summary>Round 고정 Initiative를 반영한 Opening EnemyIntent를 생성한다.</summary>
+        private EnemyIntent BuildOpeningEnemyIntentWithLockedInitiative(EnemyIntent fallbackOpeningIntent)
+        {
+            InitiativeOwnerType roundInitiativeOwner = ResolveCurrentRoundInitiativeOwner();
+
+            if (currentRoundDefinition != null)
+                return currentRoundDefinition.BuildOpeningEnemyIntent(roundInitiativeOwner);
+
+            if (fallbackOpeningIntent != null)
+                return fallbackOpeningIntent;
+
+            if (roundState == null)
+                return EnemyIntent.None();
+
+            EnemyIntentType intentType = roundInitiativeOwner == InitiativeOwnerType.Opponent
+                ? EnemyIntentType.Strike
+                : EnemyIntentType.None;
+
+            return new EnemyIntent(
+                intentType,
+                roundState.RuleContext.EnemyStrikeDamage,
+                "Opening intent.",
+                EnemyIntentCategoryType.Aggression,
+                roundInitiativeOwner);
         }
 
         #region Debug

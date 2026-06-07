@@ -5819,12 +5819,6 @@ MonoBehaviour:
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
-  deviceSlotViews:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
   playerDeviceRack3DView: {fileID: 734770553}
   opponentDeviceRack3DView: {fileID: 1590016381}
   diceTray3DView: {fileID: 1991444094}
@@ -5868,14 +5862,6 @@ MonoBehaviour:
   roundTitleText: {fileID: 1698296035}
   opponentHPText: {fileID: 1850095190}
   playerHPText: {fileID: 1312906569}
-  playerClashDamageText: {fileID: 0}
-  opponentClashDamageText: {fileID: 0}
-  trayDiceSlots:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
   castCandidatePopupView: {fileID: 2065982868}
   submitSelectedButton: {fileID: 469317655}
   togglePopupButton: {fileID: 1763634526}
@@ -12237,7 +12223,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1707437562
 RectTransform:
   m_ObjectHideFlags: 0

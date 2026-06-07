@@ -31,10 +31,6 @@ namespace Tessera.Data
         [SerializeField] private int rewardOvercharge;
         [SerializeField] private string rewardDescription;
 
-        [Header("Enemy")]
-        [SerializeField] private int opponentMaxHP = 80;
-        [SerializeField] private int enemyStrikeDamage = 3;
-
         [Header("Player / Round Rules")]
         [SerializeField] private int playerMaxHP = 100;
         [SerializeField] private int diceCount = 5;
@@ -60,6 +56,17 @@ namespace Tessera.Data
         [SerializeField] private int minOpponentDeviceCount;
         [SerializeField] private int maxOpponentDeviceCount = 5;
         [SerializeField] private bool allowDuplicateOpponentDevices = true;
+
+        [Header("Enemy")]
+        [SerializeField] private int opponentMaxHP = 80;
+        [SerializeField] private int enemyStrikeDamage = 3;
+
+        [Header("Enemy Dice")]
+        [SerializeField] private EnemyDiceLoadoutDefinitionSO opponentDiceLoadout;
+
+        [Header("Round Initiative")]
+        [SerializeField] private bool useOpeningIntentInitiativeAsRoundInitiative = true;
+        [SerializeField] private InitiativeOwnerType roundInitiativeOwner = InitiativeOwnerType.Opponent;
 
         [Header("Enemy Intent")]
         [SerializeField] private EnemyIntentDefinitionSO openingIntent;
@@ -124,6 +131,24 @@ namespace Tessera.Data
 
         /// <summary>Round 중 선택될 수 있는 상대 Intent 후보 목록.</summary>
         public IReadOnlyList<EnemyIntentDefinitionSO> IntentDeck => intentDeck ?? Array.Empty<EnemyIntentDefinitionSO>();
+
+        /// <summary>상대 Dice 로드아웃 정의. null이면 기본 D6 세트를 사용한다.</summary>
+        public EnemyDiceLoadoutDefinitionSO OpponentDiceLoadout => opponentDiceLoadout;
+
+        /// <summary>OpeningIntent의 Initiative를 Round 고정 Initiative로 사용할지 여부.</summary>
+        public bool UseOpeningIntentInitiativeAsRoundInitiative => useOpeningIntentInitiativeAsRoundInitiative;
+
+        /// <summary>Round 전체에서 고정 사용할 선공권을 반환한다.</summary>
+        public InitiativeOwnerType ResolveRoundInitiativeOwner()
+        {
+            if (!useOpeningIntentInitiativeAsRoundInitiative)
+                return roundInitiativeOwner;
+
+            if (openingIntent != null)
+                return openingIntent.InitiativeOwner;
+
+            return roundInitiativeOwner;
+        }
 
         /// <summary>StageThreat 없이 RoundRuleContext를 생성한다.</summary>
         public RoundRuleContext BuildRuleContext(int runPlayerMaxHP)
@@ -245,6 +270,24 @@ namespace Tessera.Data
                 InitiativeOwnerType.Opponent);
         }
 
+        /// <summary>Round 고정 Initiative를 반영해 Round 시작 Core EnemyIntent를 생성한다.</summary>
+        public EnemyIntent BuildOpeningEnemyIntent(InitiativeOwnerType fixedRoundInitiativeOwner)
+        {
+            if (openingIntent != null)
+                return openingIntent.ToCoreIntent(enemyStrikeDamage, fixedRoundInitiativeOwner);
+
+            EnemyIntentType intentType = fixedRoundInitiativeOwner == InitiativeOwnerType.Opponent
+                ? EnemyIntentType.Strike
+                : EnemyIntentType.None;
+
+            return new EnemyIntent(
+                intentType,
+                Mathf.Max(0, enemyStrikeDamage),
+                string.IsNullOrWhiteSpace(intentDescription) ? "Opening strike." : intentDescription,
+                EnemyIntentCategoryType.Aggression,
+                fixedRoundInitiativeOwner);
+        }
+
         /// <summary>지정 Attempt에서 사용할 EnemyIntentDefinitionSO를 선택한다.</summary>
         public EnemyIntentDefinitionSO SelectIntentDefinitionForAttempt(int attemptNumber, int seed)
         {
@@ -281,6 +324,20 @@ namespace Tessera.Data
                 return selectedIntent.ToCoreIntent(enemyStrikeDamage);
 
             return BuildOpeningEnemyIntent();
+        }
+
+        /// <summary>지정 Attempt에서 사용할 Core EnemyIntent를 생성하되 Round 고정 Initiative를 유지한다.</summary>
+        public EnemyIntent BuildEnemyIntentForAttempt(
+            int attemptNumber,
+            int seed,
+            InitiativeOwnerType fixedRoundInitiativeOwner)
+        {
+            EnemyIntentDefinitionSO selectedIntent = SelectIntentDefinitionForAttempt(attemptNumber, seed);
+
+            if (selectedIntent != null)
+                return selectedIntent.ToCoreIntent(enemyStrikeDamage, fixedRoundInitiativeOwner);
+
+            return BuildOpeningEnemyIntent(fixedRoundInitiativeOwner);
         }
     }
 }

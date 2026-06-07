@@ -20,3 +20,7 @@ MonoBehaviour:
   initiativeOwner: 0
   useOpponentDevices: 1
   chooseBestAvailableCast: 1
+  opponentRollCount: 2
+  targetDamageToStop: 25
+  stopIfBeatsPlayerDamage: 1
+  rollStrategy: 3

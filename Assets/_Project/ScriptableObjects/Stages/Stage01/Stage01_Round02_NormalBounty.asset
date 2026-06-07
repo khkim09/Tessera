@@ -25,8 +25,6 @@ MonoBehaviour:
   bountyRank: 2
   rewardOvercharge: 0
   rewardDescription: Chain choice test reward.
-  opponentMaxHP: 70
-  enemyStrikeDamage: 3
   playerMaxHP: 100
   diceCount: 5
   maxAttempts: 3
@@ -50,7 +48,12 @@ MonoBehaviour:
   minOpponentDeviceCount: 1
   maxOpponentDeviceCount: 3
   allowDuplicateOpponentDevices: 0
+  opponentMaxHP: 70
+  enemyStrikeDamage: 3
+  opponentDiceLoadout: {fileID: 11400000, guid: bfbc51ecf5d0f7842ac76e7313cd3527, type: 2}
+  useOpeningIntentInitiativeAsRoundInitiative: 1
+  roundInitiativeOwner: 1
   openingIntent: {fileID: 11400000, guid: 1477729695c9c49439b2ee1b39b8c34a, type: 2}
   intentDeck:
   - {fileID: 11400000, guid: 1477729695c9c49439b2ee1b39b8c34a, type: 2}
-  - {fileID: 11400000, guid: 64a54516334b9d1429be8e1e14d095c9, type: 2}
+  - {fileID: 11400000, guid: ab6e32369d646c848b5973d1f964c76a, type: 2}

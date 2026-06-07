@@ -244,11 +244,54 @@ namespace Tessera.Core
                 out clashCastResult);
         }
 
-        /// <summary>상대 주사위 값과 Device를 기준으로 가장 강한 Opponent Clash Cast 결과를 생성한다.</summary>
+        /// <summary>상대 주사위 값과 Device를 기준으로 가장 강한 Opponent Clash Cast 결과를 생성하고 Attempt에 기록한다.</summary>
         public bool TryBuildBestOpponentClashCastResult(
             RoundState roundState,
             IReadOnlyList<int> opponentDiceValues,
             IReadOnlyList<SlotPairDeviceDefinition> opponentDeviceDefinitions,
+            out ClashCastResult clashCastResult)
+        {
+            return TryBuildBestOpponentClashCastResult(
+                roundState,
+                opponentDiceValues,
+                opponentDeviceDefinitions,
+                true,
+                out clashCastResult);
+        }
+
+        /// <summary>상대 주사위 값과 Device를 기준으로 Opponent Clash Cast 결과를 생성하고 Attempt에 기록한다.</summary>
+        public bool TryBuildBestOpponentClashCastResult(
+            RoundState roundState,
+            IReadOnlyList<int> opponentDiceValues,
+            IReadOnlyList<SlotPairDeviceDefinition> opponentDeviceDefinitions,
+            bool chooseBestAvailableCast,
+            out ClashCastResult clashCastResult)
+        {
+            ValidatePlayableRound(roundState);
+
+            clashCastResult = null;
+
+            if (!TryBuildBestOpponentClashCastResultPreview(
+                    roundState,
+                    opponentDiceValues,
+                    opponentDeviceDefinitions,
+                    chooseBestAvailableCast,
+                    out ClashCastResult previewResult))
+            {
+                return false;
+            }
+
+            roundState.CurrentAttempt.SetOpponentClashResult(previewResult);
+            clashCastResult = previewResult;
+            return true;
+        }
+
+        /// <summary>상대 주사위 값과 Device를 기준으로 Opponent Clash Cast 결과를 계산하되 Attempt에는 기록하지 않는다.</summary>
+        public bool TryBuildBestOpponentClashCastResultPreview(
+            RoundState roundState,
+            IReadOnlyList<int> opponentDiceValues,
+            IReadOnlyList<SlotPairDeviceDefinition> opponentDeviceDefinitions,
+            bool chooseBestAvailableCast,
             out ClashCastResult clashCastResult)
         {
             ValidatePlayableRound(roundState);
@@ -260,8 +303,7 @@ namespace Tessera.Core
 
             List<PatternResult> patternResults = patternEvaluator.EvaluateAll(opponentDiceValues);
             List<int> lockSlotDiceIndexes = CreateSequentialLockSlotDiceIndexes(opponentDiceValues.Count);
-            ClashCastResult bestResult = null;
-            int bestDamage = int.MinValue;
+            ClashCastResult selectedResult = null;
 
             for (int i = 0; i < patternResults.Count; i++)
             {
@@ -282,19 +324,49 @@ namespace Tessera.Core
                     continue;
                 }
 
-                if (candidateResult.FinalDamage <= bestDamage)
+                if (!chooseBestAvailableCast)
+                {
+                    selectedResult = candidateResult;
+                    break;
+                }
+
+                if (!IsBetterOpponentCastCandidate(candidateResult, selectedResult))
                     continue;
 
-                bestDamage = candidateResult.FinalDamage;
-                bestResult = candidateResult;
+                selectedResult = candidateResult;
             }
 
-            if (bestResult == null)
+            if (selectedResult == null)
                 return false;
 
-            roundState.CurrentAttempt.SetOpponentClashResult(bestResult);
-            clashCastResult = bestResult;
+            clashCastResult = selectedResult;
             return true;
+        }
+
+        /// <summary>상대 Cast 후보 중 더 좋은 결과인지 비교한다.</summary>
+        private static bool IsBetterOpponentCastCandidate(ClashCastResult candidate, ClashCastResult currentBest)
+        {
+            if (candidate == null)
+                return false;
+
+            if (currentBest == null)
+                return true;
+
+            if (candidate.FinalDamage != currentBest.FinalDamage)
+                return candidate.FinalDamage > currentBest.FinalDamage;
+
+            int candidateRawDamage = candidate.SlotPairDamagePreview != null
+                ? candidate.SlotPairDamagePreview.DamageBeforeTableRules
+                : candidate.FinalDamage;
+
+            int currentRawDamage = currentBest.SlotPairDamagePreview != null
+                ? currentBest.SlotPairDamagePreview.DamageBeforeTableRules
+                : currentBest.FinalDamage;
+
+            if (candidateRawDamage != currentRawDamage)
+                return candidateRawDamage > currentRawDamage;
+
+            return candidate.PatternType > currentBest.PatternType;
         }
 
         /// <summary>Player와 Opponent의 Cast 결과를 비교하여 승자 독식 피해를 적용한다.</summary>

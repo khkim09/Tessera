@@ -25,6 +25,12 @@ namespace Tessera.Data
         [SerializeField] private bool useOpponentDevices = true;
         [SerializeField] private bool chooseBestAvailableCast = true;
 
+        [Header("Opponent Roll AI")]
+        [SerializeField, Min(1)] private int opponentRollCount = 1;
+        [SerializeField, Min(0)] private int targetDamageToStop;
+        [SerializeField] private bool stopIfBeatsPlayerDamage = true;
+        [SerializeField] private OpponentRollStrategyType rollStrategy = OpponentRollStrategyType.Balanced;
+
         /// <summary>Intent 고유 ID.</summary>
         public string IntentId => string.IsNullOrWhiteSpace(intentId) ? name : intentId;
 
@@ -49,6 +55,18 @@ namespace Tessera.Data
         /// <summary>상대가 가능한 Cast 중 최적 Cast를 고를지 여부.</summary>
         public bool ChooseBestAvailableCast => chooseBestAvailableCast;
 
+        /// <summary>상대가 Cast 확정 전 수행할 최대 Roll 횟수다. 1이면 기존처럼 1회 Roll 후 즉시 Cast한다.</summary>
+        public int OpponentRollCount => Mathf.Max(1, opponentRollCount);
+
+        /// <summary>이 피해 이상이면 남은 Roll이 있어도 즉시 Cast를 확정한다. 0이면 사용하지 않는다.</summary>
+        public int TargetDamageToStop => Mathf.Max(0, targetDamageToStop);
+
+        /// <summary>플레이어 후공 상황에서 현재 상대 피해가 플레이어 피해를 초과하면 즉시 Cast를 확정할지 여부다.</summary>
+        public bool StopIfBeatsPlayerDamage => stopIfBeatsPlayerDamage;
+
+        /// <summary>Stop 조건 미충족 시 다음 Roll 전에 유지할 주사위를 선택하는 전략이다.</summary>
+        public OpponentRollStrategyType RollStrategy => rollStrategy;
+
         /// <summary>Core EnemyIntent 모델을 생성한다.</summary>
         public EnemyIntent ToCoreIntent(int fallbackIntentValue)
         {
@@ -62,6 +80,21 @@ namespace Tessera.Data
                 !string.IsNullOrWhiteSpace(shortDescription) ? shortDescription : DisplayName,
                 categoryType,
                 initiativeOwner);
+        }
+
+        /// <summary>지정한 Round 고정 선공권을 사용해 Core EnemyIntent 모델을 생성한다.</summary>
+        public EnemyIntent ToCoreIntent(int fallbackIntentValue, InitiativeOwnerType forcedInitiativeOwner)
+        {
+            EnemyIntentType intentType = forcedInitiativeOwner == InitiativeOwnerType.Opponent
+                ? EnemyIntentType.Strike
+                : EnemyIntentType.None;
+
+            return new EnemyIntent(
+                intentType,
+                Mathf.Max(0, fallbackIntentValue),
+                !string.IsNullOrWhiteSpace(shortDescription) ? shortDescription : DisplayName,
+                categoryType,
+                forcedInitiativeOwner);
         }
     }
 }
