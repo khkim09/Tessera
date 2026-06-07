@@ -15,9 +15,6 @@ namespace Tessera.UI
     /// <summary>실제 플레이형 Round 진행 UI와 Core Round 상태를 연결한다.</summary>
     public class TesseraGameplayBattlePresenter : MonoBehaviour, IDeviceSlotReorderHandler
     {
-
-        #region Nested Types
-
         /// <summary>Battle Presenter가 허용할 플레이어 입력 상태를 명시적으로 관리한다.</summary>
         private enum BattleInteractionState
         {
@@ -29,10 +26,6 @@ namespace Tessera.UI
             AttemptTransition,
             RoundEnded
         }
-
-        #endregion
-
-        #region Serialized Fields
 
         [Header("Round Simulator")]
         [SerializeField] private bool useFixedSeed = true;
@@ -153,10 +146,6 @@ namespace Tessera.UI
         [SerializeField] private bool externalGameplayInputLocked;
         [SerializeField] private string externalGameplayInputLockReason = "Gameplay input is locked.";
 
-        #endregion
-
-        #region Runtime State
-
         private readonly int[] lockedDiceIndexBySlot = { -1, -1, -1, -1, -1 };
         private string currentRoundDisplayName = "Round";
 
@@ -182,10 +171,7 @@ namespace Tessera.UI
         private bool hasLockedRoundInitiativeOwner;
         private DiceRoller opponentDiceRoller;
 
-        #endregion
-
-        #region Events And Properties
-
+        #region Event
 
         /// <summary>Round 승리 확정</summary>
         public event Action<ClashResolveResult> RoundWon;
@@ -193,15 +179,14 @@ namespace Tessera.UI
         /// <summary>Round 패배 확정</summary>
         public event Action<ClashResolveResult> RoundLost;
 
+        #endregion
 
+        #region Debug Start
 
         /// <summary>현재 진행 중인 Core RoundState를 반환한다.</summary>
         public RoundState CurrentRoundState => roundState;
 
-
         #endregion
-
-        #region Unity Lifecycle
 
         /// <summary>Core 시뮬레이터와 ViewModel 빌더를 준비한다.</summary>
         private void Awake()
@@ -245,9 +230,23 @@ namespace Tessera.UI
                 opponentSlotPairDevices = ResizeDeviceArray(opponentSlotPairDevices, SlotPairDamageCalculator.SlotPairCount);
         }
 
-        #endregion
+        /// <summary>Device 배열 길이를 지정 길이로 보정한다.</summary>
+        private static SlotPairDeviceDefinitionSO[] ResizeDeviceArray(
+            SlotPairDeviceDefinitionSO[] source,
+            int targetLength)
+        {
+            SlotPairDeviceDefinitionSO[] resized = new SlotPairDeviceDefinitionSO[targetLength];
 
-        #region Public API
+            if (source == null)
+                return resized;
+
+            int copyCount = Mathf.Min(source.Length, targetLength);
+
+            for (int i = 0; i < copyCount; i++)
+                resized[i] = source[i];
+
+            return resized;
+        }
 
         /// <summary>외부 Stage/Bounty Flow에서 지정한 규칙, 상대 Device, 이월 HP/Overcharge 상태로 새 Round를 시작한다.</summary>
         public void StartRound(
@@ -321,6 +320,83 @@ namespace Tessera.UI
                 StartOpponentFirstTurnAsync().Forget();
             else
                 PreparePlayerFirstRoundDicePresentationAsync().Forget();
+        }
+
+        /// <summary>Opponent 선공 Attempt 시작 흐름을 처리한다.</summary>
+        private async UniTaskVoid StartOpponentFirstTurnAsync()
+        {
+            if (roundState == null)
+                return;
+
+            SetInteractionState(BattleInteractionState.EnemyTurn);
+            RefreshDiceInteractionState();
+
+            await MovePlayerDiceSetToRestIfNeededAsync();
+
+            bool built = await BuildOpponentClashResultWithRollAIAsync("OpponentFirst", null);
+
+            if (!built || pendingOpponentClashResult == null)
+            {
+                SetMessage("Opponent failed to prepare clash.");
+                SetInteractionState(BattleInteractionState.PlayerIdle);
+                await PreparePlayerFirstRoundDicePresentationAsync();
+                RefreshAll("Player turn. Roll the dice.");
+                return;
+            }
+
+            LogOpponentClashCastResult("OpponentFirst", pendingOpponentClashResult);
+
+            SetMessage(BuildOpponentTargetMessage(pendingOpponentClashResult));
+            RefreshClashDamageTexts();
+
+            if (enemyClashResultRevealDelay > 0f)
+            {
+                await UniTask.Delay(
+                    TimeSpan.FromSeconds(enemyClashResultRevealDelay),
+                    cancellationToken: this.GetCancellationTokenOnDestroy());
+            }
+
+            // 상대 선공 결과를 공개한 뒤, 플레이어 턴으로 넘기기 전에 상대 Dice를 RestPoint로 1회만 회수한다.
+            await MoveOpponentDiceSetToRestIfNeededAsync();
+
+            if (enemyTurnToPlayerDelay > 0f)
+            {
+                await UniTask.Delay(
+                    TimeSpan.FromSeconds(enemyTurnToPlayerDelay),
+                    cancellationToken: this.GetCancellationTokenOnDestroy());
+            }
+
+            SetInteractionState(BattleInteractionState.PlayerIdle);
+
+            // 위에서 상대 Dice를 이미 회수했으므로 Prepare 단계에서는 Opponent 회수를 생략한다.
+            await PreparePlayerFirstRoundDicePresentationAsync(false);
+
+            RefreshAll($"Beat Damage {pendingOpponentClashResult.FinalDamage}, or use Broken Cast to reduce incoming damage.");
+        }
+
+        /// <summary>상대 선공 Clash 결과를 플레이어에게 보여줄 메시지로 변환한다.</summary>
+        private string BuildOpponentTargetMessage(ClashCastResult opponentResult)
+        {
+            if (opponentResult == null)
+                return "Opponent failed to prepare clash.";
+
+            string castName = CastBoardCatalog.GetDisplayName(opponentResult.PatternType);
+
+            int score = opponentResult.SlotPairDamagePreview != null
+                ? opponentResult.SlotPairDamagePreview.FinalScore
+                : 0;
+
+            string force = opponentResult.SlotPairDamagePreview != null
+                ? opponentResult.SlotPairDamagePreview.FormatFinalForce()
+                : "-";
+
+            int rawDamage = opponentResult.SlotPairDamagePreview != null
+                ? opponentResult.SlotPairDamagePreview.DamageBeforeTableRules
+                : opponentResult.FinalDamage;
+
+            return rawDamage == opponentResult.FinalDamage
+                ? $"Opponent set target: {castName} / Score {score} x Force {force} = Damage {opponentResult.FinalDamage}."
+                : $"Opponent set target: {castName} / Score {score} x Force {force} = Raw {rawDamage} → Damage {opponentResult.FinalDamage}.";
         }
 
         /// <summary>외부 RunSession을 연결하고 장착 Device/Money 상태를 동기화한다.</summary>
@@ -410,6 +486,188 @@ namespace Tessera.UI
             }
 
             RollUnlockedDiceCore("Unlocked dice rolled.");
+        }
+
+        /// <summary>DiceCup 클릭으로 Roll 연출과 Core Roll을 순차 실행한다.</summary>
+        private async UniTaskVoid PlayDiceCupRollSequenceAsync()
+        {
+            if (!TryCanRollUnlockedDice(out string failureMessage))
+            {
+                SetMessage(failureMessage);
+                return;
+            }
+
+            List<int> beforeDiceValues = new List<int>(roundState.GetCurrentDiceValues());
+            List<bool> lockStates = CreateDiceLockStates();
+
+            SetInteractionState(BattleInteractionState.DiceRolling);
+            RefreshButtonStates();
+
+            bool rollSucceeded = false;
+
+            try
+            {
+                SetMessage("Dice cup rolling...");
+
+                bool rerolled = simulator.TryRerollUnlockedDice(roundState);
+
+                if (!rerolled)
+                {
+                    RefreshTableHologramBattleMeta();
+                    SetMessage("No rolls left.");
+                    return;
+                }
+
+                rollSucceeded = true;
+
+                // Roll 자원은 Core Roll 소모 즉시 감소시킨다. Dice 값 표시는 컵 연출 후 갱신한다.
+                RefreshTableHologramBattleMeta();
+                RefreshButtonStates();
+
+                if (diceCup3DView != null && diceTray3DView != null)
+                {
+                    await diceTray3DView.PlayUnlockedDiceEnterCupAsync(
+                        beforeDiceValues,
+                        lockStates,
+                        diceCup3DView.DiceEntryPosition,
+                        diceCup3DView.DiceEntryRotation,
+                        diceCupEnterDuration,
+                        diceCupEnterStagger,
+                        diceCupEnterArcHeight,
+                        diceCupEnterRollEuler,
+                        this.GetCancellationTokenOnDestroy());
+
+                    await diceCup3DView.PlayLiftShakeDropAsync(
+                        diceCupLiftHeight,
+                        diceCupLiftDuration,
+                        diceCupShakeDuration,
+                        diceCupDropDuration,
+                        diceCupShakeAngle,
+                        diceCupShakeFrequency,
+                        this.GetCancellationTokenOnDestroy());
+
+                    List<int> afterDiceValues = new List<int>(roundState.GetCurrentDiceValues());
+                    diceTray3DView.SetDiceValuesOnly(afterDiceValues, lockStates);
+
+                    await diceTray3DView.PlayUnlockedDiceScatterFromCupAsync(
+                        afterDiceValues,
+                        lockStates,
+                        diceCup3DView.DiceEntryPosition,
+                        diceCup3DView.DiceEntryRotation,
+                        diceCupScatterDuration,
+                        diceCupScatterStagger,
+                        diceCupScatterArcHeight,
+                        diceCupScatterRollEuler,
+                        this.GetCancellationTokenOnDestroy());
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                SetMessage("Dice cup roll canceled.");
+            }
+            finally
+            {
+                if (interactionState == BattleInteractionState.DiceRolling)
+                    SetInteractionState(BattleInteractionState.PlayerIdle);
+
+                if (rollSucceeded)
+                    RefreshAll("Dice cup rolled unlocked dice.");
+                else
+                    RefreshButtonStates();
+            }
+        }
+
+        /// <summary>DiceCup 클릭 입력을 Roll 흐름으로 연결한다.</summary>
+        private void OnDiceCupClicked()
+        {
+            if (!useDiceCupRollInput)
+                return;
+
+            PlayDiceCupRollSequenceAsync().Forget();
+        }
+
+        /// <summary>현재 상태에서 Roll 가능한지 검사한다.</summary>
+        private bool TryCanRollUnlockedDice(out string failureMessage)
+        {
+            failureMessage = string.Empty;
+
+            if (externalGameplayInputLocked)
+            {
+                failureMessage = externalGameplayInputLockReason;
+                return false;
+            }
+
+            if (interactionState == BattleInteractionState.DiceRolling)
+            {
+                failureMessage = "Roll is already in progress.";
+                return false;
+            }
+
+            if (roundState == null)
+            {
+                failureMessage = "No active round.";
+                return false;
+            }
+
+            if (roundState.IsRoundEnded || interactionState == BattleInteractionState.RoundEnded)
+            {
+                failureMessage = "Round already ended. Awaiting stage decision.";
+                return false;
+            }
+
+            if (!CanActInCurrentAttempt())
+            {
+                failureMessage = "Cannot roll now.";
+                return false;
+            }
+
+            if (roundState.RemainingRoundRolls <= 0)
+            {
+                failureMessage = "No rolls left.";
+                return false;
+            }
+
+            if (!HasUnlockedDice())
+            {
+                failureMessage = "No unlocked dice.";
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>Core Roll을 실행하고 전체 표시를 갱신한다.</summary>
+        private bool RollUnlockedDiceCore(string successMessage)
+        {
+            if (!TryCanRollUnlockedDice(out string failureMessage))
+            {
+                RefreshAll(failureMessage);
+                return false;
+            }
+
+            bool rerolled = simulator.TryRerollUnlockedDice(roundState);
+
+            if (rerolled)
+                RefreshAll(successMessage);
+            else
+                RefreshAll("No rolls left.");
+
+            return rerolled;
+        }
+
+        /// <summary>하나 이상 Unlock된 Dice가 있는지 확인한다.</summary>
+        private bool HasUnlockedDice()
+        {
+            if (roundState == null || roundState.Dice == null)
+                return false;
+
+            for (int i = 0; i < roundState.Dice.Count; i++)
+            {
+                if (!roundState.Dice[i].IsLocked)
+                    return true;
+            }
+
+            return false;
         }
 
         /// <summary>현재 선택한 Cast를 SlotPair 계산값으로 제출한다.</summary>
@@ -604,6 +862,23 @@ namespace Tessera.UI
             RefreshAll(showCastCandidatePopup ? "Cast popup ON." : "Cast popup OFF.");
         }
 
+        /// <summary>3D DiceView 클릭 콜백을 초기화한다.</summary>
+        private void InitializeDiceSlots()
+        {
+            if (diceTray3DView != null)
+                diceTray3DView.Initialize(ToggleDiceLock);
+        }
+
+        /// <summary>3D Device 슬롯 표시 인덱스를 초기화한다.</summary>
+        private void InitializeDeviceSlots()
+        {
+            if (playerDeviceRack3DView != null)
+                playerDeviceRack3DView.InitializeSlots();
+
+            if (opponentDeviceRack3DView != null)
+                opponentDeviceRack3DView.InitializeSlots();
+        }
+
         /// <summary>IDeviceSlotReorderHandler: 두 Device 슬롯의 SlotPairDeviceDefinitionSO를 교체한다.</summary>
         public void RequestDeviceSlotSwap(int sourceSlotIndex, int targetSlotIndex)
         {
@@ -642,578 +917,595 @@ namespace Tessera.UI
             }
         }
 
-        #endregion
-
-        #region Round Start And Attempt Flow
-
-        /// <summary>Opponent 선공 Attempt 시작 흐름을 처리한다.</summary>
-        private async UniTaskVoid StartOpponentFirstTurnAsync()
+        /// <summary>지정 Dice의 Lock 상태를 토글하고, Lock 순서 기반 SlotPair 매핑을 갱신한다.</summary>
+        private void ToggleDiceLock(int diceIndex)
         {
-            if (roundState == null)
-                return;
-
-            SetInteractionState(BattleInteractionState.EnemyTurn);
-            RefreshDiceInteractionState();
-
-            await MovePlayerDiceSetToRestIfNeededAsync();
-
-            bool built = await BuildOpponentClashResultWithRollAIAsync("OpponentFirst", null);
-
-            if (!built || pendingOpponentClashResult == null)
+            if (!CanInteractWithPlayerDice())
             {
-                SetMessage("Opponent failed to prepare clash.");
-                SetInteractionState(BattleInteractionState.PlayerIdle);
-                await PreparePlayerFirstRoundDicePresentationAsync();
-                RefreshAll("Player turn. Roll the dice.");
+                SetMessage("Roll the dice before locking.");
                 return;
             }
 
-            LogOpponentClashCastResult("OpponentFirst", pendingOpponentClashResult);
-
-            SetMessage(BuildOpponentTargetMessage(pendingOpponentClashResult));
-            RefreshClashDamageTexts();
-
-            if (enemyClashResultRevealDelay > 0f)
-            {
-                await UniTask.Delay(
-                    TimeSpan.FromSeconds(enemyClashResultRevealDelay),
-                    cancellationToken: this.GetCancellationTokenOnDestroy());
-            }
-
-            // 상대 선공 결과를 공개한 뒤, 플레이어 턴으로 넘기기 전에 상대 Dice를 RestPoint로 1회만 회수한다.
-            await MoveOpponentDiceSetToRestIfNeededAsync();
-
-            if (enemyTurnToPlayerDelay > 0f)
-            {
-                await UniTask.Delay(
-                    TimeSpan.FromSeconds(enemyTurnToPlayerDelay),
-                    cancellationToken: this.GetCancellationTokenOnDestroy());
-            }
-
-            SetInteractionState(BattleInteractionState.PlayerIdle);
-
-            // 위에서 상대 Dice를 이미 회수했으므로 Prepare 단계에서는 Opponent 회수를 생략한다.
-            await PreparePlayerFirstRoundDicePresentationAsync(false);
-
-            RefreshAll($"Beat Damage {pendingOpponentClashResult.FinalDamage}, or use Broken Cast to reduce incoming damage.");
-        }
-
-        /// <summary>상대 선공 Clash 결과를 플레이어에게 보여줄 메시지로 변환한다.</summary>
-        private string BuildOpponentTargetMessage(ClashCastResult opponentResult)
-        {
-            if (opponentResult == null)
-                return "Opponent failed to prepare clash.";
-
-            string castName = CastBoardCatalog.GetDisplayName(opponentResult.PatternType);
-
-            int score = opponentResult.SlotPairDamagePreview != null
-                ? opponentResult.SlotPairDamagePreview.FinalScore
-                : 0;
-
-            string force = opponentResult.SlotPairDamagePreview != null
-                ? opponentResult.SlotPairDamagePreview.FormatFinalForce()
-                : "-";
-
-            int rawDamage = opponentResult.SlotPairDamagePreview != null
-                ? opponentResult.SlotPairDamagePreview.DamageBeforeTableRules
-                : opponentResult.FinalDamage;
-
-            return rawDamage == opponentResult.FinalDamage
-                ? $"Opponent set target: {castName} / Score {score} x Force {force} = Damage {opponentResult.FinalDamage}."
-                : $"Opponent set target: {castName} / Score {score} x Force {force} = Raw {rawDamage} → Damage {opponentResult.FinalDamage}.";
-        }
-
-        /// <summary>플레이어 Cast 제출 이후 SlotPair 연출, 상대 후공 계산, Clash 판정을 순서대로 처리한다.</summary>
-        private async UniTaskVoid PlaySubmittedClashFlowAsync(ClashCastResult playerResult)
-        {
-            if (playerResult == null)
+            if (diceIndex < 0 || diceIndex >= roundState.Dice.Count)
                 return;
 
-            await PlaySlotPairEvaluationSequenceAsync(playerResult);
+            bool willLock = !roundState.Dice[diceIndex].IsLocked;
 
-            if (pendingOpponentClashResult == null)
-                await BuildOpponentClashResultAfterPlayerSubmitAsync(playerResult);
-
-            if (pendingOpponentClashResult == null)
+            if (willLock)
             {
-                SetMessage("Opponent clash result is missing.");
-                SetInteractionState(BattleInteractionState.PlayerIdle);
-                return;
-            }
+                int emptySlotIndex = FindFirstEmptyLockSlotIndex();
 
-            lastClashResolveResult = simulator.ResolveClash(
-                roundState,
-                playerResult,
-                pendingOpponentClashResult);
-
-            RefreshClashDamageTexts();
-            LogClashResolveResult(lastClashResolveResult);
-            RefreshLeftInfoTexts();
-            SetMessage(lastClashResolveResult.Message);
-
-            if (enemyTurnToPlayerDelay > 0f)
-            {
-                await UniTask.Delay(
-                    TimeSpan.FromSeconds(enemyTurnToPlayerDelay),
-                    cancellationToken: this.GetCancellationTokenOnDestroy());
-            }
-
-            // 피해 적용과 결과 메시지 출력이 끝난 뒤 다음 Roll 전까지 이전 DamageText를 남기지 않는다.
-            ClearClashDamageTexts();
-
-            if (roundState.IsRoundEnded)
-            {
-                NotifyRoundEndIfNeeded(lastClashResolveResult);
-                ForceRoundEndDiceTrayState(lastClashResolveResult);
-                return;
-            }
-
-            await TryAutoStartNextAttemptAfterClashAsync();
-        }
-
-        /// <summary>플레이어 선공 이후 상대 후공 Clash 결과를 Opponent Roll AI로 생성한다.</summary>
-        private async UniTask BuildOpponentClashResultAfterPlayerSubmitAsync(ClashCastResult playerResult)
-        {
-            SetInteractionState(BattleInteractionState.EnemyTurn);
-            RefreshDiceInteractionState();
-
-            await MovePlayerDiceSetToRestIfNeededAsync();
-
-            if (enemyTurnStartDelay > 0f)
-            {
-                await UniTask.Delay(
-                    TimeSpan.FromSeconds(enemyTurnStartDelay),
-                    cancellationToken: this.GetCancellationTokenOnDestroy());
-            }
-
-            bool built = await BuildOpponentClashResultWithRollAIAsync("OpponentSecond", playerResult);
-
-            if (built && pendingOpponentClashResult != null)
-            {
-                LogOpponentClashCastResult("OpponentSecond", pendingOpponentClashResult);
-
-                SetMessage(BuildOpponentTargetMessage(pendingOpponentClashResult));
-                RefreshClashDamageTexts();
-
-                if (enemyClashResultRevealDelay > 0f)
+                if (emptySlotIndex < 0)
                 {
-                    await UniTask.Delay(
-                        TimeSpan.FromSeconds(enemyClashResultRevealDelay),
-                        cancellationToken: this.GetCancellationTokenOnDestroy());
-                }
-            }
-
-            await MoveOpponentDiceSetToRestIfNeededAsync();
-        }
-
-        /// <summary>Round가 끝나지 않았으면 다음 Attempt를 자동으로 시작한다.</summary>
-        private async UniTask TryAutoStartNextAttemptAfterClashAsync()
-        {
-            if (!autoStartNextAttemptAfterCast)
-                return;
-
-            if (roundState == null)
-                return;
-
-            if (roundState.IsRoundEnded)
-            {
-                RefreshAll("Round ended.");
-                return;
-            }
-
-            if (!roundState.CurrentAttempt.IsSubmitted)
-                return;
-
-            if (autoNextAttemptDelay > 0f)
-            {
-                await UniTask.Delay(
-                    TimeSpan.FromSeconds(autoNextAttemptDelay),
-                    cancellationToken: this.GetCancellationTokenOnDestroy());
-            }
-
-            if (roundState == null || roundState.IsRoundEnded)
-                return;
-
-            if (!roundState.CurrentAttempt.IsSubmitted)
-                return;
-
-            StartNextAttempt();
-        }
-
-        /// <summary>Clash 종료 결과 이벤트를 중복 없이 외부 Root로 전달한다.</summary>
-        private void NotifyRoundEndIfNeeded(ClashResolveResult result)
-        {
-            if (result == null)
-                return;
-
-            if (roundEndNotified)
-                return;
-
-            bool isWon = result.OutcomeType == RoundOutcomeType.Won || (roundState != null && roundState.IsRoundWon);
-            bool isLost = result.OutcomeType == RoundOutcomeType.Lost || (roundState != null && roundState.IsRoundLost);
-
-            if (isWon)
-            {
-                roundEndNotified = true;
-                RoundWon?.Invoke(result);
-                return;
-            }
-
-            if (isLost)
-            {
-                roundEndNotified = true;
-                RoundLost?.Invoke(result);
-            }
-        }
-
-        /// <summary>Round 종료 후 Dice를 Tray에 고정하고 StageFlow 후속 전환을 기다리는 상태로 만든다.</summary>
-        private void ForceRoundEndDiceTrayState(ClashResolveResult result)
-        {
-            if (roundState == null)
-                return;
-
-            SetInteractionState(BattleInteractionState.RoundEnded);
-            CancelSlotPairEvaluationSequence();
-            ClearSlotPairEvaluationHighlights();
-            ClearLockSlotMapping();
-
-            for (int diceIndex = 0; diceIndex < roundState.Dice.Count; diceIndex++)
-                roundState.GetDice(diceIndex).SetLocked(false);
-
-            if (diceTray3DView != null)
-            {
-                diceTray3DView.HideDiceSet(DiceOwnerType.Opponent);
-                diceTray3DView.RestoreAllDiceToTray(roundState.GetCurrentDiceValues(), lockedDiceMoveDuration);
-            }
-
-            bool isWon = roundState.IsRoundWon;
-
-            string message = isWon
-                ? "Round won. Awaiting bounty decision."
-                : "Round lost. Awaiting result decision.";
-
-            Debug.Log(
-                $"[Tessera][RoundEnd] {message} " +
-                $"OpponentHP={roundState.Encounter.OpponentCurrentHP}/{roundState.Encounter.OpponentMaxHP} | " +
-                $"PlayerHP={roundState.Encounter.PlayerCurrentHP}/{roundState.Encounter.PlayerMaxHP} | " +
-                $"DamageToOpponent={(result != null ? result.DamageToOpponent.ToString() : "0")} | " +
-                $"DamageToPlayer={(result != null ? result.DamageToPlayer.ToString() : "0")}");
-
-            RefreshAll(message);
-            ClearClashDamageTexts();
-        }
-
-        /// <summary>지정 Attempt 번호에서 사용할 EnemyIntent를 생성한다. Round Initiative는 Round 시작 시점 값으로 고정한다.</summary>
-        private EnemyIntent BuildEnemyIntentForAttempt(int attemptNumber)
-        {
-            InitiativeOwnerType roundInitiativeOwner = ResolveCurrentRoundInitiativeOwner();
-
-            if (currentRoundDefinition != null)
-            {
-                currentEnemyIntentDefinition = currentRoundDefinition.SelectIntentDefinitionForAttempt(
-                    attemptNumber,
-                    seed);
-
-                EnemyIntent intent = currentRoundDefinition.BuildEnemyIntentForAttempt(
-                    attemptNumber,
-                    seed,
-                    roundInitiativeOwner);
-
-                Debug.Log(
-                    $"[Tessera][Intent] Attempt={attemptNumber} | " +
-                    $"Intent={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.DisplayName : "Fallback")} | " +
-                    $"RoundInitiative={roundInitiativeOwner} | " +
-                    $"IntentInitiative={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.InitiativeOwner.ToString() : "Fallback")} | " +
-                    $"InitiativeLocked=True | " +
-                    $"Category={intent.CategoryType} | " +
-                    $"UseOpponentDevices={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.UseOpponentDevices.ToString() : "Fallback")} | " +
-                    $"ChooseBest={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.ChooseBestAvailableCast.ToString() : "Fallback")}");
-
-                return intent;
-            }
-
-            currentEnemyIntentDefinition = null;
-
-            if (roundState != null && roundState.CurrentEnemyIntent != null)
-                return roundState.CurrentEnemyIntent;
-
-            if (roundState != null)
-            {
-                EnemyIntentType intentType = roundInitiativeOwner == InitiativeOwnerType.Opponent
-                    ? EnemyIntentType.Strike
-                    : EnemyIntentType.None;
-
-                return new EnemyIntent(
-                    intentType,
-                    roundState.RuleContext.EnemyStrikeDamage,
-                    "Fallback intent.",
-                    EnemyIntentCategoryType.Aggression,
-                    roundInitiativeOwner);
-            }
-
-            return EnemyIntent.None();
-        }
-
-        /// <summary>Round 시작 시점의 Initiative를 저장한다.</summary>
-        private void ResolveAndStoreRoundInitiativeOwner(EnemyIntent openingIntent)
-        {
-            if (currentRoundDefinition != null)
-            {
-                lockedRoundInitiativeOwner = currentRoundDefinition.ResolveRoundInitiativeOwner();
-                hasLockedRoundInitiativeOwner = true;
-                return;
-            }
-
-            if (openingIntent != null)
-            {
-                lockedRoundInitiativeOwner = openingIntent.InitiativeOwner;
-                hasLockedRoundInitiativeOwner = true;
-                return;
-            }
-
-            lockedRoundInitiativeOwner = InitiativeOwnerType.Opponent;
-            hasLockedRoundInitiativeOwner = true;
-        }
-
-        /// <summary>현재 Round에서 고정 사용할 Initiative를 반환한다.</summary>
-        private InitiativeOwnerType ResolveCurrentRoundInitiativeOwner()
-        {
-            if (hasLockedRoundInitiativeOwner)
-                return lockedRoundInitiativeOwner;
-
-            if (currentRoundDefinition != null)
-                return currentRoundDefinition.ResolveRoundInitiativeOwner();
-
-            if (roundState != null && roundState.CurrentAttempt != null)
-                return roundState.CurrentAttempt.InitiativeOwner;
-
-            return InitiativeOwnerType.Opponent;
-        }
-
-        /// <summary>Round 고정 Initiative를 반영한 Opening EnemyIntent를 생성한다.</summary>
-        private EnemyIntent BuildOpeningEnemyIntentWithLockedInitiative(EnemyIntent fallbackOpeningIntent)
-        {
-            InitiativeOwnerType roundInitiativeOwner = ResolveCurrentRoundInitiativeOwner();
-
-            if (currentRoundDefinition != null)
-                return currentRoundDefinition.BuildOpeningEnemyIntent(roundInitiativeOwner);
-
-            if (fallbackOpeningIntent != null)
-                return fallbackOpeningIntent;
-
-            if (roundState == null)
-                return EnemyIntent.None();
-
-            EnemyIntentType intentType = roundInitiativeOwner == InitiativeOwnerType.Opponent
-                ? EnemyIntentType.Strike
-                : EnemyIntentType.None;
-
-            return new EnemyIntent(
-                intentType,
-                roundState.RuleContext.EnemyStrikeDamage,
-                "Opening intent.",
-                EnemyIntentCategoryType.Aggression,
-                roundInitiativeOwner);
-        }
-
-        /// <summary>Opening EnemyIntent를 현재 Attempt Initiative에 반영한다.</summary>
-        private void ApplyOpeningIntentToCurrentAttempt(EnemyIntent openingIntent)
-        {
-            if (roundState == null)
-                return;
-
-            if (roundState.CurrentAttempt == null)
-                return;
-
-            simulator.ApplyEnemyIntentToCurrentAttempt(
-                roundState,
-                openingIntent ?? EnemyIntent.Strike(roundState.RuleContext.EnemyStrikeDamage));
-        }
-
-        #endregion
-
-        #region Player Roll And Input
-
-        /// <summary>DiceCup 클릭으로 Roll 연출과 Core Roll을 순차 실행한다.</summary>
-        private async UniTaskVoid PlayDiceCupRollSequenceAsync()
-        {
-            if (!TryCanRollUnlockedDice(out string failureMessage))
-            {
-                SetMessage(failureMessage);
-                return;
-            }
-
-            List<int> beforeDiceValues = new List<int>(roundState.GetCurrentDiceValues());
-            List<bool> lockStates = CreateDiceLockStates();
-
-            SetInteractionState(BattleInteractionState.DiceRolling);
-            RefreshButtonStates();
-
-            bool rollSucceeded = false;
-
-            try
-            {
-                SetMessage("Dice cup rolling...");
-
-                bool rerolled = simulator.TryRerollUnlockedDice(roundState);
-
-                if (!rerolled)
-                {
-                    RefreshTableHologramBattleMeta();
-                    SetMessage("No rolls left.");
+                    SetMessage("No empty device slot.");
                     return;
                 }
 
-                rollSucceeded = true;
-
-                // Roll 자원은 Core Roll 소모 즉시 감소시킨다. Dice 값 표시는 컵 연출 후 갱신한다.
-                RefreshTableHologramBattleMeta();
-                RefreshButtonStates();
-
-                if (diceCup3DView != null && diceTray3DView != null)
-                {
-                    await diceTray3DView.PlayUnlockedDiceEnterCupAsync(
-                        beforeDiceValues,
-                        lockStates,
-                        diceCup3DView.DiceEntryPosition,
-                        diceCup3DView.DiceEntryRotation,
-                        diceCupEnterDuration,
-                        diceCupEnterStagger,
-                        diceCupEnterArcHeight,
-                        diceCupEnterRollEuler,
-                        this.GetCancellationTokenOnDestroy());
-
-                    await diceCup3DView.PlayLiftShakeDropAsync(
-                        diceCupLiftHeight,
-                        diceCupLiftDuration,
-                        diceCupShakeDuration,
-                        diceCupDropDuration,
-                        diceCupShakeAngle,
-                        diceCupShakeFrequency,
-                        this.GetCancellationTokenOnDestroy());
-
-                    List<int> afterDiceValues = new List<int>(roundState.GetCurrentDiceValues());
-                    diceTray3DView.SetDiceValuesOnly(afterDiceValues, lockStates);
-
-                    await diceTray3DView.PlayUnlockedDiceScatterFromCupAsync(
-                        afterDiceValues,
-                        lockStates,
-                        diceCup3DView.DiceEntryPosition,
-                        diceCup3DView.DiceEntryRotation,
-                        diceCupScatterDuration,
-                        diceCupScatterStagger,
-                        diceCupScatterArcHeight,
-                        diceCupScatterRollEuler,
-                        this.GetCancellationTokenOnDestroy());
-                }
+                simulator.SetDiceLocked(roundState, diceIndex, true);
+                AssignDiceToFirstEmptyLockSlot(diceIndex);
             }
-            catch (OperationCanceledException)
+            else
             {
-                SetMessage("Dice cup roll canceled.");
+                simulator.SetDiceLocked(roundState, diceIndex, false);
+                RemoveDiceFromLockSlot(diceIndex);
             }
-            finally
-            {
-                if (interactionState == BattleInteractionState.DiceRolling)
-                    SetInteractionState(BattleInteractionState.PlayerIdle);
 
-                if (rollSucceeded)
-                    RefreshAll("Dice cup rolled unlocked dice.");
-                else
-                    RefreshButtonStates();
-            }
+            RefreshAll(willLock ? "Dice locked." : "Dice unlocked.");
         }
 
-        /// <summary>DiceCup 클릭 입력을 Roll 흐름으로 연결한다.</summary>
-        private void OnDiceCupClicked()
+        /// <summary>3D LockSlot 클릭으로 해당 슬롯에 배치된 Dice를 Unlock한다.</summary>
+        private void UnlockDiceFromLockSlot(int slotIndex)
         {
-            if (!useDiceCupRollInput)
+            if (!CanActInCurrentAttempt())
                 return;
 
-            PlayDiceCupRollSequenceAsync().Forget();
+            if (slotIndex < 0 || slotIndex >= lockedDiceIndexBySlot.Length)
+                return;
+
+            int diceIndex = lockedDiceIndexBySlot[slotIndex];
+
+            if (diceIndex < 0)
+                return;
+
+            if (diceIndex >= roundState.Dice.Count)
+                return;
+
+            // Core Lock 상태와 LockSlot 매핑을 함께 해제한다.
+            simulator.SetDiceLocked(roundState, diceIndex, false);
+            lockedDiceIndexBySlot[slotIndex] = -1;
+
+            RefreshAll("Dice unlocked from lock slot.");
         }
 
-        /// <summary>현재 상태에서 Roll 가능한지 검사한다.</summary>
-        private bool TryCanRollUnlockedDice(out string failureMessage)
+        /// <summary>Popup 후보 클릭으로 제출할 Cast를 선택한다.</summary>
+        private void SelectCastCandidate(RollPatternType patternType)
         {
-            failureMessage = string.Empty;
+            if (!CanActInCurrentAttempt())
+                return;
+
+            selectedPatternType = patternType;
+            RefreshAll(null);
+        }
+
+        /// <summary>전체 UI 표시를 현재 Round 상태 기준으로 다시 그린다.</summary>
+        private void RefreshAll(string optionalMessage)
+        {
+            if (roundState == null) return;
+
+            currentCastBoardViewModel = castBoardModelBuilder.Build(roundState);
+
+            if (CanPrepareCastPreviewInCurrentAttempt())
+            {
+                if (selectedPatternType == RollPatternType.None)
+                    selectedPatternType = currentCastBoardViewModel.RecommendedPatternType;
+
+                if (!CanSelectedCastStillSubmit())
+                    selectedPatternType = currentCastBoardViewModel.RecommendedPatternType;
+
+                BuildCurrentSlotPairPreview();
+            }
+            else if (CanActInCurrentAttempt())
+            {
+                selectedPatternType = RollPatternType.None;
+                currentSlotPairPreview = null;
+                currentPreviewTableRuleResult = null;
+                ClearTableHologramCastPreview();
+            }
+
+            RefreshLeftInfoTexts();
+            RefreshDiceViews();
+            RefreshDeviceSlotViews();
+            RefreshCastPopup();
+            RefreshButtonStates();
+
+            if (!string.IsNullOrWhiteSpace(optionalMessage))
+                SetMessage(optionalMessage);
+        }
+
+        /// <summary>선택된 Cast 기준 SlotPair 피해 미리보기를 계산한다.</summary>
+        private void BuildCurrentSlotPairPreview()
+        {
+            if (roundState == null || roundState.IsRoundEnded || roundState.CurrentAttempt.IsSubmitted)
+                return;
+
+            if (!roundState.CanSubmitCastNow())
+                return;
+
+            currentSlotPairPreview = null;
+            currentPreviewTableRuleResult = null;
+
+            if (selectedPatternType == RollPatternType.None)
+                return;
+
+            List<int> previewLockSlots = CreatePreviewResolvedLockSlotDiceIndexList();
+
+            simulator.TryBuildSlotPairDamagePreview(
+                roundState,
+                selectedPatternType,
+                previewLockSlots,
+                CreatePlayerDeviceDefinitions(),
+                out PatternResult patternResult,
+                out currentSlotPairPreview,
+                out currentPreviewTableRuleResult);
+        }
+
+        /// <summary>좌측 전투 정보 텍스트를 갱신한다.</summary>
+        private void RefreshLeftInfoTexts()
+        {
+            if (roundState == null)
+                return;
+
+            SetText(roundTitleText, currentRoundDisplayName);
+            SetText(opponentHPText, $"Opponent HP {roundState.Encounter.OpponentCurrentHP}/{roundState.Encounter.OpponentMaxHP}");
+
+            if (runSession != null && interactionState == BattleInteractionState.RoundEnded)
+                SetText(playerHPText, $"Player HP {runSession.PlayerCurrentHP}/{runSession.PlayerMaxHP}");
+            else
+                SetText(playerHPText, $"Player HP {roundState.Encounter.PlayerCurrentHP}/{roundState.Encounter.PlayerMaxHP}");
+
+            RefreshTableHologramBattleMeta();
+            RefreshSelectedCastTexts();
+            RefreshClashDamageTexts();
+        }
+
+        private void RefreshMoneyOverlay()
+        {
+
+        }
+
+        /// <summary>선택 Cast와 SlotPair 계산 미리보기 표시를 갱신한다.</summary>
+        private void RefreshSelectedCastTexts()
+        {
+            if (selectedPatternType == RollPatternType.None || currentSlotPairPreview == null)
+            {
+                ClearTableHologramCastPreview();
+                return;
+            }
+
+            string castName = CastBoardCatalog.GetDisplayName(selectedPatternType);
+            string forceValue = currentSlotPairPreview.FormatFinalForce();
+
+            RefreshTableHologramCastPreview(
+                castName,
+                currentSlotPairPreview.FinalScore,
+                forceValue);
+        }
+
+        /// <summary>현재 Clash에서 비교할 플레이어/상대 피해 수치를 Hologram에 갱신한다.</summary>
+        private void RefreshClashDamageTexts()
+        {
+            int playerDamage = 0;
+            int opponentDamage = 0;
+
+            if (lastClashResolveResult != null)
+            {
+                playerDamage = lastClashResolveResult.PlayerResult != null
+                    ? lastClashResolveResult.PlayerResult.FinalDamage
+                    : 0;
+
+                opponentDamage = lastClashResolveResult.OpponentResult != null
+                    ? lastClashResolveResult.OpponentResult.FinalDamage
+                    : 0;
+            }
+            else
+            {
+                playerDamage = currentSlotPairPreview != null && currentPreviewTableRuleResult != null
+                    ? Mathf.Max(0, currentPreviewTableRuleResult.ModifiedDamage)
+                    : 0;
+
+                opponentDamage = pendingOpponentClashResult != null
+                    ? pendingOpponentClashResult.FinalDamage
+                    : 0;
+            }
+
+            if (useTableHologramView && tableHologramView != null)
+                tableHologramView.RefreshClashDamage(playerDamage, opponentDamage);
+        }
+
+        /// <summary>Clash 피해 비교 표시를 기본값으로 초기화한다.</summary>
+        private void ClearClashDamageTexts()
+        {
+            if (useTableHologramView && tableHologramView != null)
+                tableHologramView.ClearClashDamage();
+        }
+
+        /// <summary>테이블 홀로그램의 제한 자원 정보를 갱신한다.</summary>
+        private void RefreshTableHologramBattleMeta()
+        {
+            if (!useTableHologramView) return;
+            if (tableHologramView == null) return;
+            if (roundState == null) return;
+
+            // Attempt는 현재 번호가 아니라 남은 시도 횟수로 표시한다.
+            int remainingAttempts = CalculateRemainingAttempts();
+
+            tableHologramView.RefreshBattleMeta(
+                remainingAttempts,
+                roundState.RuleContext.MaxAttempts,
+                roundState.RemainingRoundRolls,
+                roundState.RuleContext.RoundRollPool,
+                roundState.Overcharge.CurrentOvercharge);
+        }
+
+        /// <summary>현재 Round에서 남은 Attempt 횟수를 계산한다.</summary>
+        private int CalculateRemainingAttempts()
+        {
+            if (roundState == null)
+                return 0;
+
+            if (roundState.CurrentAttempt == null)
+                return 0;
+
+            int remainingAttempts = roundState.RuleContext.MaxAttempts - roundState.CurrentAttempt.AttemptNumber + 1;
+
+            if (roundState.CurrentAttempt.IsSubmitted)
+                remainingAttempts--;
+
+            return Mathf.Max(remainingAttempts, 0);
+        }
+
+        /// <summary>테이블 홀로그램의 Cast 미리보기를 비운다.</summary>
+        private void ClearTableHologramCastPreview()
+        {
+            if (!useTableHologramView) return;
+            if (tableHologramView == null) return;
+
+            // 선택 Cast가 없으면 Hologram의 Cast/Score/Force만 기본값으로 되돌린다.
+            tableHologramView.ClearCastPreview();
+        }
+
+        /// <summary>테이블 홀로그램의 Cast / Score / Force 미리보기를 갱신한다.</summary>
+        private void RefreshTableHologramCastPreview(string castName, int score, string forceValue)
+        {
+            if (!useTableHologramView) return;
+            if (tableHologramView == null) return;
+
+            // 선택된 Cast의 핵심 계산값만 Hologram에 표시한다.
+            tableHologramView.RefreshCastPreview(castName, score, forceValue);
+        }
+
+        /// <summary>테이블 홀로그램에 현재 SlotPair 계산 단계를 표시한다.</summary>
+        private void RefreshTableHologramSlotPairStep(ClashCastResult result, SlotPairDamageStep step)
+        {
+            if (!useTableHologramView) return;
+            if (tableHologramView == null) return;
+            if (result == null || step == null) return;
+
+            // SlotPair 계산 중에는 현재 단계 이후의 Score / Force 값을 표시한다.
+            tableHologramView.RefreshSlotPairStep(
+                step.SlotIndex,
+                SlotPairDamageCalculator.SlotPairCount,
+                CastBoardCatalog.GetDisplayName(result.PatternResult.PatternType),
+                step.ScoreAfter,
+                FormatForce(step.ForceAfter));
+        }
+
+        /// <summary>지정 SlotPair 인덱스의 Device 표시 이름을 반환한다.</summary>
+        private string GetSlotPairDeviceDisplayName(int slotIndex)
+        {
+            if (slotPairDevices == null)
+                return "No Device";
+
+            if (slotIndex < 0 || slotIndex >= slotPairDevices.Length)
+                return "No Device";
+
+            SlotPairDeviceDefinitionSO device = slotPairDevices[slotIndex];
+
+            if (device == null)
+                return "No Device";
+
+            if (string.IsNullOrWhiteSpace(device.DisplayName))
+                return device.DeviceType.ToString();
+
+            return device.DisplayName;
+        }
+
+        /// <summary>주사위 값을 표시용 문자열로 변환한다.</summary>
+        private static string FormatDiceValue(SlotPairDamageStep step)
+        {
+            if (step.DiceIndex < 0 || step.DiceValue <= 0)
+                return "-";
+
+            return step.DiceValue.ToString();
+        }
+
+        /// <summary>Force 값을 표시용 문자열로 변환한다.</summary>
+        private static string FormatForce(float force)
+        {
+            if (Math.Abs(force - (int)force) < 0.001f)
+                return ((int)force).ToString();
+
+            return force.ToString("0.##");
+        }
+
+        /// <summary>현재 SlotPair 단계의 변화량을 Floating Text로 표시한다.</summary>
+        private async UniTaskVoid PlaySlotPairFloatingTextAsync(SlotPairDamageStep step, CancellationToken cancellationToken)
+        {
+            if (!playSlotPairFloatingText) return;
+            if (step == null) return;
+            if (slotPairStepFloatingTextView == null) return;
+            if (!TryGetSlotPairFloatingAnchoredPosition(step.SlotIndex, out Vector2 anchoredPosition)) return;
+
+            string message = BuildSlotPairFloatingMessage(step);
+
+            if (string.IsNullOrWhiteSpace(message)) return;
+
+            // 현재 Highlight 중인 DeviceSlot 위에 Balatro식 짧은 변화량 텍스트를 띄운다.
+            await slotPairStepFloatingTextView.PlayAsync(message, anchoredPosition, cancellationToken);
+        }
+
+        /// <summary>SlotPair Floating Text를 띄울 DeviceSlot 기준 Overlay 좌표를 계산한다.</summary>
+        private bool TryGetSlotPairFloatingAnchoredPosition(int slotIndex, out Vector2 anchoredPosition)
+        {
+            anchoredPosition = Vector2.zero;
+
+            if (playerDeviceRack3DView == null)
+                return false;
+
+            RectTransform root = slotPairFloatingTextRoot;
+
+            if (root == null && slotPairStepFloatingTextView != null)
+                root = slotPairStepFloatingTextView.transform.parent as RectTransform;
+
+            if (root == null)
+                return false;
+
+            Camera targetCamera = battleCamera != null ? battleCamera : Camera.main;
+
+            if (targetCamera == null)
+                return false;
+
+            if (!TryGetDeviceSlotPresentationPose(
+                    slotIndex,
+                    slotPairFloatingWorldOffset,
+                    Quaternion.identity,
+                    out Vector3 worldPosition,
+                    out Quaternion _))
+                return false;
+
+            // Transform pivot이 아니라 Renderer/Collider 중심 + 슬롯 로컬 Presentation offset 기준으로 Overlay 좌표를 만든다.
+            Vector3 screenPosition = targetCamera.WorldToScreenPoint(worldPosition);
+
+            if (screenPosition.z < 0f)
+                return false;
+
+            // UIRoot가 Screen Space Overlay이므로 camera 인자는 null을 사용한다.
+            return RectTransformUtility.ScreenPointToLocalPointInRectangle(root, screenPosition, null, out anchoredPosition);
+        }
+
+        /// <summary>SlotPair Step의 Score/Force 변화량을 짧은 Floating Text 문구로 변환한다.</summary>
+        private string BuildSlotPairFloatingMessage(SlotPairDamageStep step)
+        {
+            if (step == null)
+                return string.Empty;
+
+            if (!step.DidApply)
+                return "SKIP";
+
+            List<string> messages = new List<string>();
+
+            int scoreDelta = step.ScoreAfter - step.ScoreBefore;
+            float forceDelta = step.ForceAfter - step.ForceBefore;
+
+            if (scoreDelta != 0)
+                messages.Add(FormatSignedScoreDelta(scoreDelta));
+
+            if (Mathf.Abs(forceDelta) > 0.001f)
+                messages.Add(FormatForceDelta(step.ForceBefore, step.ForceAfter));
+
+            if (messages.Count <= 0)
+                messages.Add("OK");
+
+            return string.Join("\n", messages);
+        }
+
+        /// <summary>Score 변화량을 표시용 문자열로 변환한다.</summary>
+        private static string FormatSignedScoreDelta(int scoreDelta)
+        {
+            if (scoreDelta > 0)
+                return $"+{scoreDelta}";
+
+            return scoreDelta.ToString();
+        }
+
+        /// <summary>Force 변화량을 표시용 문자열로 변환한다.</summary>
+        private static string FormatForceDelta(float before, float after)
+        {
+            if (before > 0.001f)
+            {
+                float ratio = after / before;
+
+                if (Mathf.Abs(ratio - 1f) > 0.001f && Mathf.Abs(after - before) > 0.001f)
+                {
+                    if (ratio > 1.01f)
+                        return $"x{FormatCompactFloat(ratio)}";
+                }
+            }
+
+            float delta = after - before;
+
+            if (delta > 0f)
+                return $"+{FormatCompactFloat(delta)}F";
+
+            return $"{FormatCompactFloat(delta)}F";
+        }
+
+        /// <summary>float 값을 짧은 표시용 문자열로 변환한다.</summary>
+        private static string FormatCompactFloat(float value)
+        {
+            if (Mathf.Abs(value - Mathf.Round(value)) < 0.001f)
+                return Mathf.RoundToInt(value).ToString();
+
+            return value.ToString("0.##");
+        }
+
+        /// <summary>3D Tray 주사위와 Lock 표시를 갱신한다.</summary>
+        private void RefreshDiceViews()
+        {
+            IReadOnlyList<int> diceValues = roundState.GetCurrentDiceValues();
+
+            if (diceTray3DView == null)
+                return;
+
+            IReadOnlyList<bool> lockStates = CreateDiceLockStates();
+
+            diceTray3DView.SetDiceForDeviceSlotLockPresentation(
+                diceValues,
+                lockStates,
+                lockedDiceMoveDuration);
+
+            RefreshDeviceSlotLockedDicePresentation(false);
+        }
+
+        /// <summary>3D Device Rack을 현재 Player/Opponent Device 배열 기준으로 갱신한다.</summary>
+        private void RefreshDeviceSlotViews()
+        {
+            if (playerDeviceRack3DView != null)
+                playerDeviceRack3DView.SetDevices(slotPairDevices);
+
+            if (opponentDeviceRack3DView != null)
+                opponentDeviceRack3DView.SetDevices(opponentSlotPairDevices);
+
+            RefreshDeviceSlotLockedDicePresentation();
+        }
+
+        /// <summary>Lock된 DiceView를 Lock 순서에 따라 PlayerDeviceSlot 하단 위치에 배치한다.</summary>
+        private void RefreshDeviceSlotLockedDicePresentation(bool forceMoveAllLockedDice = false)
+        {
+            if (roundState == null) return;
+            if (diceTray3DView == null) return;
+
+            RepairInvalidLockSlotMapping();
+
+            for (int slotIndex = 0; slotIndex < lockedDiceIndexBySlot.Length; slotIndex++)
+            {
+                int diceIndex = lockedDiceIndexBySlot[slotIndex];
+
+                if (diceIndex < 0 || diceIndex >= roundState.Dice.Count)
+                    continue;
+
+                if (!roundState.Dice[diceIndex].IsLocked)
+                    continue;
+
+                if (!TryGetLockedDiceDeviceSlotPose(
+                        slotIndex,
+                        out Vector3 targetPosition,
+                        out Quaternion targetRotation))
+                    continue;
+
+                if (!forceMoveAllLockedDice &&
+                    diceTray3DView.IsDiceNearPosition(diceIndex, targetPosition, 0.02f))
+                {
+                    continue;
+                }
+
+                diceTray3DView.MoveDiceToLockedDeviceSlot(
+                    diceIndex,
+                    targetPosition,
+                    targetRotation,
+                    lockedDiceMoveDuration);
+            }
+        }
+
+        /// <summary>DeviceSlot 하단 Lock Dice 표시 위치와 회전을 계산한다.</summary>
+        private bool TryGetLockedDiceDeviceSlotPose(
+            int slotIndex,
+            out Vector3 worldPosition,
+            out Quaternion worldRotation)
+        {
+            return TryGetDeviceSlotPresentationPose(
+                slotIndex,
+                lockedDiceDeviceSlotLocalOffset,
+                Quaternion.Euler(lockedDiceTiltEuler),
+                out worldPosition,
+                out worldRotation);
+        }
+
+        /// <summary>Cast 후보 Popup을 갱신한다.</summary>
+        private void RefreshCastPopup()
+        {
+            if (castCandidatePopupView == null)
+                return;
 
             if (externalGameplayInputLocked)
             {
-                failureMessage = externalGameplayInputLockReason;
-                return false;
+                castCandidatePopupView.SetPopupVisible(false);
+                return;
             }
 
-            if (interactionState == BattleInteractionState.DiceRolling)
+            castCandidatePopupView.SetPopupVisible(showCastCandidatePopup);
+
+            if (!showCastCandidatePopup)
+                return;
+
+            if (!CanPrepareCastPreviewInCurrentAttempt())
             {
-                failureMessage = "Roll is already in progress.";
-                return false;
+                castCandidatePopupView.Refresh(
+                    null,
+                    RollPatternType.None,
+                    RollPatternType.None,
+                    null);
+                return;
             }
 
-            if (roundState == null)
-            {
-                failureMessage = "No active round.";
-                return false;
-            }
-
-            if (roundState.IsRoundEnded || interactionState == BattleInteractionState.RoundEnded)
-            {
-                failureMessage = "Round already ended. Awaiting stage decision.";
-                return false;
-            }
-
-            if (!CanActInCurrentAttempt())
-            {
-                failureMessage = "Cannot roll now.";
-                return false;
-            }
-
-            if (roundState.RemainingRoundRolls <= 0)
-            {
-                failureMessage = "No rolls left.";
-                return false;
-            }
-
-            if (!HasUnlockedDice())
-            {
-                failureMessage = "No unlocked dice.";
-                return false;
-            }
-
-            return true;
+            castCandidatePopupView.Refresh(
+                currentCastBoardViewModel,
+                selectedPatternType,
+                currentCastBoardViewModel.RecommendedPatternType,
+                SelectCastCandidate);
         }
 
-        /// <summary>Core Roll을 실행하고 전체 표시를 갱신한다.</summary>
-        private bool RollUnlockedDiceCore(string successMessage)
+        /// <summary>버튼 상호작용 가능 상태를 갱신한다.</summary>
+        private void RefreshButtonStates()
         {
-            if (!TryCanRollUnlockedDice(out string failureMessage))
-            {
-                RefreshAll(failureMessage);
-                return false;
-            }
+            bool hasRound = roundState != null;
+            bool canPrepareCast = CanPrepareCastPreviewInCurrentAttempt();
 
-            bool rerolled = simulator.TryRerollUnlockedDice(roundState);
+            SetButtonInteractable(
+                submitSelectedButton,
+                canPrepareCast && selectedPatternType != RollPatternType.None);
 
-            if (rerolled)
-                RefreshAll(successMessage);
-            else
-                RefreshAll("No rolls left.");
+            SetButtonInteractable(
+                togglePopupButton,
+                hasRound && CanTogglePopup());
 
-            return rerolled;
+            if (diceCup3DView != null)
+                diceCup3DView.SetInteractable(useDiceCupRollInput && CanRollByDiceCupInput());
+
+            RefreshDiceInteractionState();
         }
 
-        /// <summary>하나 이상 Unlock된 Dice가 있는지 확인한다.</summary>
-        private bool HasUnlockedDice()
+        /// <summary>현재 선택된 Cast가 아직 제출 가능한 후보인지 확인한다.</summary>
+        private bool CanSelectedCastStillSubmit()
         {
-            if (roundState == null || roundState.Dice == null)
+            if (currentCastBoardViewModel == null)
                 return false;
 
-            for (int i = 0; i < roundState.Dice.Count; i++)
-            {
-                if (!roundState.Dice[i].IsLocked)
-                    return true;
-            }
+            if (selectedPatternType == RollPatternType.None)
+                return false;
 
-            return false;
+            return currentCastBoardViewModel.TryGetEntry(selectedPatternType, out CastBoardEntryModel entry)
+                    && entry.Status == CastBoardEntryStatus.Available;
         }
 
         /// <summary>현재 Attempt에서 플레이어 조작이 가능한지 확인한다.</summary>
@@ -1276,83 +1568,10 @@ namespace Tessera.UI
             return interactionState == BattleInteractionState.PlayerIdle;
         }
 
-        /// <summary>현재 Player Dice를 클릭/Lock할 수 있는지 확인한다.</summary>
-        private bool CanInteractWithPlayerDice()
-        {
-            if (!CanActInCurrentAttempt())
-                return false;
-
-            return roundState.CanSubmitCastNow();
-        }
-
         /// <summary>Presenter 상호작용 상태를 갱신한다.</summary>
         private void SetInteractionState(BattleInteractionState nextState)
         {
             interactionState = nextState;
-        }
-
-        #endregion
-
-        #region Dice Lock And Slot Mapping
-
-        /// <summary>지정 Dice의 Lock 상태를 토글하고, Lock 순서 기반 SlotPair 매핑을 갱신한다.</summary>
-        private void ToggleDiceLock(int diceIndex)
-        {
-            if (!CanInteractWithPlayerDice())
-            {
-                SetMessage("Roll the dice before locking.");
-                return;
-            }
-
-            if (diceIndex < 0 || diceIndex >= roundState.Dice.Count)
-                return;
-
-            bool willLock = !roundState.Dice[diceIndex].IsLocked;
-
-            if (willLock)
-            {
-                int emptySlotIndex = FindFirstEmptyLockSlotIndex();
-
-                if (emptySlotIndex < 0)
-                {
-                    SetMessage("No empty device slot.");
-                    return;
-                }
-
-                simulator.SetDiceLocked(roundState, diceIndex, true);
-                AssignDiceToFirstEmptyLockSlot(diceIndex);
-            }
-            else
-            {
-                simulator.SetDiceLocked(roundState, diceIndex, false);
-                RemoveDiceFromLockSlot(diceIndex);
-            }
-
-            RefreshAll(willLock ? "Dice locked." : "Dice unlocked.");
-        }
-
-        /// <summary>3D LockSlot 클릭으로 해당 슬롯에 배치된 Dice를 Unlock한다.</summary>
-        private void UnlockDiceFromLockSlot(int slotIndex)
-        {
-            if (!CanActInCurrentAttempt())
-                return;
-
-            if (slotIndex < 0 || slotIndex >= lockedDiceIndexBySlot.Length)
-                return;
-
-            int diceIndex = lockedDiceIndexBySlot[slotIndex];
-
-            if (diceIndex < 0)
-                return;
-
-            if (diceIndex >= roundState.Dice.Count)
-                return;
-
-            // Core Lock 상태와 LockSlot 매핑을 함께 해제한다.
-            simulator.SetDiceLocked(roundState, diceIndex, false);
-            lockedDiceIndexBySlot[slotIndex] = -1;
-
-            RefreshAll("Dice unlocked from lock slot.");
         }
 
         /// <summary>제출 직전 모든 주사위를 SlotPair 5칸에 Lock 순서 유지 + 남은 DiceIndex 오름차순으로 배치한다.</summary>
@@ -1591,122 +1810,6 @@ namespace Tessera.UI
             return -1;
         }
 
-        /// <summary>현재 주사위들의 Lock 상태 목록을 생성한다.</summary>
-        private List<bool> CreateDiceLockStates()
-        {
-            List<bool> lockStates = new List<bool>(roundState.Dice.Count);
-
-            for (int i = 0; i < roundState.Dice.Count; i++)
-                lockStates.Add(roundState.Dice[i].IsLocked);
-
-            return lockStates;
-        }
-
-        /// <summary>기억 중인 직전 Cast 주사위 값을 초기화한다.</summary>
-        private void ClearLastSubmittedDiceValues()
-        {
-            lastSubmittedDiceValues.Clear();
-            hasLastSubmittedDiceValues = false;
-        }
-
-        /// <summary>새 Attempt의 Dice 값을 직전 Cast 주사위 값으로 맞춘다.</summary>
-        private bool ApplyLastSubmittedDiceValuesToNewAttemptIfPossible()
-        {
-            if (!hasLastSubmittedDiceValues)
-                return false;
-
-            if (roundState == null)
-                return false;
-
-            if (lastSubmittedDiceValues.Count != roundState.Dice.Count)
-                return false;
-
-            simulator.SetCurrentDiceValuesForTest(roundState, lastSubmittedDiceValues);
-            return true;
-        }
-
-        #endregion
-
-        #region Device Data
-
-        /// <summary>3D Device 슬롯 표시 인덱스를 초기화한다.</summary>
-        private void InitializeDeviceSlots()
-        {
-            if (playerDeviceRack3DView != null)
-                playerDeviceRack3DView.InitializeSlots();
-
-            if (opponentDeviceRack3DView != null)
-                opponentDeviceRack3DView.InitializeSlots();
-        }
-
-        /// <summary>RunSession의 장착 Device 배열을 Presenter 내부 배열로 복사한다.</summary>
-        private void SyncDevicesFromRunSession()
-        {
-            if (runSession == null)
-                return;
-
-            EnsureSlotPairDeviceArraySize();
-
-            for (int i = 0; i < slotPairDevices.Length; i++)
-            {
-                slotPairDevices[i] = i < runSession.EquippedSlotPairDevices.Count
-                    ? runSession.EquippedSlotPairDevices[i]
-                    : null;
-            }
-        }
-
-        /// <summary>현재 Round에서 사용할 상대 SlotPair Device 배열을 설정한다.</summary>
-        private void SetOpponentSlotPairDevices(SlotPairDeviceDefinitionSO[] devices)
-        {
-            if (opponentSlotPairDevices == null ||
-                opponentSlotPairDevices.Length != SlotPairDamageCalculator.SlotPairCount)
-                opponentSlotPairDevices = new SlotPairDeviceDefinitionSO[SlotPairDamageCalculator.SlotPairCount];
-
-            for (int i = 0; i < opponentSlotPairDevices.Length; i++)
-            {
-                opponentSlotPairDevices[i] = devices != null && i < devices.Length
-                    ? devices[i]
-                    : null;
-            }
-        }
-
-        /// <summary>slotPairDevices 배열 크기를 SlotPairCount 기준으로 보정한다.</summary>
-        private void EnsureSlotPairDeviceArraySize()
-        {
-            if (slotPairDevices != null && slotPairDevices.Length == SlotPairDamageCalculator.SlotPairCount)
-                return;
-
-            SlotPairDeviceDefinitionSO[] resizedDevices = new SlotPairDeviceDefinitionSO[SlotPairDamageCalculator.SlotPairCount];
-
-            if (slotPairDevices != null)
-            {
-                int copyCount = Mathf.Min(slotPairDevices.Length, resizedDevices.Length);
-
-                for (int i = 0; i < copyCount; i++)
-                    resizedDevices[i] = slotPairDevices[i];
-            }
-
-            slotPairDevices = resizedDevices;
-        }
-
-        /// <summary>Device 배열 길이를 지정 길이로 보정한다.</summary>
-        private static SlotPairDeviceDefinitionSO[] ResizeDeviceArray(
-            SlotPairDeviceDefinitionSO[] source,
-            int targetLength)
-        {
-            SlotPairDeviceDefinitionSO[] resized = new SlotPairDeviceDefinitionSO[targetLength];
-
-            if (source == null)
-                return resized;
-
-            int copyCount = Mathf.Min(source.Length, targetLength);
-
-            for (int i = 0; i < copyCount; i++)
-                resized[i] = source[i];
-
-            return resized;
-        }
-
         /// <summary>플레이어 장착 SlotPair Device SO를 Core 계산용 정의 리스트로 변환한다.</summary>
         private List<SlotPairDeviceDefinition> CreatePlayerDeviceDefinitions()
         {
@@ -1771,24 +1874,68 @@ namespace Tessera.UI
             return slotPairDevices[index];
         }
 
-        /// <summary>지정 SlotPair 인덱스의 Device 표시 이름을 반환한다.</summary>
-        private string GetSlotPairDeviceDisplayName(int slotIndex)
+        /// <summary>RunSession의 장착 Device 배열을 Presenter 내부 배열로 복사한다.</summary>
+        private void SyncDevicesFromRunSession()
         {
-            if (slotPairDevices == null)
-                return "No Device";
+            if (runSession == null)
+                return;
 
-            if (slotIndex < 0 || slotIndex >= slotPairDevices.Length)
-                return "No Device";
+            EnsureSlotPairDeviceArraySize();
 
-            SlotPairDeviceDefinitionSO device = slotPairDevices[slotIndex];
+            for (int i = 0; i < slotPairDevices.Length; i++)
+            {
+                slotPairDevices[i] = i < runSession.EquippedSlotPairDevices.Count
+                    ? runSession.EquippedSlotPairDevices[i]
+                    : null;
+            }
+        }
 
-            if (device == null)
-                return "No Device";
+        /// <summary>현재 Round에서 사용할 상대 SlotPair Device 배열을 설정한다.</summary>
+        private void SetOpponentSlotPairDevices(SlotPairDeviceDefinitionSO[] devices)
+        {
+            if (opponentSlotPairDevices == null ||
+                opponentSlotPairDevices.Length != SlotPairDamageCalculator.SlotPairCount)
+                opponentSlotPairDevices = new SlotPairDeviceDefinitionSO[SlotPairDamageCalculator.SlotPairCount];
 
-            if (string.IsNullOrWhiteSpace(device.DisplayName))
-                return device.DeviceType.ToString();
+            for (int i = 0; i < opponentSlotPairDevices.Length; i++)
+            {
+                opponentSlotPairDevices[i] = devices != null && i < devices.Length
+                    ? devices[i]
+                    : null;
+            }
+        }
 
-            return device.DisplayName;
+        /// <summary>Opening EnemyIntent를 현재 Attempt Initiative에 반영한다.</summary>
+        private void ApplyOpeningIntentToCurrentAttempt(EnemyIntent openingIntent)
+        {
+            if (roundState == null)
+                return;
+
+            if (roundState.CurrentAttempt == null)
+                return;
+
+            simulator.ApplyEnemyIntentToCurrentAttempt(
+                roundState,
+                openingIntent ?? EnemyIntent.Strike(roundState.RuleContext.EnemyStrikeDamage));
+        }
+
+        /// <summary>slotPairDevices 배열 크기를 SlotPairCount 기준으로 보정한다.</summary>
+        private void EnsureSlotPairDeviceArraySize()
+        {
+            if (slotPairDevices != null && slotPairDevices.Length == SlotPairDamageCalculator.SlotPairCount)
+                return;
+
+            SlotPairDeviceDefinitionSO[] resizedDevices = new SlotPairDeviceDefinitionSO[SlotPairDamageCalculator.SlotPairCount];
+
+            if (slotPairDevices != null)
+            {
+                int copyCount = Mathf.Min(slotPairDevices.Length, resizedDevices.Length);
+
+                for (int i = 0; i < copyCount; i++)
+                    resizedDevices[i] = slotPairDevices[i];
+            }
+
+            slotPairDevices = resizedDevices;
         }
 
         /// <summary>현재 표시할 Money 값을 반환한다.</summary>
@@ -1800,410 +1947,364 @@ namespace Tessera.UI
             return earnedMoney;
         }
 
-        #endregion
-
-        #region View Refresh
-
-        /// <summary>전체 UI 표시를 현재 Round 상태 기준으로 다시 그린다.</summary>
-        private void RefreshAll(string optionalMessage)
+        /// <summary>Clash 종료 결과 이벤트를 중복 없이 외부 Root로 전달한다.</summary>
+        private void NotifyRoundEndIfNeeded(ClashResolveResult result)
         {
-            if (roundState == null) return;
+            if (result == null)
+                return;
 
-            currentCastBoardViewModel = castBoardModelBuilder.Build(roundState);
+            if (roundEndNotified)
+                return;
 
-            if (CanPrepareCastPreviewInCurrentAttempt())
+            bool isWon = result.OutcomeType == RoundOutcomeType.Won || (roundState != null && roundState.IsRoundWon);
+            bool isLost = result.OutcomeType == RoundOutcomeType.Lost || (roundState != null && roundState.IsRoundLost);
+
+            if (isWon)
             {
-                if (selectedPatternType == RollPatternType.None)
-                    selectedPatternType = currentCastBoardViewModel.RecommendedPatternType;
-
-                if (!CanSelectedCastStillSubmit())
-                    selectedPatternType = currentCastBoardViewModel.RecommendedPatternType;
-
-                BuildCurrentSlotPairPreview();
-            }
-            else if (CanActInCurrentAttempt())
-            {
-                selectedPatternType = RollPatternType.None;
-                currentSlotPairPreview = null;
-                currentPreviewTableRuleResult = null;
-                ClearTableHologramCastPreview();
+                roundEndNotified = true;
+                RoundWon?.Invoke(result);
+                return;
             }
 
-            RefreshLeftInfoTexts();
-            RefreshDiceViews();
-            RefreshDeviceSlotViews();
-            RefreshCastPopup();
-            RefreshButtonStates();
-
-            if (!string.IsNullOrWhiteSpace(optionalMessage))
-                SetMessage(optionalMessage);
+            if (isLost)
+            {
+                roundEndNotified = true;
+                RoundLost?.Invoke(result);
+            }
         }
 
-        /// <summary>선택된 Cast 기준 SlotPair 피해 미리보기를 계산한다.</summary>
-        private void BuildCurrentSlotPairPreview()
+        /// <summary>플레이어 Cast 제출 이후 SlotPair 연출, 상대 후공 계산, Clash 판정을 순서대로 처리한다.</summary>
+        private async UniTaskVoid PlaySubmittedClashFlowAsync(ClashCastResult playerResult)
         {
-            if (roundState == null || roundState.IsRoundEnded || roundState.CurrentAttempt.IsSubmitted)
+            if (playerResult == null)
                 return;
 
-            if (!roundState.CanSubmitCastNow())
+            await PlaySlotPairEvaluationSequenceAsync(playerResult);
+
+            if (pendingOpponentClashResult == null)
+                await BuildOpponentClashResultAfterPlayerSubmitAsync(playerResult);
+
+            if (pendingOpponentClashResult == null)
+            {
+                SetMessage("Opponent clash result is missing.");
+                SetInteractionState(BattleInteractionState.PlayerIdle);
                 return;
+            }
 
-            currentSlotPairPreview = null;
-            currentPreviewTableRuleResult = null;
-
-            if (selectedPatternType == RollPatternType.None)
-                return;
-
-            List<int> previewLockSlots = CreatePreviewResolvedLockSlotDiceIndexList();
-
-            simulator.TryBuildSlotPairDamagePreview(
+            lastClashResolveResult = simulator.ResolveClash(
                 roundState,
-                selectedPatternType,
-                previewLockSlots,
-                CreatePlayerDeviceDefinitions(),
-                out PatternResult patternResult,
-                out currentSlotPairPreview,
-                out currentPreviewTableRuleResult);
-        }
+                playerResult,
+                pendingOpponentClashResult);
 
-        /// <summary>좌측 전투 정보 텍스트를 갱신한다.</summary>
-        private void RefreshLeftInfoTexts()
-        {
-            if (roundState == null)
-                return;
-
-            SetText(roundTitleText, currentRoundDisplayName);
-            SetText(opponentHPText, $"Opponent HP {roundState.Encounter.OpponentCurrentHP}/{roundState.Encounter.OpponentMaxHP}");
-
-            if (runSession != null && interactionState == BattleInteractionState.RoundEnded)
-                SetText(playerHPText, $"Player HP {runSession.PlayerCurrentHP}/{runSession.PlayerMaxHP}");
-            else
-                SetText(playerHPText, $"Player HP {roundState.Encounter.PlayerCurrentHP}/{roundState.Encounter.PlayerMaxHP}");
-
-            RefreshTableHologramBattleMeta();
-            RefreshSelectedCastTexts();
             RefreshClashDamageTexts();
-        }
+            LogClashResolveResult(lastClashResolveResult);
+            RefreshLeftInfoTexts();
+            SetMessage(lastClashResolveResult.Message);
 
-        private void RefreshMoneyOverlay()
-        {
-
-        }
-
-        /// <summary>선택 Cast와 SlotPair 계산 미리보기 표시를 갱신한다.</summary>
-        private void RefreshSelectedCastTexts()
-        {
-            if (selectedPatternType == RollPatternType.None || currentSlotPairPreview == null)
+            if (enemyTurnToPlayerDelay > 0f)
             {
-                ClearTableHologramCastPreview();
+                await UniTask.Delay(
+                    TimeSpan.FromSeconds(enemyTurnToPlayerDelay),
+                    cancellationToken: this.GetCancellationTokenOnDestroy());
+            }
+
+            // 피해 적용과 결과 메시지 출력이 끝난 뒤 다음 Roll 전까지 이전 DamageText를 남기지 않는다.
+            ClearClashDamageTexts();
+
+            if (roundState.IsRoundEnded)
+            {
+                NotifyRoundEndIfNeeded(lastClashResolveResult);
+                ForceRoundEndDiceTrayState(lastClashResolveResult);
                 return;
             }
 
-            string castName = CastBoardCatalog.GetDisplayName(selectedPatternType);
-            string forceValue = currentSlotPairPreview.FormatFinalForce();
-
-            RefreshTableHologramCastPreview(
-                castName,
-                currentSlotPairPreview.FinalScore,
-                forceValue);
+            await TryAutoStartNextAttemptAfterClashAsync();
         }
 
-        /// <summary>현재 Clash에서 비교할 플레이어/상대 피해 수치를 Hologram에 갱신한다.</summary>
-        private void RefreshClashDamageTexts()
+        /// <summary>Clash 판정 결과를 디버그 로그로 출력한다.</summary>
+        private void LogClashResolveResult(ClashResolveResult result)
         {
-            int playerDamage = 0;
-            int opponentDamage = 0;
+            if (result == null)
+                return;
 
-            if (lastClashResolveResult != null)
+            string winnerText = result.Winner.HasValue
+                ? result.Winner.Value.ToString()
+                : "Tie";
+
+            Debug.Log(
+                $"[Tessera][Clash] Attempt={result.AttemptNumber} | " +
+                $"Winner={winnerText} | " +
+                $"PlayerDice=[{FormatDiceValuesForLog(result.PlayerResult != null ? result.PlayerResult.DiceValues : null)}] | " +
+                $"PlayerCast={(result.PlayerResult != null ? result.PlayerResult.PatternType.ToString() : "None")} | " +
+                $"PlayerDamage={(result.PlayerResult != null ? result.PlayerResult.FinalDamage.ToString() : "0")} | " +
+                $"OpponentDice=[{FormatDiceValuesForLog(result.OpponentResult != null ? result.OpponentResult.DiceValues : null)}] | " +
+                $"OpponentCast={(result.OpponentResult != null ? result.OpponentResult.PatternType.ToString() : "None")} | " +
+                $"OpponentDamage={(result.OpponentResult != null ? result.OpponentResult.FinalDamage.ToString() : "0")} | " +
+                $"DamageToPlayer={result.DamageToPlayer} | " +
+                $"DamageToOpponent={result.DamageToOpponent} | " +
+                $"BrokenDefense={result.PlayerUsedBrokenCastDefense} | " +
+                $"Overcharge+={result.GrantedOverchargeAmount} | " +
+                $"Outcome={result.OutcomeType}");
+        }
+
+        /// <summary>상대가 확정한 Clash Cast 결과를 디버그 로그로 출력한다.</summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void LogOpponentClashCastResult(string phaseName, ClashCastResult result)
+        {
+            if (!CanLogOpponentRollAIDebug())
+                return;
+
+            if (result == null)
+                return;
+
+            int rawDamage = result.SlotPairDamagePreview != null
+                ? result.SlotPairDamagePreview.DamageBeforeTableRules
+                : result.FinalDamage;
+
+            int finalScore = result.SlotPairDamagePreview != null
+                ? result.SlotPairDamagePreview.FinalScore
+                : 0;
+
+            string finalForce = result.SlotPairDamagePreview != null
+                ? result.SlotPairDamagePreview.FormatFinalForce()
+                : "-";
+
+            string intentName = currentEnemyIntentDefinition != null
+                ? currentEnemyIntentDefinition.DisplayName
+                : "Fallback";
+
+            string initiativeName = roundState != null && roundState.CurrentAttempt != null
+                ? roundState.CurrentAttempt.InitiativeOwner.ToString()
+                : "-";
+
+            string useDevicesText = currentEnemyIntentDefinition != null
+                ? currentEnemyIntentDefinition.UseOpponentDevices.ToString()
+                : "Fallback";
+
+            string chooseBestText = currentEnemyIntentDefinition != null
+                ? currentEnemyIntentDefinition.ChooseBestAvailableCast.ToString()
+                : "Fallback";
+
+            string attemptNumberText = roundState != null && roundState.CurrentAttempt != null
+                ? roundState.CurrentAttempt.AttemptNumber.ToString()
+                : "-";
+
+            Debug.Log(
+                $"[Tessera][OpponentCast] Phase={phaseName} | " +
+                $"Attempt={attemptNumberText} | " +
+                $"Intent={intentName} | " +
+                $"Initiative={initiativeName} | " +
+                $"UseDevices={useDevicesText} | " +
+                $"ChooseBest={chooseBestText} | " +
+                $"Dice=[{FormatDiceValuesForLog(result.DiceValues)}] | " +
+                $"Cast={result.PatternType} | " +
+                $"Score={finalScore} | " +
+                $"Force={finalForce} | " +
+                $"RawDamage={rawDamage} | " +
+                $"FinalDamage={result.FinalDamage} | " +
+                $"DiceLoadout={FormatOpponentDiceLoadoutDefinitionForLog()} | " +
+                $"DeviceLoadout={FormatOpponentDeviceLoadoutForLog()}"); ;
+        }
+
+        /// <summary>플레이어 선공 이후 상대 후공 Clash 결과를 Opponent Roll AI로 생성한다.</summary>
+        private async UniTask BuildOpponentClashResultAfterPlayerSubmitAsync(ClashCastResult playerResult)
+        {
+            SetInteractionState(BattleInteractionState.EnemyTurn);
+            RefreshDiceInteractionState();
+
+            await MovePlayerDiceSetToRestIfNeededAsync();
+
+            if (enemyTurnStartDelay > 0f)
             {
-                playerDamage = lastClashResolveResult.PlayerResult != null
-                    ? lastClashResolveResult.PlayerResult.FinalDamage
-                    : 0;
-
-                opponentDamage = lastClashResolveResult.OpponentResult != null
-                    ? lastClashResolveResult.OpponentResult.FinalDamage
-                    : 0;
+                await UniTask.Delay(
+                    TimeSpan.FromSeconds(enemyTurnStartDelay),
+                    cancellationToken: this.GetCancellationTokenOnDestroy());
             }
-            else
+
+            bool built = await BuildOpponentClashResultWithRollAIAsync("OpponentSecond", playerResult);
+
+            if (built && pendingOpponentClashResult != null)
             {
-                playerDamage = currentSlotPairPreview != null && currentPreviewTableRuleResult != null
-                    ? Mathf.Max(0, currentPreviewTableRuleResult.ModifiedDamage)
-                    : 0;
+                LogOpponentClashCastResult("OpponentSecond", pendingOpponentClashResult);
 
-                opponentDamage = pendingOpponentClashResult != null
-                    ? pendingOpponentClashResult.FinalDamage
-                    : 0;
+                SetMessage(BuildOpponentTargetMessage(pendingOpponentClashResult));
+                RefreshClashDamageTexts();
+
+                if (enemyClashResultRevealDelay > 0f)
+                {
+                    await UniTask.Delay(
+                        TimeSpan.FromSeconds(enemyClashResultRevealDelay),
+                        cancellationToken: this.GetCancellationTokenOnDestroy());
+                }
             }
 
-            if (useTableHologramView && tableHologramView != null)
-                tableHologramView.RefreshClashDamage(playerDamage, opponentDamage);
+            await MoveOpponentDiceSetToRestIfNeededAsync();
         }
 
-        /// <summary>Clash 피해 비교 표시를 기본값으로 초기화한다.</summary>
-        private void ClearClashDamageTexts()
-        {
-            if (useTableHologramView && tableHologramView != null)
-                tableHologramView.ClearClashDamage();
-        }
-
-        /// <summary>테이블 홀로그램의 제한 자원 정보를 갱신한다.</summary>
-        private void RefreshTableHologramBattleMeta()
-        {
-            if (!useTableHologramView) return;
-            if (tableHologramView == null) return;
-            if (roundState == null) return;
-
-            // Attempt는 현재 번호가 아니라 남은 시도 횟수로 표시한다.
-            int remainingAttempts = CalculateRemainingAttempts();
-
-            tableHologramView.RefreshBattleMeta(
-                remainingAttempts,
-                roundState.RuleContext.MaxAttempts,
-                roundState.RemainingRoundRolls,
-                roundState.RuleContext.RoundRollPool,
-                roundState.Overcharge.CurrentOvercharge);
-        }
-
-        /// <summary>현재 Round에서 남은 Attempt 횟수를 계산한다.</summary>
-        private int CalculateRemainingAttempts()
+        /// <summary>Round 종료 후 Dice를 Tray에 고정하고 StageFlow 후속 전환을 기다리는 상태로 만든다.</summary>
+        private void ForceRoundEndDiceTrayState(ClashResolveResult result)
         {
             if (roundState == null)
-                return 0;
-
-            if (roundState.CurrentAttempt == null)
-                return 0;
-
-            int remainingAttempts = roundState.RuleContext.MaxAttempts - roundState.CurrentAttempt.AttemptNumber + 1;
-
-            if (roundState.CurrentAttempt.IsSubmitted)
-                remainingAttempts--;
-
-            return Mathf.Max(remainingAttempts, 0);
-        }
-
-        /// <summary>테이블 홀로그램의 Cast 미리보기를 비운다.</summary>
-        private void ClearTableHologramCastPreview()
-        {
-            if (!useTableHologramView) return;
-            if (tableHologramView == null) return;
-
-            // 선택 Cast가 없으면 Hologram의 Cast/Score/Force만 기본값으로 되돌린다.
-            tableHologramView.ClearCastPreview();
-        }
-
-        /// <summary>테이블 홀로그램의 Cast / Score / Force 미리보기를 갱신한다.</summary>
-        private void RefreshTableHologramCastPreview(string castName, int score, string forceValue)
-        {
-            if (!useTableHologramView) return;
-            if (tableHologramView == null) return;
-
-            // 선택된 Cast의 핵심 계산값만 Hologram에 표시한다.
-            tableHologramView.RefreshCastPreview(castName, score, forceValue);
-        }
-
-        /// <summary>테이블 홀로그램에 현재 SlotPair 계산 단계를 표시한다.</summary>
-        private void RefreshTableHologramSlotPairStep(ClashCastResult result, SlotPairDamageStep step)
-        {
-            if (!useTableHologramView) return;
-            if (tableHologramView == null) return;
-            if (result == null || step == null) return;
-
-            // SlotPair 계산 중에는 현재 단계 이후의 Score / Force 값을 표시한다.
-            tableHologramView.RefreshSlotPairStep(
-                step.SlotIndex,
-                SlotPairDamageCalculator.SlotPairCount,
-                CastBoardCatalog.GetDisplayName(result.PatternResult.PatternType),
-                step.ScoreAfter,
-                FormatForce(step.ForceAfter));
-        }
-
-        /// <summary>3D Tray 주사위와 Lock 표시를 갱신한다.</summary>
-        private void RefreshDiceViews()
-        {
-            IReadOnlyList<int> diceValues = roundState.GetCurrentDiceValues();
-
-            if (diceTray3DView == null)
                 return;
 
-            IReadOnlyList<bool> lockStates = CreateDiceLockStates();
+            SetInteractionState(BattleInteractionState.RoundEnded);
+            CancelSlotPairEvaluationSequence();
+            ClearSlotPairEvaluationHighlights();
+            ClearLockSlotMapping();
 
-            diceTray3DView.SetDiceForDeviceSlotLockPresentation(
-                diceValues,
-                lockStates,
-                lockedDiceMoveDuration);
+            for (int diceIndex = 0; diceIndex < roundState.Dice.Count; diceIndex++)
+                roundState.GetDice(diceIndex).SetLocked(false);
 
-            RefreshDeviceSlotLockedDicePresentation(false);
-        }
-
-        /// <summary>3D Device Rack을 현재 Player/Opponent Device 배열 기준으로 갱신한다.</summary>
-        private void RefreshDeviceSlotViews()
-        {
-            if (playerDeviceRack3DView != null)
-                playerDeviceRack3DView.SetDevices(slotPairDevices);
-
-            if (opponentDeviceRack3DView != null)
-                opponentDeviceRack3DView.SetDevices(opponentSlotPairDevices);
-
-            RefreshDeviceSlotLockedDicePresentation();
-        }
-
-        /// <summary>Lock된 DiceView를 Lock 순서에 따라 PlayerDeviceSlot 하단 위치에 배치한다.</summary>
-        private void RefreshDeviceSlotLockedDicePresentation(bool forceMoveAllLockedDice = false)
-        {
-            if (roundState == null) return;
-            if (diceTray3DView == null) return;
-
-            RepairInvalidLockSlotMapping();
-
-            for (int slotIndex = 0; slotIndex < lockedDiceIndexBySlot.Length; slotIndex++)
+            if (diceTray3DView != null)
             {
-                int diceIndex = lockedDiceIndexBySlot[slotIndex];
+                diceTray3DView.HideDiceSet(DiceOwnerType.Opponent);
+                diceTray3DView.RestoreAllDiceToTray(roundState.GetCurrentDiceValues(), lockedDiceMoveDuration);
+            }
 
-                if (diceIndex < 0 || diceIndex >= roundState.Dice.Count)
-                    continue;
+            bool isWon = roundState.IsRoundWon;
 
-                if (!roundState.Dice[diceIndex].IsLocked)
-                    continue;
+            string message = isWon
+                ? "Round won. Awaiting bounty decision."
+                : "Round lost. Awaiting result decision.";
 
-                if (!TryGetLockedDiceDeviceSlotPose(
-                        slotIndex,
-                        out Vector3 targetPosition,
-                        out Quaternion targetRotation))
-                    continue;
+            Debug.Log(
+                $"[Tessera][RoundEnd] {message} " +
+                $"OpponentHP={roundState.Encounter.OpponentCurrentHP}/{roundState.Encounter.OpponentMaxHP} | " +
+                $"PlayerHP={roundState.Encounter.PlayerCurrentHP}/{roundState.Encounter.PlayerMaxHP} | " +
+                $"DamageToOpponent={(result != null ? result.DamageToOpponent.ToString() : "0")} | " +
+                $"DamageToPlayer={(result != null ? result.DamageToPlayer.ToString() : "0")}");
 
-                if (!forceMoveAllLockedDice &&
-                    diceTray3DView.IsDiceNearPosition(diceIndex, targetPosition, 0.02f))
+            RefreshAll(message);
+            ClearClashDamageTexts();
+        }
+
+        /// <summary>Round가 끝나지 않았으면 다음 Attempt를 자동으로 시작한다.</summary>
+        private async UniTask TryAutoStartNextAttemptAfterClashAsync()
+        {
+            if (!autoStartNextAttemptAfterCast)
+                return;
+
+            if (roundState == null)
+                return;
+
+            if (roundState.IsRoundEnded)
+            {
+                RefreshAll("Round ended.");
+                return;
+            }
+
+            if (!roundState.CurrentAttempt.IsSubmitted)
+                return;
+
+            if (autoNextAttemptDelay > 0f)
+            {
+                await UniTask.Delay(
+                    TimeSpan.FromSeconds(autoNextAttemptDelay),
+                    cancellationToken: this.GetCancellationTokenOnDestroy());
+            }
+
+            if (roundState == null || roundState.IsRoundEnded)
+                return;
+
+            if (!roundState.CurrentAttempt.IsSubmitted)
+                return;
+
+            StartNextAttempt();
+        }
+
+        /// <summary>Cast 제출 후 SlotPair 계산 순서 연출을 비동기로 재생한다.</summary>
+        private async UniTask PlaySlotPairEvaluationSequenceAsync(ClashCastResult result)
+        {
+            if (!playSlotPairSequenceOnSubmit) return;
+            if (result == null) return;
+            if (result.SlotPairDamagePreview == null) return;
+
+            CancelSlotPairEvaluationSequence();
+
+            CancellationTokenSource currentCts = new CancellationTokenSource();
+            slotPairSequenceCts = currentCts;
+
+            bool completed = false;
+
+            try
+            {
+                LogSlotPairSequenceStarted(result);
+
+                await PlaySlotPairEvaluationSequenceInternalAsync(result, currentCts.Token);
+                completed = true;
+                LogSlotPairSequenceCompleted(result);
+            }
+            catch (OperationCanceledException)
+            {
+                LogSlotPairSequenceCanceled();
+            }
+            finally
+            {
+                if (slotPairSequenceCts == currentCts)
                 {
-                    continue;
+                    slotPairSequenceCts = null;
+
+                    if (completed)
+                    {
+                        if (interactionState == BattleInteractionState.CastResolving)
+                            RefreshDeviceSlotLockedDicePresentation();
+                        else
+                            RestoreAllDiceToTrayAfterEvaluation();
+                    }
+                    else
+                    {
+                        RefreshDeviceSlotLockedDicePresentation();
+                    }
+
+                    ClearSlotPairEvaluationHighlights();
+
+                    if (completed)
+                        RefreshSelectedCastTexts();
                 }
 
-                diceTray3DView.MoveDiceToLockedDeviceSlot(
-                    diceIndex,
-                    targetPosition,
-                    targetRotation,
-                    lockedDiceMoveDuration);
+                currentCts.Dispose();
             }
         }
 
-        /// <summary>DeviceSlot 하단 Lock Dice 표시 위치와 회전을 계산한다.</summary>
-        private bool TryGetLockedDiceDeviceSlotPose(
-            int slotIndex,
-            out Vector3 worldPosition,
-            out Quaternion worldRotation)
+        /// <summary>SlotPairDamagePreview의 Step 목록을 기준으로 DeviceSlot과 Dice 반응 연출을 순차 재생한다.</summary>
+        private async UniTask PlaySlotPairEvaluationSequenceInternalAsync(
+            ClashCastResult result,
+            CancellationToken cancellationToken)
         {
-            return TryGetDeviceSlotPresentationPose(
-                slotIndex,
-                lockedDiceDeviceSlotLocalOffset,
-                Quaternion.Euler(lockedDiceTiltEuler),
-                out worldPosition,
-                out worldRotation);
-        }
+            ClearSlotPairEvaluationHighlights();
 
-        /// <summary>Cast 후보 Popup을 갱신한다.</summary>
-        private void RefreshCastPopup()
-        {
-            if (castCandidatePopupView == null)
-                return;
+            SlotPairDamagePreview preview = result.SlotPairDamagePreview;
 
-            if (externalGameplayInputLocked)
+            if (slotPairSequenceStartDelay > 0f)
+                await UniTask.Delay(TimeSpan.FromSeconds(slotPairSequenceStartDelay), cancellationToken: cancellationToken);
+
+            IReadOnlyList<SlotPairDamageStep> steps = preview.Steps;
+            int stepCount = steps != null ? steps.Count : 0;
+
+            for (int i = 0; i < stepCount; i++)
             {
-                castCandidatePopupView.SetPopupVisible(false);
-                return;
+                cancellationToken.ThrowIfCancellationRequested();
+
+                SlotPairDamageStep step = steps[i];
+
+                // 현재 DiceIndex와 대응 PlayerDeviceSlot을 계산 대상으로 강조한다.
+                HighlightSlotPair(step.SlotIndex);
+
+                RefreshTableHologramSlotPairStep(result, step);
+                LogSlotPairStep(result, step);
+
+                PlayEvaluationDiceJumpRollAsync(step, cancellationToken).Forget();
+                PlaySlotPairFloatingTextAsync(step, cancellationToken).Forget();
+
+                if (slotPairHighlightDuration > 0f)
+                    await UniTask.Delay(TimeSpan.FromSeconds(slotPairHighlightDuration), cancellationToken: cancellationToken);
+
+                ClearSlotPairEvaluationHighlights();
+
+                if (slotPairHighlightGap > 0f)
+                    await UniTask.Delay(TimeSpan.FromSeconds(slotPairHighlightGap), cancellationToken: cancellationToken);
             }
-
-            castCandidatePopupView.SetPopupVisible(showCastCandidatePopup);
-
-            if (!showCastCandidatePopup)
-                return;
-
-            if (!CanPrepareCastPreviewInCurrentAttempt())
-            {
-                castCandidatePopupView.Refresh(
-                    null,
-                    RollPatternType.None,
-                    RollPatternType.None,
-                    null);
-                return;
-            }
-
-            castCandidatePopupView.Refresh(
-                currentCastBoardViewModel,
-                selectedPatternType,
-                currentCastBoardViewModel.RecommendedPatternType,
-                SelectCastCandidate);
-        }
-
-        /// <summary>버튼 상호작용 가능 상태를 갱신한다.</summary>
-        private void RefreshButtonStates()
-        {
-            bool hasRound = roundState != null;
-            bool canPrepareCast = CanPrepareCastPreviewInCurrentAttempt();
-
-            SetButtonInteractable(
-                submitSelectedButton,
-                canPrepareCast && selectedPatternType != RollPatternType.None);
-
-            SetButtonInteractable(
-                togglePopupButton,
-                hasRound && CanTogglePopup());
-
-            if (diceCup3DView != null)
-                diceCup3DView.SetInteractable(useDiceCupRollInput && CanRollByDiceCupInput());
-
-            RefreshDiceInteractionState();
-        }
-
-        /// <summary>현재 턴/Attempt 상태에 맞춰 Dice 클릭과 Hover 강조 가능 여부를 갱신한다.</summary>
-        private void RefreshDiceInteractionState()
-        {
-            if (diceTray3DView == null)
-                return;
-
-            bool canInteractWithPlayerDice = CanInteractWithPlayerDice();
-
-            diceTray3DView.SetDiceInteractionEnabled(
-                DiceOwnerType.Player,
-                canInteractWithPlayerDice,
-                canInteractWithPlayerDice);
-
-            diceTray3DView.SetDiceInteractionEnabled(
-                DiceOwnerType.Opponent,
-                false,
-                false);
-        }
-
-        /// <summary>현재 선택된 Cast가 아직 제출 가능한 후보인지 확인한다.</summary>
-        private bool CanSelectedCastStillSubmit()
-        {
-            if (currentCastBoardViewModel == null)
-                return false;
-
-            if (selectedPatternType == RollPatternType.None)
-                return false;
-
-            return currentCastBoardViewModel.TryGetEntry(selectedPatternType, out CastBoardEntryModel entry)
-                    && entry.Status == CastBoardEntryStatus.Available;
-        }
-
-        /// <summary>Popup 후보 클릭으로 제출할 Cast를 선택한다.</summary>
-        private void SelectCastCandidate(RollPatternType patternType)
-        {
-            if (!CanActInCurrentAttempt())
-                return;
-
-            selectedPatternType = patternType;
-            RefreshAll(null);
-        }
-
-        #endregion
-
-        #region Dice Presentation
-
-        /// <summary>3D DiceView 클릭 콜백을 초기화한다.</summary>
-        private void InitializeDiceSlots()
-        {
-            if (diceTray3DView != null)
-                diceTray3DView.Initialize(ToggleDiceLock);
         }
 
         /// <summary>플레이어 Dice 세트를 RestPoint로 회수한다.</summary>
@@ -2433,104 +2534,6 @@ namespace Tessera.UI
             diceTray3DView.RestoreAllDiceToTray(diceValues, lockedDiceMoveDuration);
         }
 
-        #endregion
-
-        #region SlotPair Evaluation Presentation
-
-        /// <summary>Cast 제출 후 SlotPair 계산 순서 연출을 비동기로 재생한다.</summary>
-        private async UniTask PlaySlotPairEvaluationSequenceAsync(ClashCastResult result)
-        {
-            if (!playSlotPairSequenceOnSubmit) return;
-            if (result == null) return;
-            if (result.SlotPairDamagePreview == null) return;
-
-            CancelSlotPairEvaluationSequence();
-
-            CancellationTokenSource currentCts = new CancellationTokenSource();
-            slotPairSequenceCts = currentCts;
-
-            bool completed = false;
-
-            try
-            {
-                LogSlotPairSequenceStarted(result);
-
-                await PlaySlotPairEvaluationSequenceInternalAsync(result, currentCts.Token);
-                completed = true;
-                LogSlotPairSequenceCompleted(result);
-            }
-            catch (OperationCanceledException)
-            {
-                LogSlotPairSequenceCanceled();
-            }
-            finally
-            {
-                if (slotPairSequenceCts == currentCts)
-                {
-                    slotPairSequenceCts = null;
-
-                    if (completed)
-                    {
-                        if (interactionState == BattleInteractionState.CastResolving)
-                            RefreshDeviceSlotLockedDicePresentation();
-                        else
-                            RestoreAllDiceToTrayAfterEvaluation();
-                    }
-                    else
-                    {
-                        RefreshDeviceSlotLockedDicePresentation();
-                    }
-
-                    ClearSlotPairEvaluationHighlights();
-
-                    if (completed)
-                        RefreshSelectedCastTexts();
-                }
-
-                currentCts.Dispose();
-            }
-        }
-
-        /// <summary>SlotPairDamagePreview의 Step 목록을 기준으로 DeviceSlot과 Dice 반응 연출을 순차 재생한다.</summary>
-        private async UniTask PlaySlotPairEvaluationSequenceInternalAsync(
-            ClashCastResult result,
-            CancellationToken cancellationToken)
-        {
-            ClearSlotPairEvaluationHighlights();
-
-            SlotPairDamagePreview preview = result.SlotPairDamagePreview;
-
-            if (slotPairSequenceStartDelay > 0f)
-                await UniTask.Delay(TimeSpan.FromSeconds(slotPairSequenceStartDelay), cancellationToken: cancellationToken);
-
-            IReadOnlyList<SlotPairDamageStep> steps = preview.Steps;
-            int stepCount = steps != null ? steps.Count : 0;
-
-            for (int i = 0; i < stepCount; i++)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                SlotPairDamageStep step = steps[i];
-
-                // 현재 DiceIndex와 대응 PlayerDeviceSlot을 계산 대상으로 강조한다.
-                HighlightSlotPair(step.SlotIndex);
-
-                RefreshTableHologramSlotPairStep(result, step);
-                LogSlotPairStep(result, step);
-
-                PlayEvaluationDiceJumpRollAsync(step, cancellationToken).Forget();
-                PlaySlotPairFloatingTextAsync(step, cancellationToken).Forget();
-
-                if (slotPairHighlightDuration > 0f)
-                    await UniTask.Delay(TimeSpan.FromSeconds(slotPairHighlightDuration), cancellationToken: cancellationToken);
-
-                ClearSlotPairEvaluationHighlights();
-
-                if (slotPairHighlightGap > 0f)
-                    await UniTask.Delay(TimeSpan.FromSeconds(slotPairHighlightGap), cancellationToken: cancellationToken);
-            }
-        }
-
         /// <summary>진행 중인 SlotPair 계산 연출을 중단한다.</summary>
         private void CancelSlotPairEvaluationSequence()
         {
@@ -2543,128 +2546,157 @@ namespace Tessera.UI
             slotPairSequenceCts = null;
         }
 
-        /// <summary>현재 SlotPair 단계의 변화량을 Floating Text로 표시한다.</summary>
-        private async UniTaskVoid PlaySlotPairFloatingTextAsync(SlotPairDamageStep step, CancellationToken cancellationToken)
+        /// <summary>Clash Cast 결과 메시지를 생성한다.</summary>
+        private string BuildClashCastMessage(ClashCastResult result)
         {
-            if (!playSlotPairFloatingText) return;
-            if (step == null) return;
-            if (slotPairStepFloatingTextView == null) return;
-            if (!TryGetSlotPairFloatingAnchoredPosition(step.SlotIndex, out Vector2 anchoredPosition)) return;
+            if (result == null)
+                return "Submit failed.";
 
-            string message = BuildSlotPairFloatingMessage(step);
-
-            if (string.IsNullOrWhiteSpace(message)) return;
-
-            // 현재 Highlight 중인 DeviceSlot 위에 Balatro식 짧은 변화량 텍스트를 띄운다.
-            await slotPairStepFloatingTextView.PlayAsync(message, anchoredPosition, cancellationToken);
-        }
-
-        /// <summary>SlotPair Floating Text를 띄울 DeviceSlot 기준 Overlay 좌표를 계산한다.</summary>
-        private bool TryGetSlotPairFloatingAnchoredPosition(int slotIndex, out Vector2 anchoredPosition)
-        {
-            anchoredPosition = Vector2.zero;
-
-            if (playerDeviceRack3DView == null)
-                return false;
-
-            RectTransform root = slotPairFloatingTextRoot;
-
-            if (root == null && slotPairStepFloatingTextView != null)
-                root = slotPairStepFloatingTextView.transform.parent as RectTransform;
-
-            if (root == null)
-                return false;
-
-            Camera targetCamera = battleCamera != null ? battleCamera : Camera.main;
-
-            if (targetCamera == null)
-                return false;
-
-            if (!TryGetDeviceSlotPresentationPose(
-                    slotIndex,
-                    slotPairFloatingWorldOffset,
-                    Quaternion.identity,
-                    out Vector3 worldPosition,
-                    out Quaternion _))
-                return false;
-
-            // Transform pivot이 아니라 Renderer/Collider 중심 + 슬롯 로컬 Presentation offset 기준으로 Overlay 좌표를 만든다.
-            Vector3 screenPosition = targetCamera.WorldToScreenPoint(worldPosition);
-
-            if (screenPosition.z < 0f)
-                return false;
-
-            // UIRoot가 Screen Space Overlay이므로 camera 인자는 null을 사용한다.
-            return RectTransformUtility.ScreenPointToLocalPointInRectangle(root, screenPosition, null, out anchoredPosition);
-        }
-
-        /// <summary>SlotPair Step의 Score/Force 변화량을 짧은 Floating Text 문구로 변환한다.</summary>
-        private string BuildSlotPairFloatingMessage(SlotPairDamageStep step)
-        {
-            if (step == null)
-                return string.Empty;
-
-            if (!step.DidApply)
-                return "SKIP";
-
-            List<string> messages = new List<string>();
-
-            int scoreDelta = step.ScoreAfter - step.ScoreBefore;
-            float forceDelta = step.ForceAfter - step.ForceBefore;
-
-            if (scoreDelta != 0)
-                messages.Add(FormatSignedScoreDelta(scoreDelta));
-
-            if (Mathf.Abs(forceDelta) > 0.001f)
-                messages.Add(FormatForceDelta(step.ForceBefore, step.ForceAfter));
-
-            if (messages.Count <= 0)
-                messages.Add("OK");
-
-            return string.Join("\n", messages);
-        }
-
-        /// <summary>Score 변화량을 표시용 문자열로 변환한다.</summary>
-        private static string FormatSignedScoreDelta(int scoreDelta)
-        {
-            if (scoreDelta > 0)
-                return $"+{scoreDelta}";
-
-            return scoreDelta.ToString();
-        }
-
-        /// <summary>Force 변화량을 표시용 문자열로 변환한다.</summary>
-        private static string FormatForceDelta(float before, float after)
-        {
-            if (before > 0.001f)
+            if (result.SlotPairDamagePreview != null)
             {
-                float ratio = after / before;
-
-                if (Mathf.Abs(ratio - 1f) > 0.001f && Mathf.Abs(after - before) > 0.001f)
-                {
-                    if (ratio > 1.01f)
-                        return $"x{FormatCompactFloat(ratio)}";
-                }
+                return
+                    $"{result.PatternResult.PatternType}: " +
+                    $"Score {result.SlotPairDamagePreview.FinalScore} x " +
+                    $"Force {result.SlotPairDamagePreview.FormatFinalForce()} = " +
+                    $"Damage {result.FinalDamage}.";
             }
 
-            float delta = after - before;
-
-            if (delta > 0f)
-                return $"+{FormatCompactFloat(delta)}F";
-
-            return $"{FormatCompactFloat(delta)}F";
+            return $"{result.PatternResult.PatternType}: Damage {result.FinalDamage}.";
         }
 
-        /// <summary>float 값을 짧은 표시용 문자열로 변환한다.</summary>
-        private static string FormatCompactFloat(float value)
+        /// <summary>전투 진행 메시지를 로그로 남긴다.</summary>
+        private void SetMessage(string message)
         {
-            if (Mathf.Abs(value - Mathf.Round(value)) < 0.001f)
-                return Mathf.RoundToInt(value).ToString();
+            if (string.IsNullOrWhiteSpace(message))
+                return;
 
-            return value.ToString("0.##");
+            Debug.Log($"[Tessera][Message] {message}");
         }
 
-        #endregion
+        /// <summary>버튼 클릭 이벤트를 등록한다.</summary>
+        private void AddButtonListeners()
+        {
+            if (diceCup3DView != null)
+                diceCup3DView.Clicked += OnDiceCupClicked;
+
+            if (submitSelectedButton != null)
+                submitSelectedButton.onClick.AddListener(SubmitSelectedCast);
+
+            if (togglePopupButton != null)
+                togglePopupButton.onClick.AddListener(ToggleCastCandidatePopup);
+        }
+
+        /// <summary>버튼 클릭 이벤트를 해제한다.</summary>
+        private void RemoveButtonListeners()
+        {
+            if (diceCup3DView != null)
+                diceCup3DView.Clicked -= OnDiceCupClicked;
+
+            if (submitSelectedButton != null)
+                submitSelectedButton.onClick.RemoveListener(SubmitSelectedCast);
+
+            if (togglePopupButton != null)
+                togglePopupButton.onClick.RemoveListener(ToggleCastCandidatePopup);
+        }
+
+        /// <summary>인스펙터에 입력된 수동 주사위 값을 리스트로 만든다.</summary>
+        private List<int> CreateManualDiceValues()
+        {
+            return new List<int>
+            {
+                ClampDiceValue(die1),
+                ClampDiceValue(die2),
+                ClampDiceValue(die3),
+                ClampDiceValue(die4),
+                ClampDiceValue(die5)
+            };
+        }
+
+        /// <summary>현재 Player Dice를 클릭/Lock할 수 있는지 확인한다.</summary>
+        private bool CanInteractWithPlayerDice()
+        {
+            if (!CanActInCurrentAttempt())
+                return false;
+
+            return roundState.CanSubmitCastNow();
+        }
+
+        /// <summary>현재 턴/Attempt 상태에 맞춰 Dice 클릭과 Hover 강조 가능 여부를 갱신한다.</summary>
+        private void RefreshDiceInteractionState()
+        {
+            if (diceTray3DView == null)
+                return;
+
+            bool canInteractWithPlayerDice = CanInteractWithPlayerDice();
+
+            diceTray3DView.SetDiceInteractionEnabled(
+                DiceOwnerType.Player,
+                canInteractWithPlayerDice,
+                canInteractWithPlayerDice);
+
+            diceTray3DView.SetDiceInteractionEnabled(
+                DiceOwnerType.Opponent,
+                false,
+                false);
+        }
+
+        /// <summary>기억 중인 직전 Cast 주사위 값을 초기화한다.</summary>
+        private void ClearLastSubmittedDiceValues()
+        {
+            lastSubmittedDiceValues.Clear();
+            hasLastSubmittedDiceValues = false;
+        }
+
+        /// <summary>새 Attempt의 Dice 값을 직전 Cast 주사위 값으로 맞춘다.</summary>
+        private bool ApplyLastSubmittedDiceValuesToNewAttemptIfPossible()
+        {
+            if (!hasLastSubmittedDiceValues)
+                return false;
+
+            if (roundState == null)
+                return false;
+
+            if (lastSubmittedDiceValues.Count != roundState.Dice.Count)
+                return false;
+
+            simulator.SetCurrentDiceValuesForTest(roundState, lastSubmittedDiceValues);
+            return true;
+        }
+
+        /// <summary>현재 주사위들의 Lock 상태 목록을 생성한다.</summary>
+        private List<bool> CreateDiceLockStates()
+        {
+            List<bool> lockStates = new List<bool>(roundState.Dice.Count);
+
+            for (int i = 0; i < roundState.Dice.Count; i++)
+                lockStates.Add(roundState.Dice[i].IsLocked);
+
+            return lockStates;
+        }
+
+        /// <summary>주사위 값을 1~6 범위로 제한한다.</summary>
+        private static int ClampDiceValue(int value)
+        {
+            return Mathf.Clamp(value, 1, 6);
+        }
+
+        /// <summary>TMP 텍스트 값을 안전하게 갱신한다.</summary>
+        private static void SetText(TMP_Text targetText, string value)
+        {
+            if (targetText == null)
+                return;
+
+            targetText.text = value;
+        }
+
+        /// <summary>버튼 활성화 상태를 안전하게 갱신한다.</summary>
+        private static void SetButtonInteractable(Button targetButton, bool isInteractable)
+        {
+            if (targetButton == null)
+                return;
+
+            targetButton.interactable = isInteractable;
+        }
 
         #region Opponent Roll AI
 
@@ -3226,6 +3258,80 @@ namespace Tessera.UI
             return exists;
         }
 
+        /// <summary>상대 Roll AI의 평가 결과를 로그로 출력한다.</summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void LogOpponentRollAIStep(
+            string phaseName,
+            int rollIndex,
+            int maxRollCount,
+            IReadOnlyList<int> diceValues,
+            IReadOnlyList<bool> lockStates,
+            ClashCastResult candidateResult,
+            ClashCastResult playerResult)
+        {
+            if (!CanLogOpponentRollAIDebug())
+                return;
+
+            string candidateText = candidateResult != null
+                ? $"{candidateResult.PatternType} / Damage {candidateResult.FinalDamage}"
+                : "None";
+
+            string playerDamageText = playerResult != null
+                ? playerResult.FinalDamage.ToString()
+                : "-";
+
+            Debug.Log(
+                $"[Tessera][OpponentRollAI] Phase={phaseName} | " +
+                $"Roll={rollIndex}/{maxRollCount} | " +
+                $"Intent={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.DisplayName : "Fallback")} | " +
+                $"Strategy={ResolveOpponentRollStrategy()} | " +
+                $"Dice=[{FormatDiceValuesForLog(diceValues)}] | " +
+                $"Locks=[{FormatBoolListForLog(lockStates)}] | " +
+                $"Candidate={candidateText} | " +
+                $"PlayerDamage={playerDamageText} | " +
+                $"TargetStop={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.TargetDamageToStop.ToString() : "0")} | " +
+                $"StopIfBeatsPlayer={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.StopIfBeatsPlayerDamage.ToString() : "False")}");
+        }
+
+        /// <summary>상대 Roll AI의 주사위 유지 결정을 로그로 출력한다.</summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void LogOpponentRollAILockDecision(
+                    string phaseName,
+                    int rollIndex,
+                    OpponentRollStrategyType rollStrategy,
+                    IReadOnlyList<int> diceValues,
+                    IReadOnlyList<bool> lockStates,
+                    ClashCastResult candidateResult)
+        {
+            if (!CanLogOpponentRollAIDebug())
+                return;
+
+            Debug.Log(
+                $"[Tessera][OpponentRollAI][Lock] Phase={phaseName} | " +
+                $"AfterRoll={rollIndex} | " +
+                $"Strategy={rollStrategy} | " +
+                $"Candidate={(candidateResult != null ? candidateResult.PatternType.ToString() : "None")} | " +
+                $"Damage={(candidateResult != null ? candidateResult.FinalDamage.ToString() : "0")} | " +
+                $"Dice=[{FormatDiceValuesForLog(diceValues)}] | " +
+                $"NextLocks=[{FormatBoolListForLog(lockStates)}]");
+        }
+
+        /// <summary>bool 목록을 로그 출력용 문자열로 변환한다.</summary>
+        private static string FormatBoolListForLog(IReadOnlyList<bool> values)
+        {
+            if (values == null || values.Count <= 0)
+                return "-";
+
+            List<string> parts = new List<string>(values.Count);
+
+            for (int i = 0; i < values.Count; i++)
+                parts.Add(values[i] ? "L" : "R");
+
+            return string.Join(",", parts);
+        }
+
         /// <summary>현재 Round 정의를 기준으로 상대 DiceInstance 세트를 생성하고 첫 Roll까지 수행한다.</summary>
         private List<DiceInstance> CreateOpponentDiceInstances()
         {
@@ -3330,6 +3436,72 @@ namespace Tessera.UI
             return true;
         }
 
+        /// <summary>현재 상대 Dice 로드아웃 이름을 로그용 문자열로 반환한다.</summary>
+        private string FormatOpponentDiceLoadoutDefinitionForLog()
+        {
+            EnemyDiceLoadoutDefinitionSO loadout = currentRoundDefinition != null
+                ? currentRoundDefinition.OpponentDiceLoadout
+                : null;
+
+            if (loadout == null)
+                return "DefaultD6";
+
+            return loadout.DisplayName;
+        }
+
+        #endregion
+
+        /// <summary>정수 목록을 로그 출력용 문자열로 변환한다.</summary>
+        private string FormatDiceValuesForLog(IReadOnlyList<int> diceValues)
+        {
+            if (diceValues == null || diceValues.Count <= 0)
+                return "-";
+
+            return string.Join(",", diceValues);
+        }
+
+        /// <summary>정수 리스트를 로그 표시용 문자열로 변환한다.</summary>
+        private static string FormatIntListForLog(IReadOnlyList<int> values)
+        {
+            if (values == null || values.Count <= 0)
+                return "-";
+
+            List<string> parts = new List<string>(values.Count);
+
+            for (int i = 0; i < values.Count; i++)
+                parts.Add(values[i].ToString());
+
+            return string.Join(", ", parts);
+        }
+
+        /// <summary>상대 Device 로드아웃을 로그 표시용 문자열로 변환한다.</summary>
+        private string FormatOpponentDeviceLoadoutForLog()
+        {
+            if (opponentSlotPairDevices == null || opponentSlotPairDevices.Length <= 0)
+                return "-";
+
+            List<string> parts = new List<string>(opponentSlotPairDevices.Length);
+
+            for (int i = 0; i < opponentSlotPairDevices.Length; i++)
+            {
+                SlotPairDeviceDefinitionSO device = opponentSlotPairDevices[i];
+
+                if (device == null)
+                {
+                    parts.Add($"{i + 1}:None");
+                    continue;
+                }
+
+                string displayName = string.IsNullOrWhiteSpace(device.DisplayName)
+                    ? device.DeviceType.ToString()
+                    : device.DisplayName;
+
+                parts.Add($"{i + 1}:{displayName}");
+            }
+
+            return string.Join(" | ", parts);
+        }
+
         /// <summary>상대 턴 연출용 Lock 상태 목록을 생성한다.</summary>
         private static List<bool> CreateEnemyDiceLockStates(int diceCount)
         {
@@ -3341,188 +3513,120 @@ namespace Tessera.UI
             return lockStates;
         }
 
-        #endregion
-
-        #region Logging And Formatting
-
-        /// <summary>전투 진행 메시지를 로그로 남긴다.</summary>
-        private void SetMessage(string message)
+        /// <summary>지정 Attempt 번호에서 사용할 EnemyIntent를 생성한다. Round Initiative는 Round 시작 시점 값으로 고정한다.</summary>
+        private EnemyIntent BuildEnemyIntentForAttempt(int attemptNumber)
         {
-            if (string.IsNullOrWhiteSpace(message))
-                return;
+            InitiativeOwnerType roundInitiativeOwner = ResolveCurrentRoundInitiativeOwner();
 
-            Debug.Log($"[Tessera][Message] {message}");
-        }
-
-        /// <summary>Clash Cast 결과 메시지를 생성한다.</summary>
-        private string BuildClashCastMessage(ClashCastResult result)
-        {
-            if (result == null)
-                return "Submit failed.";
-
-            if (result.SlotPairDamagePreview != null)
+            if (currentRoundDefinition != null)
             {
-                return
-                    $"{result.PatternResult.PatternType}: " +
-                    $"Score {result.SlotPairDamagePreview.FinalScore} x " +
-                    $"Force {result.SlotPairDamagePreview.FormatFinalForce()} = " +
-                    $"Damage {result.FinalDamage}.";
+                currentEnemyIntentDefinition = currentRoundDefinition.SelectIntentDefinitionForAttempt(
+                    attemptNumber,
+                    seed);
+
+                EnemyIntent intent = currentRoundDefinition.BuildEnemyIntentForAttempt(
+                    attemptNumber,
+                    seed,
+                    roundInitiativeOwner);
+
+                Debug.Log(
+                    $"[Tessera][Intent] Attempt={attemptNumber} | " +
+                    $"Intent={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.DisplayName : "Fallback")} | " +
+                    $"RoundInitiative={roundInitiativeOwner} | " +
+                    $"IntentInitiative={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.InitiativeOwner.ToString() : "Fallback")} | " +
+                    $"InitiativeLocked=True | " +
+                    $"Category={intent.CategoryType} | " +
+                    $"UseOpponentDevices={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.UseOpponentDevices.ToString() : "Fallback")} | " +
+                    $"ChooseBest={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.ChooseBestAvailableCast.ToString() : "Fallback")}");
+
+                return intent;
             }
 
-            return $"{result.PatternResult.PatternType}: Damage {result.FinalDamage}.";
+            currentEnemyIntentDefinition = null;
+
+            if (roundState != null && roundState.CurrentEnemyIntent != null)
+                return roundState.CurrentEnemyIntent;
+
+            if (roundState != null)
+            {
+                EnemyIntentType intentType = roundInitiativeOwner == InitiativeOwnerType.Opponent
+                    ? EnemyIntentType.Strike
+                    : EnemyIntentType.None;
+
+                return new EnemyIntent(
+                    intentType,
+                    roundState.RuleContext.EnemyStrikeDamage,
+                    "Fallback intent.",
+                    EnemyIntentCategoryType.Aggression,
+                    roundInitiativeOwner);
+            }
+
+            return EnemyIntent.None();
         }
 
-        /// <summary>Clash 판정 결과를 디버그 로그로 출력한다.</summary>
-        private void LogClashResolveResult(ClashResolveResult result)
+        /// <summary>Round 시작 시점의 Initiative를 저장한다.</summary>
+        private void ResolveAndStoreRoundInitiativeOwner(EnemyIntent openingIntent)
         {
-            if (result == null)
+            if (currentRoundDefinition != null)
+            {
+                lockedRoundInitiativeOwner = currentRoundDefinition.ResolveRoundInitiativeOwner();
+                hasLockedRoundInitiativeOwner = true;
                 return;
+            }
 
-            string winnerText = result.Winner.HasValue
-                ? result.Winner.Value.ToString()
-                : "Tie";
+            if (openingIntent != null)
+            {
+                lockedRoundInitiativeOwner = openingIntent.InitiativeOwner;
+                hasLockedRoundInitiativeOwner = true;
+                return;
+            }
 
-            Debug.Log(
-                $"[Tessera][Clash] Attempt={result.AttemptNumber} | " +
-                $"Winner={winnerText} | " +
-                $"PlayerDice=[{FormatDiceValuesForLog(result.PlayerResult != null ? result.PlayerResult.DiceValues : null)}] | " +
-                $"PlayerCast={(result.PlayerResult != null ? result.PlayerResult.PatternType.ToString() : "None")} | " +
-                $"PlayerDamage={(result.PlayerResult != null ? result.PlayerResult.FinalDamage.ToString() : "0")} | " +
-                $"OpponentDice=[{FormatDiceValuesForLog(result.OpponentResult != null ? result.OpponentResult.DiceValues : null)}] | " +
-                $"OpponentCast={(result.OpponentResult != null ? result.OpponentResult.PatternType.ToString() : "None")} | " +
-                $"OpponentDamage={(result.OpponentResult != null ? result.OpponentResult.FinalDamage.ToString() : "0")} | " +
-                $"DamageToPlayer={result.DamageToPlayer} | " +
-                $"DamageToOpponent={result.DamageToOpponent} | " +
-                $"BrokenDefense={result.PlayerUsedBrokenCastDefense} | " +
-                $"Overcharge+={result.GrantedOverchargeAmount} | " +
-                $"Outcome={result.OutcomeType}");
+            lockedRoundInitiativeOwner = InitiativeOwnerType.Opponent;
+            hasLockedRoundInitiativeOwner = true;
         }
 
-        /// <summary>상대가 확정한 Clash Cast 결과를 디버그 로그로 출력한다.</summary>
-        [System.Diagnostics.Conditional("UNITY_EDITOR")]
-        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
-        private void LogOpponentClashCastResult(string phaseName, ClashCastResult result)
+        /// <summary>현재 Round에서 고정 사용할 Initiative를 반환한다.</summary>
+        private InitiativeOwnerType ResolveCurrentRoundInitiativeOwner()
         {
-            if (!CanLogOpponentRollAIDebug())
-                return;
+            if (hasLockedRoundInitiativeOwner)
+                return lockedRoundInitiativeOwner;
 
-            if (result == null)
-                return;
+            if (currentRoundDefinition != null)
+                return currentRoundDefinition.ResolveRoundInitiativeOwner();
 
-            int rawDamage = result.SlotPairDamagePreview != null
-                ? result.SlotPairDamagePreview.DamageBeforeTableRules
-                : result.FinalDamage;
+            if (roundState != null && roundState.CurrentAttempt != null)
+                return roundState.CurrentAttempt.InitiativeOwner;
 
-            int finalScore = result.SlotPairDamagePreview != null
-                ? result.SlotPairDamagePreview.FinalScore
-                : 0;
-
-            string finalForce = result.SlotPairDamagePreview != null
-                ? result.SlotPairDamagePreview.FormatFinalForce()
-                : "-";
-
-            string intentName = currentEnemyIntentDefinition != null
-                ? currentEnemyIntentDefinition.DisplayName
-                : "Fallback";
-
-            string initiativeName = roundState != null && roundState.CurrentAttempt != null
-                ? roundState.CurrentAttempt.InitiativeOwner.ToString()
-                : "-";
-
-            string useDevicesText = currentEnemyIntentDefinition != null
-                ? currentEnemyIntentDefinition.UseOpponentDevices.ToString()
-                : "Fallback";
-
-            string chooseBestText = currentEnemyIntentDefinition != null
-                ? currentEnemyIntentDefinition.ChooseBestAvailableCast.ToString()
-                : "Fallback";
-
-            string attemptNumberText = roundState != null && roundState.CurrentAttempt != null
-                ? roundState.CurrentAttempt.AttemptNumber.ToString()
-                : "-";
-
-            Debug.Log(
-                $"[Tessera][OpponentCast] Phase={phaseName} | " +
-                $"Attempt={attemptNumberText} | " +
-                $"Intent={intentName} | " +
-                $"Initiative={initiativeName} | " +
-                $"UseDevices={useDevicesText} | " +
-                $"ChooseBest={chooseBestText} | " +
-                $"Dice=[{FormatDiceValuesForLog(result.DiceValues)}] | " +
-                $"Cast={result.PatternType} | " +
-                $"Score={finalScore} | " +
-                $"Force={finalForce} | " +
-                $"RawDamage={rawDamage} | " +
-                $"FinalDamage={result.FinalDamage} | " +
-                $"DiceLoadout={FormatOpponentDiceLoadoutDefinitionForLog()} | " +
-                $"DeviceLoadout={FormatOpponentDeviceLoadoutForLog()}"); ;
+            return InitiativeOwnerType.Opponent;
         }
 
-        /// <summary>상대 Roll AI의 평가 결과를 로그로 출력한다.</summary>
-        [System.Diagnostics.Conditional("UNITY_EDITOR")]
-        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
-        private void LogOpponentRollAIStep(
-                    string phaseName,
-                    int rollIndex,
-                    int maxRollCount,
-                    IReadOnlyList<int> diceValues,
-                    IReadOnlyList<bool> lockStates,
-                    ClashCastResult candidateResult,
-                    ClashCastResult playerResult)
+        /// <summary>Round 고정 Initiative를 반영한 Opening EnemyIntent를 생성한다.</summary>
+        private EnemyIntent BuildOpeningEnemyIntentWithLockedInitiative(EnemyIntent fallbackOpeningIntent)
         {
-            if (!CanLogOpponentRollAIDebug())
-                return;
+            InitiativeOwnerType roundInitiativeOwner = ResolveCurrentRoundInitiativeOwner();
 
-            string candidateText = candidateResult != null
-                ? $"{candidateResult.PatternType} / Damage {candidateResult.FinalDamage}"
-                : "None";
+            if (currentRoundDefinition != null)
+                return currentRoundDefinition.BuildOpeningEnemyIntent(roundInitiativeOwner);
 
-            string playerDamageText = playerResult != null
-                ? playerResult.FinalDamage.ToString()
-                : "-";
+            if (fallbackOpeningIntent != null)
+                return fallbackOpeningIntent;
 
-            Debug.Log(
-                $"[Tessera][OpponentRollAI] Phase={phaseName} | " +
-                $"Roll={rollIndex}/{maxRollCount} | " +
-                $"Intent={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.DisplayName : "Fallback")} | " +
-                $"Strategy={ResolveOpponentRollStrategy()} | " +
-                $"Dice=[{FormatDiceValuesForLog(diceValues)}] | " +
-                $"Locks=[{FormatBoolListForLog(lockStates)}] | " +
-                $"Candidate={candidateText} | " +
-                $"PlayerDamage={playerDamageText} | " +
-                $"TargetStop={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.TargetDamageToStop.ToString() : "0")} | " +
-                $"StopIfBeatsPlayer={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.StopIfBeatsPlayerDamage.ToString() : "False")}");
+            if (roundState == null)
+                return EnemyIntent.None();
+
+            EnemyIntentType intentType = roundInitiativeOwner == InitiativeOwnerType.Opponent
+                ? EnemyIntentType.Strike
+                : EnemyIntentType.None;
+
+            return new EnemyIntent(
+                intentType,
+                roundState.RuleContext.EnemyStrikeDamage,
+                "Opening intent.",
+                EnemyIntentCategoryType.Aggression,
+                roundInitiativeOwner);
         }
 
-        /// <summary>상대 Roll AI의 주사위 유지 결정을 로그로 출력한다.</summary>
-        [System.Diagnostics.Conditional("UNITY_EDITOR")]
-        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
-        private void LogOpponentRollAILockDecision(
-                    string phaseName,
-                    int rollIndex,
-                    OpponentRollStrategyType rollStrategy,
-                    IReadOnlyList<int> diceValues,
-                    IReadOnlyList<bool> lockStates,
-                    ClashCastResult candidateResult)
-        {
-            if (!CanLogOpponentRollAIDebug())
-                return;
-
-            Debug.Log(
-                $"[Tessera][OpponentRollAI][Lock] Phase={phaseName} | " +
-                $"AfterRoll={rollIndex} | " +
-                $"Strategy={rollStrategy} | " +
-                $"Candidate={(candidateResult != null ? candidateResult.PatternType.ToString() : "None")} | " +
-                $"Damage={(candidateResult != null ? candidateResult.FinalDamage.ToString() : "0")} | " +
-                $"Dice=[{FormatDiceValuesForLog(diceValues)}] | " +
-                $"NextLocks=[{FormatBoolListForLog(lockStates)}]");
-        }
-
-        /// <summary>상대 Roll AI 디버그 로그를 출력할 수 있는지 반환한다.</summary>
-        private bool CanLogOpponentRollAIDebug()
-        {
-            return enableOpponentRollAIDebugLogs;
-        }
+        #region Debug
 
         /// <summary>SlotPair 계산 시작 로그를 출력한다.</summary>
         private void LogSlotPairSequenceStarted(ClashCastResult result)
@@ -3588,170 +3692,12 @@ namespace Tessera.UI
             Debug.Log("[Tessera][SlotPair] Sequence Canceled");
         }
 
-        /// <summary>정수 목록을 로그 출력용 문자열로 변환한다.</summary>
-        private string FormatDiceValuesForLog(IReadOnlyList<int> diceValues)
+        /// <summary>상대 Roll AI 디버그 로그를 출력할 수 있는지 반환한다.</summary>
+        private bool CanLogOpponentRollAIDebug()
         {
-            if (diceValues == null || diceValues.Count <= 0)
-                return "-";
-
-            return string.Join(",", diceValues);
-        }
-
-        /// <summary>정수 리스트를 로그 표시용 문자열로 변환한다.</summary>
-        private static string FormatIntListForLog(IReadOnlyList<int> values)
-        {
-            if (values == null || values.Count <= 0)
-                return "-";
-
-            List<string> parts = new List<string>(values.Count);
-
-            for (int i = 0; i < values.Count; i++)
-                parts.Add(values[i].ToString());
-
-            return string.Join(", ", parts);
-        }
-
-        /// <summary>bool 목록을 로그 출력용 문자열로 변환한다.</summary>
-        private static string FormatBoolListForLog(IReadOnlyList<bool> values)
-        {
-            if (values == null || values.Count <= 0)
-                return "-";
-
-            List<string> parts = new List<string>(values.Count);
-
-            for (int i = 0; i < values.Count; i++)
-                parts.Add(values[i] ? "L" : "R");
-
-            return string.Join(",", parts);
-        }
-
-        /// <summary>상대 Device 로드아웃을 로그 표시용 문자열로 변환한다.</summary>
-        private string FormatOpponentDeviceLoadoutForLog()
-        {
-            if (opponentSlotPairDevices == null || opponentSlotPairDevices.Length <= 0)
-                return "-";
-
-            List<string> parts = new List<string>(opponentSlotPairDevices.Length);
-
-            for (int i = 0; i < opponentSlotPairDevices.Length; i++)
-            {
-                SlotPairDeviceDefinitionSO device = opponentSlotPairDevices[i];
-
-                if (device == null)
-                {
-                    parts.Add($"{i + 1}:None");
-                    continue;
-                }
-
-                string displayName = string.IsNullOrWhiteSpace(device.DisplayName)
-                    ? device.DeviceType.ToString()
-                    : device.DisplayName;
-
-                parts.Add($"{i + 1}:{displayName}");
-            }
-
-            return string.Join(" | ", parts);
-        }
-
-        /// <summary>현재 상대 Dice 로드아웃 이름을 로그용 문자열로 반환한다.</summary>
-        private string FormatOpponentDiceLoadoutDefinitionForLog()
-        {
-            EnemyDiceLoadoutDefinitionSO loadout = currentRoundDefinition != null
-                ? currentRoundDefinition.OpponentDiceLoadout
-                : null;
-
-            if (loadout == null)
-                return "DefaultD6";
-
-            return loadout.DisplayName;
-        }
-
-        /// <summary>주사위 값을 표시용 문자열로 변환한다.</summary>
-        private static string FormatDiceValue(SlotPairDamageStep step)
-        {
-            if (step.DiceIndex < 0 || step.DiceValue <= 0)
-                return "-";
-
-            return step.DiceValue.ToString();
-        }
-
-        /// <summary>Force 값을 표시용 문자열로 변환한다.</summary>
-        private static string FormatForce(float force)
-        {
-            if (Math.Abs(force - (int)force) < 0.001f)
-                return ((int)force).ToString();
-
-            return force.ToString("0.##");
+            return enableOpponentRollAIDebugLogs;
         }
 
         #endregion
-
-        #region Utility
-
-        /// <summary>버튼 클릭 이벤트를 등록한다.</summary>
-        private void AddButtonListeners()
-        {
-            if (diceCup3DView != null)
-                diceCup3DView.Clicked += OnDiceCupClicked;
-
-            if (submitSelectedButton != null)
-                submitSelectedButton.onClick.AddListener(SubmitSelectedCast);
-
-            if (togglePopupButton != null)
-                togglePopupButton.onClick.AddListener(ToggleCastCandidatePopup);
-        }
-
-        /// <summary>버튼 클릭 이벤트를 해제한다.</summary>
-        private void RemoveButtonListeners()
-        {
-            if (diceCup3DView != null)
-                diceCup3DView.Clicked -= OnDiceCupClicked;
-
-            if (submitSelectedButton != null)
-                submitSelectedButton.onClick.RemoveListener(SubmitSelectedCast);
-
-            if (togglePopupButton != null)
-                togglePopupButton.onClick.RemoveListener(ToggleCastCandidatePopup);
-        }
-
-        /// <summary>인스펙터에 입력된 수동 주사위 값을 리스트로 만든다.</summary>
-        private List<int> CreateManualDiceValues()
-        {
-            return new List<int>
-            {
-                ClampDiceValue(die1),
-                ClampDiceValue(die2),
-                ClampDiceValue(die3),
-                ClampDiceValue(die4),
-                ClampDiceValue(die5)
-            };
-        }
-
-        /// <summary>주사위 값을 1~6 범위로 제한한다.</summary>
-        private static int ClampDiceValue(int value)
-        {
-            return Mathf.Clamp(value, 1, 6);
-        }
-
-        /// <summary>TMP 텍스트 값을 안전하게 갱신한다.</summary>
-        private static void SetText(TMP_Text targetText, string value)
-        {
-            if (targetText == null)
-                return;
-
-            targetText.text = value;
-        }
-
-        /// <summary>버튼 활성화 상태를 안전하게 갱신한다.</summary>
-        private static void SetButtonInteractable(Button targetButton, bool isInteractable)
-        {
-            if (targetButton == null)
-                return;
-
-            targetButton.interactable = isInteractable;
-        }
-
-        #endregion
-
     }
 }

@@ -53,6 +53,6 @@ MonoBehaviour:
   opponentDiceLoadout: {fileID: 11400000, guid: 04ede4506b708f64fb42aab4f8e9efc1, type: 2}
   useOpeningIntentInitiativeAsRoundInitiative: 1
   roundInitiativeOwner: 1
-  openingIntent: {fileID: 11400000, guid: 1477729695c9c49439b2ee1b39b8c34a, type: 2}
+  openingIntent: {fileID: 11400000, guid: fa701230776878645b891973771fe3ba, type: 2}
   intentDeck:
-  - {fileID: 11400000, guid: 1477729695c9c49439b2ee1b39b8c34a, type: 2}
+  - {fileID: 11400000, guid: fa701230776878645b891973771fe3ba, type: 2}

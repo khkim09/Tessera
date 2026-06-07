@@ -10,17 +10,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6dfb16a733503c54bb25087d5a0331ae, type: 3}
-  m_Name: Intent_OpponentNoDeviceStrike
+  m_Name: Intent_Boss_ClerkPressure
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.EnemyIntentDefinitionSO
-  intentId: intent_opponent_no_device_strike
-  displayName: Clean Opening Strike
-  shortDescription: Opponent rolls first without Device effects.
-  bountyCardDescription: Opponent acts first, but does not use Devices.
-  categoryType: 0
+  intentId: intent_boss_clerk_pressure
+  displayName: Clerk Pressure
+  shortDescription: The Clerk rolls aggressively with enhanced dice.
+  bountyCardDescription: The Clerk uses rigged dice and optimized Devices to pressure
+    your Clash damage.
+  categoryType: 3
   initiativeOwner: 1
-  useOpponentDevices: 0
+  useOpponentDevices: 1
   chooseBestAvailableCast: 1
-  opponentRollCount: 2
-  targetDamageToStop: 18
+  opponentRollCount: 3
+  targetDamageToStop: 45
   stopIfBeatsPlayerDamage: 1
-  rollStrategy: 1
+  rollStrategy: 0
