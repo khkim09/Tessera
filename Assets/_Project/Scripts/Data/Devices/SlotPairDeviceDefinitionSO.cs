@@ -12,6 +12,7 @@ namespace Tessera.Data
         [Header("Identity")]
         [SerializeField] private string deviceId = "device.none";
         [SerializeField] private string displayName = "None";
+        [TextArea]
         [SerializeField] private string description = "No device effect.";
         [SerializeField] private Sprite icon;
 
@@ -20,36 +21,47 @@ namespace Tessera.Data
         [SerializeField] private int intValue;
         [SerializeField] private float floatValue = 1f;
         [SerializeField] private float forceThreshold;
+
+        [Header("Cast Conditions")]
         [SerializeField] private RollPatternType requiredPatternType = RollPatternType.None;
+        [SerializeField] private RollPatternType secondaryPatternType = RollPatternType.None;
 
-        /// <summary>Device 고유 ID를 반환한다.</summary>
+        [Header("Dice Conditions")]
+        [SerializeField] private DiceValueParity requiredParity = DiceValueParity.Any;
+        [SerializeField] private int requiredMinDiceValue = 1;
+        [SerializeField] private int requiredMaxDiceValue = 6;
+
+        [Header("Slot Conditions")]
+        [Tooltip("0-based SlotPair index. -1 means no slot condition.")]
+        [SerializeField] private int requiredSlotIndex = -1;
+
+        [Header("Run Conditions")]
+        [SerializeField] private int requiredStageThreatLevel;
+
+        [Header("True Damage")]
+        [SerializeField] private int trueDamageValue;
+
         public string DeviceId => deviceId;
-
-        /// <summary>플레이어에게 표시할 Device 이름을 반환한다.</summary>
         public string DisplayName => displayName;
-
-        /// <summary>플레이어에게 표시할 Device 설명을 반환한다.</summary>
         public string Description => description;
-
-        /// <summary>Device 슬롯에 표시할 아이콘 이미지를 반환한다.</summary>
         public Sprite Icon => icon;
 
-        /// <summary>Device 효과 종류를 반환한다.</summary>
         public SlotPairDeviceType DeviceType => deviceType;
-
-        /// <summary>정수 보정값을 반환한다.</summary>
         public int IntValue => intValue;
-
-        /// <summary>Force 곱연산 값을 반환한다.</summary>
         public float FloatValue => floatValue;
-
-        /// <summary>Force 조건 기준값을 반환한다.</summary>
         public float ForceThreshold => forceThreshold;
 
-        /// <summary>조건 비교용 Cast 타입을 반환한다.</summary>
         public RollPatternType RequiredPatternType => requiredPatternType;
+        public RollPatternType SecondaryPatternType => secondaryPatternType;
 
-        /// <summary>SO 데이터를 Core 계산용 DeviceDefinition으로 변환한다.</summary>
+        public DiceValueParity RequiredParity => requiredParity;
+        public int RequiredMinDiceValue => Mathf.Clamp(requiredMinDiceValue, 1, 6);
+        public int RequiredMaxDiceValue => Mathf.Clamp(requiredMaxDiceValue, 1, 6);
+
+        public int RequiredSlotIndex => requiredSlotIndex;
+        public int RequiredStageThreatLevel => Mathf.Max(0, requiredStageThreatLevel);
+        public int TrueDamageValue => Mathf.Max(0, trueDamageValue);
+
         public SlotPairDeviceDefinition ToCoreDefinition()
         {
             if (deviceType == SlotPairDeviceType.AddScoreByDiceValue)
@@ -69,25 +81,30 @@ namespace Tessera.Data
             if (deviceType == SlotPairDeviceType.AddScoreIfCastType)
                 return SlotPairDeviceDefinition.AddScoreIfCastType(requiredPatternType, GetSafeIntValue(1));
 
-            return SlotPairDeviceDefinition.None();
+            return SlotPairDeviceDefinition.Create(
+                deviceType,
+                GetSafeIntValue(0),
+                GetSafeFloatValue(1f),
+                Mathf.Max(0f, forceThreshold),
+                requiredPatternType,
+                secondaryPatternType,
+                requiredParity,
+                RequiredMinDiceValue,
+                RequiredMaxDiceValue,
+                requiredSlotIndex,
+                RequiredStageThreatLevel,
+                TrueDamageValue,
+                description);
         }
 
-        /// <summary>인스펙터 입력 정수값을 안전한 최소값으로 보정한다.</summary>
         private int GetSafeIntValue(int fallback)
         {
-            if (intValue <= 0)
-                return fallback;
-
-            return intValue;
+            return intValue <= 0 ? fallback : intValue;
         }
 
-        /// <summary>인스펙터 입력 실수값을 안전한 최소값으로 보정한다.</summary>
         private float GetSafeFloatValue(float fallback)
         {
-            if (floatValue <= 0f)
-                return fallback;
-
-            return floatValue;
+            return floatValue <= 0f ? fallback : floatValue;
         }
     }
 }

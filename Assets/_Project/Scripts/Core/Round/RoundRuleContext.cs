@@ -32,6 +32,9 @@ namespace Tessera.Core
         /// <summary>상대의 기본 Strike 피해량.</summary>
         public int EnemyStrikeDamage { get; }
 
+        /// <summary>현재 Stage 내부 누적 위험도다.</summary>
+        public int StageThreatLevel { get; }
+
         /// <summary>Round 또는 Boss Round에 적용되는 테이블 규칙 목록.</summary>
         public IReadOnlyList<TableRule> TableRules => _tableRules;
 
@@ -61,7 +64,8 @@ namespace Tessera.Core
             int brokenCastOverchargeAmount,
             bool brokenCastGrantsNextAttemptFreeReroll,
             int brokenCastFreeRerollTokenAmount,
-            IReadOnlyList<TableRule> tableRules = null)
+            IReadOnlyList<TableRule> tableRules = null,
+            int stageThreatLevel = 0)
         {
             if (diceCount <= 0)
                 throw new ArgumentOutOfRangeException(nameof(diceCount), "주사위 개수는 1개 이상이어야 합니다.");
@@ -87,6 +91,9 @@ namespace Tessera.Core
             if (enemyStrikeDamage < 0)
                 throw new ArgumentOutOfRangeException(nameof(enemyStrikeDamage), "상대 Strike 피해량은 음수가 될 수 없습니다.");
 
+            if (stageThreatLevel < 0)
+                throw new ArgumentOutOfRangeException(nameof(stageThreatLevel), "StageThreatLevel은 음수가 될 수 없습니다.");
+
             if (brokenCastOverchargeAmount < 0)
                 throw new ArgumentOutOfRangeException(nameof(brokenCastOverchargeAmount), "Broken Cast Overcharge 보상은 음수가 될 수 없습니다.");
 
@@ -101,6 +108,7 @@ namespace Tessera.Core
             MaxUsesPerCastPerRound = maxUsesPerCastPerRound;
             MaxBrokenCastUsesPerRound = maxBrokenCastUsesPerRound;
             EnemyStrikeDamage = enemyStrikeDamage;
+            StageThreatLevel = stageThreatLevel;
             BrokenCastGrantsOvercharge = brokenCastGrantsOvercharge;
             BrokenCastOverchargeAmount = brokenCastOverchargeAmount;
             BrokenCastGrantsNextAttemptFreeReroll = brokenCastGrantsNextAttemptFreeReroll;
@@ -123,7 +131,8 @@ namespace Tessera.Core
                 brokenCastGrantsOvercharge: true,
                 brokenCastOverchargeAmount: 1,
                 brokenCastGrantsNextAttemptFreeReroll: true,
-                brokenCastFreeRerollTokenAmount: 1);
+                brokenCastFreeRerollTokenAmount: 1,
+                stageThreatLevel: 0);
         }
 
         /// <summary>Aces 이외 Cast 피해를 반감하는 Boss Round 테스트 규칙을 생성한다.</summary>
@@ -147,7 +156,8 @@ namespace Tessera.Core
                 brokenCastOverchargeAmount: 1,
                 brokenCastGrantsNextAttemptFreeReroll: true,
                 brokenCastFreeRerollTokenAmount: 1,
-                tableRules: tableRules);
+                tableRules: tableRules,
+                stageThreatLevel: 0);
         }
 
         /// <summary>Chance와 Broken Cast 보상을 막는 Boss Round 테스트 규칙을 생성한다.</summary>
@@ -172,7 +182,8 @@ namespace Tessera.Core
                 brokenCastOverchargeAmount: 1,
                 brokenCastGrantsNextAttemptFreeReroll: true,
                 brokenCastFreeRerollTokenAmount: 1,
-                tableRules: tableRules);
+                tableRules: tableRules,
+                stageThreatLevel: 0);
         }
     }
 }

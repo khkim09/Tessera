@@ -4,10 +4,42 @@
     public enum SlotPairDeviceType
     {
         None = 0,
+
         AddScoreByDiceValue = 1,
         AddForceIfDiceIncluded = 2,
         AddForceIfSameAsPrevious = 3,
         MultiplyForceIfCurrentForceAtLeast = 4,
-        AddScoreIfCastType = 5
+        AddScoreIfCastType = 5,
+
+        AddScoreIfDiceParity = 10,
+        AddForceIfDiceParity = 11,
+        MultiplyForceIfDiceParity = 12,
+
+        AddScoreIfDiceValueAtLeast = 20,
+        AddScoreIfDiceValueAtMost = 21,
+        AddForceIfDiceValueAtLeast = 22,
+        AddForceIfDiceValueAtMost = 23,
+        MultiplyForceIfDiceValueAtLeast = 24,
+
+        AddScoreIfSlotIndex = 30,
+        AddTrueDamageIfSlotIndex = 31,
+
+        AddForceIfGreaterThanPrevious = 40,
+        MultiplyForceIfGreaterThanPrevious = 41,
+        AddForceIfSameAsMirrorSlot = 42,
+        AddScoreIfIsolatedFromNeighbors = 43,
+
+        AddScoreIfCastTypeEither = 50,
+        AddForceIfCastTypeEither = 51,
+        MultiplyForceIfCastType = 52,
+
+        AddTrueDamageIfPreviousSlotsSumAtLeast = 60,
+
+        AddScoreIfStageThreatAtLeast = 70,
+        AddForceIfStageThreatAtLeast = 71,
+
+        // 1차 계산기 적용 보류. BrokenCast/Clash 후처리 단계에서 별도 처리한다.
+        AddOverchargeOnBrokenCast = 200,
+        ReduceIncomingDamageOnBrokenCast = 201
     }
 }

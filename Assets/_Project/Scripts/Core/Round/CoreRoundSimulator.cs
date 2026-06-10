@@ -577,11 +577,16 @@ namespace Tessera.Core
             if (baseTableRuleResult.IsCastBlocked)
                 return false;
 
+            // StageThreat 조건 Device가 계산 중 판정될 수 있도록 SlotPair 계산 컨텍스트를 구성한다.
+            SlotPairCalculationContext calculationContext = CreateSlotPairCalculationContext(roundState);
+
+            // SlotPair 1~5를 좌에서 우로 계산하고, StageThreat 조건 Device까지 함께 평가한다.
             preview = slotPairDamageCalculator.Calculate(
                 patternResult,
                 diceValues,
                 lockSlotDiceIndexes,
-                deviceDefinitions);
+                deviceDefinitions,
+                calculationContext);
 
             tableRuleResult = TableRuleEvaluator.Evaluate(
                 roundState.RuleContext,
@@ -592,6 +597,21 @@ namespace Tessera.Core
                 return false;
 
             return true;
+        }
+
+        /// <summary>현재 Round 상태에서 SlotPair 계산에 필요한 외부 컨텍스트를 생성한다.</summary>
+        private static SlotPairCalculationContext CreateSlotPairCalculationContext(RoundState roundState)
+        {
+            if (roundState == null)
+                throw new ArgumentNullException(nameof(roundState));
+
+            // RuleContext가 없을 경우 StageThreat 조건 Device는 기본값 0으로 평가한다.
+            int stageThreatLevel = roundState.RuleContext != null
+                ? roundState.RuleContext.StageThreatLevel
+                : 0;
+
+            // SlotPairDamageCalculator에는 읽기 전용 계산 컨텍스트만 전달한다.
+            return new SlotPairCalculationContext(stageThreatLevel);
         }
 
         /// <summary>Attempt 상태에 기록하지 않고 Clash Cast 결과만 계산한다.</summary>

@@ -9,8 +9,12 @@ namespace Tessera.Runtime
     public class TesseraRunSession
     {
         public const int MaxDeviceSlots = 5;
+        public const int PlayerDiceCount = 5;
+        public const int DiceFaceCount = 6;
 
         private readonly SlotPairDeviceDefinitionSO[] equippedSlotPairDevices = new SlotPairDeviceDefinitionSO[MaxDeviceSlots];
+        private readonly DiceTypeDefinitionSO[] equippedDiceTypes = new DiceTypeDefinitionSO[PlayerDiceCount];
+        private readonly DiceFaceUpgradeDefinitionSO[,] equippedDiceFaceUpgrades = new DiceFaceUpgradeDefinitionSO[PlayerDiceCount, DiceFaceCount];
 
         /// <summary>현재 Stage 인덱스.</summary>
         public int CurrentStageIndex { get; private set; }
@@ -47,6 +51,9 @@ namespace Tessera.Runtime
 
         /// <summary>현재 장착된 SlotPair Device 배열.</summary>
         public IReadOnlyListWrapper EquippedSlotPairDevices => new IReadOnlyListWrapper(equippedSlotPairDevices);
+
+        /// <summary>현재 장착된 DiceType 배열.</summary>
+        public IReadOnlyDiceTypeListWrapper EquippedDiceTypes => new IReadOnlyDiceTypeListWrapper(equippedDiceTypes);
 
         /// <summary>RunSession을 생성한다.</summary>
         public TesseraRunSession(int startMoney = 0, int playerMaxHP = 100)
@@ -354,6 +361,88 @@ namespace Tessera.Runtime
             CurrentWorkshopTier = Mathf.Max(1, tier);
         }
 
+        /// <summary>지정 DiceIndex의 DiceType을 설정한다.</summary>
+        public bool SetEquippedDiceType(int diceIndex, DiceTypeDefinitionSO diceType)
+        {
+            if (!IsValidDiceIndex(diceIndex))
+                return false;
+
+            equippedDiceTypes[diceIndex] = diceType;
+            return true;
+        }
+
+        /// <summary>5개 주사위 전체 DiceType을 동일 타입으로 교체한다.</summary>
+        public bool SetAllEquippedDiceTypes(DiceTypeDefinitionSO diceType)
+        {
+            if (diceType == null)
+                return false;
+
+            for (int i = 0; i < equippedDiceTypes.Length; i++)
+                equippedDiceTypes[i] = diceType;
+
+            return true;
+        }
+
+        /// <summary>지정 DiceIndex의 DiceType을 반환한다.</summary>
+        public DiceTypeDefinitionSO GetEquippedDiceType(int diceIndex)
+        {
+            if (!IsValidDiceIndex(diceIndex))
+                return null;
+
+            return equippedDiceTypes[diceIndex];
+        }
+
+        /// <summary>특정 Dice의 특정 FaceIndex에 FaceUpgrade를 장착한다.</summary>
+        public bool SetDiceFaceUpgrade(
+            int diceIndex,
+            int faceIndex,
+            DiceFaceUpgradeDefinitionSO upgradeDefinition)
+        {
+            if (!IsValidDiceIndex(diceIndex))
+                return false;
+
+            if (!IsValidFaceIndex(faceIndex))
+                return false;
+
+            equippedDiceFaceUpgrades[diceIndex, faceIndex] = upgradeDefinition;
+            return true;
+        }
+
+        /// <summary>특정 Dice의 특정 FaceIndex에 장착된 FaceUpgrade를 반환한다.</summary>
+        public DiceFaceUpgradeDefinitionSO GetDiceFaceUpgrade(int diceIndex, int faceIndex)
+        {
+            if (!IsValidDiceIndex(diceIndex))
+                return null;
+
+            if (!IsValidFaceIndex(faceIndex))
+                return null;
+
+            return equippedDiceFaceUpgrades[diceIndex, faceIndex];
+        }
+
+        /// <summary>특정 Dice의 특정 FaceIndex 각인을 제거한다.</summary>
+        public bool ClearDiceFaceUpgrade(int diceIndex, int faceIndex)
+        {
+            if (!IsValidDiceIndex(diceIndex))
+                return false;
+
+            if (!IsValidFaceIndex(faceIndex))
+                return false;
+
+            equippedDiceFaceUpgrades[diceIndex, faceIndex] = null;
+            return true;
+        }
+
+        private static bool IsValidDiceIndex(int diceIndex)
+        {
+            return diceIndex >= 0 && diceIndex < PlayerDiceCount;
+        }
+
+        private static bool IsValidFaceIndex(int faceIndex)
+        {
+            return faceIndex >= 0 && faceIndex < DiceFaceCount;
+        }
+
         /// <summary>첫 번째 빈 Device 슬롯 인덱스를 찾는다.</summary>
         private int FindFirstEmptyDeviceSlotIndex()
         {
@@ -388,6 +477,33 @@ namespace Tessera.Runtime
 
             /// <summary>지정 인덱스의 Device를 반환한다.</summary>
             public SlotPairDeviceDefinitionSO this[int index]
+            {
+                get
+                {
+                    if (source == null)
+                        return null;
+
+                    if (index < 0 || index >= source.Length)
+                        return null;
+
+                    return source[index];
+                }
+            }
+        }
+
+        /// <summary>DiceType 배열 노출을 최소화하기 위한 읽기 전용 래퍼다.</summary>
+        public readonly struct IReadOnlyDiceTypeListWrapper
+        {
+            private readonly DiceTypeDefinitionSO[] source;
+
+            public IReadOnlyDiceTypeListWrapper(DiceTypeDefinitionSO[] source)
+            {
+                this.source = source;
+            }
+
+            public int Count => source != null ? source.Length : 0;
+
+            public DiceTypeDefinitionSO this[int index]
             {
                 get
                 {

@@ -11,6 +11,7 @@ namespace Tessera.Data
         [Header("Identity")]
         [SerializeField] private string productId = "shop.product.none";
         [SerializeField] private string displayName = "Shop Product";
+        [TextArea]
         [SerializeField] private string description = "Shop product description.";
         [SerializeField] private Sprite icon;
 
@@ -23,54 +24,57 @@ namespace Tessera.Data
         [Header("Device")]
         [SerializeField] private SlotPairDeviceDefinitionSO deviceDefinition;
 
+        [Header("Dice")]
+        [SerializeField] private DiceTypeDefinitionSO diceTypeDefinition;
+        [SerializeField] private DiceFaceUpgradeDefinitionSO diceFaceUpgradeDefinition;
+
         [Header("Future Placeholders")]
-        [SerializeField] private ScriptableObject diceDefinitionPlaceholder;
-        [SerializeField] private ScriptableObject itemDefinitionPlaceholder;
-        [SerializeField] private ScriptableObject relicDefinitionPlaceholder;
+        [SerializeField] private ScriptableObject consumableDefinitionPlaceholder;
+        [SerializeField] private ScriptableObject permanentUpgradeDefinitionPlaceholder;
+        [SerializeField] private ScriptableObject hpRepairDefinitionPlaceholder;
 
-        /// <summary>상품 고유 ID를 반환한다.</summary>
         public string ProductId => productId;
-
-        /// <summary>상품 표시 이름을 반환한다.</summary>
         public string DisplayName => displayName;
-
-        /// <summary>상품 설명을 반환한다.</summary>
         public string Description => description;
-
-        /// <summary>상품 아이콘을 반환한다.</summary>
         public Sprite Icon => icon;
 
-        /// <summary>상품 타입을 반환한다.</summary>
         public ShopProductType ProductType => productType;
-
-        /// <summary>상품 Tier를 반환한다.</summary>
         public int Tier => Mathf.Max(1, tier);
-
-        /// <summary>Money 가격을 반환한다.</summary>
         public int BaseMoneyPrice => Mathf.Max(0, baseMoneyPrice);
-
-        /// <summary>Overcharge 가격을 반환한다.</summary>
         public int BaseOverchargePrice => Mathf.Max(0, baseOverchargePrice);
 
-        /// <summary>Device 상품에 연결된 Device 정의를 반환한다.</summary>
         public SlotPairDeviceDefinitionSO DeviceDefinition => deviceDefinition;
+        public DiceTypeDefinitionSO DiceTypeDefinition => diceTypeDefinition;
+        public DiceFaceUpgradeDefinitionSO DiceFaceUpgradeDefinition => diceFaceUpgradeDefinition;
 
-        /// <summary>추후 Dice 상품에 연결할 placeholder 정의를 반환한다.</summary>
-        public ScriptableObject DiceDefinitionPlaceholder => diceDefinitionPlaceholder;
+        public ScriptableObject ConsumableDefinitionPlaceholder => consumableDefinitionPlaceholder;
+        public ScriptableObject PermanentUpgradeDefinitionPlaceholder => permanentUpgradeDefinitionPlaceholder;
+        public ScriptableObject HpRepairDefinitionPlaceholder => hpRepairDefinitionPlaceholder;
 
-        /// <summary>추후 Item 상품에 연결할 placeholder 정의를 반환한다.</summary>
-        public ScriptableObject ItemDefinitionPlaceholder => itemDefinitionPlaceholder;
-
-        /// <summary>추후 Relic 상품에 연결할 placeholder 정의를 반환한다.</summary>
-        public ScriptableObject RelicDefinitionPlaceholder => relicDefinitionPlaceholder;
+        // Legacy property names. 기존 Shop UI/Spawner 코드 호환용.
+        public ScriptableObject DiceDefinitionPlaceholder => diceTypeDefinition;
+        public ScriptableObject ItemDefinitionPlaceholder => consumableDefinitionPlaceholder;
+        public ScriptableObject RelicDefinitionPlaceholder => permanentUpgradeDefinitionPlaceholder;
 
         /// <summary>현재 빌드에서 실제 구매 적용 가능한 상품인지 확인한다.</summary>
         public bool IsPurchasableInCurrentBuild()
         {
-            if (productType == ShopProductType.Device)
-                return deviceDefinition != null;
+            switch (productType)
+            {
+                case ShopProductType.Device:
+                    return deviceDefinition != null;
 
-            return false;
+                case ShopProductType.DiceSet:
+                case ShopProductType.SingleDice:
+                case ShopProductType.DiceTypeUpgrade:
+                    return diceTypeDefinition != null;
+
+                case ShopProductType.DiceFaceUpgrade:
+                    return diceFaceUpgradeDefinition != null;
+
+                default:
+                    return false;
+            }
         }
     }
 }
