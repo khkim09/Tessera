@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35f25a57e1fad904d937741a7708d7af, type: 3}
+  m_Name: Device_RelayMotor
+  m_EditorClassIdentifier: Tessera.Data::Tessera.Data.SlotPairDeviceDefinitionSO
+  deviceId: device.relay_motor
+  displayName: "\uB9B4\uB808\uC774 \uBAA8\uD130"
+  description: "\uC774\uC804 \uC2AC\uB86F\uBCF4\uB2E4 \uD604\uC7AC \uB208\uC774 \uD06C\uBA74
+    Force x1.5."
+  icon: {fileID: 0}
+  deviceType: 41
+  intValue: 0
+  floatValue: 1.5
+  forceThreshold: 0
+  requiredPatternType: 0
+  secondaryPatternType: 0
+  requiredParity: 0
+  requiredMinDiceValue: 1
+  requiredMaxDiceValue: 6
+  requiredSlotIndex: -1
+  requiredStageThreatLevel: 0
+  trueDamageValue: 0

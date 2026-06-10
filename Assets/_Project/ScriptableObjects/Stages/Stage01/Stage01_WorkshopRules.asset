@@ -19,8 +19,8 @@ MonoBehaviour:
   maxTierUpgradePerVisit: 1
   tierIncreasePerUpgrade: 1
   productPool:
-  - {fileID: 11400000, guid: 0c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f, type: 2}
-  - {fileID: 11400000, guid: 9b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e, type: 2}
-  - {fileID: 11400000, guid: 8a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d, type: 2}
+  - {fileID: 11400000, guid: b460e13c1f7e92847bc26e8335111d44, type: 2}
+  - {fileID: 11400000, guid: 3d69a13f39c34574d9ce69a5b207adfe, type: 2}
+  - {fileID: 11400000, guid: dc68400ce9cf6b3429b806b3388d4eda, type: 2}
   productSlotCount: 3
   allowDuplicateProducts: 0

@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37b4e0bd59511e74d803033efed5deec, type: 3}
+  m_Name: DiceSynergy_Red_4
+  m_EditorClassIdentifier: Tessera.Data::Tessera.Data.DiceSynergyDefinitionSO
+  synergyId: synergy.red.4
+  displayName: Red 4 Set
+  description: Adds Force +1 when the Cast has at least 3 odd results with 4 or more
+    Red dice.
+  icon: {fileID: 0}
+  requiredTag: 10
+  requiredCount: 4
+  effectType: 12
+  intValue: 1
+  floatValue: 0

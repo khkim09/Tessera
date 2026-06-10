@@ -16,11 +16,13 @@ MonoBehaviour:
   displayName: Dice Value Doubler
   description: Adds current dice value x2 to Score.
   icon: {fileID: 0}
-  productType: 1
-  tier: 2
-  baseMoneyPrice: 25
+  productType: 10
+  tier: 1
+  baseMoneyPrice: 6
   baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: 6846570314fc2554bbed934f8f59b05e, type: 2}
-  diceDefinitionPlaceholder: {fileID: 0}
-  itemDefinitionPlaceholder: {fileID: 0}
-  relicDefinitionPlaceholder: {fileID: 0}
+  diceTypeDefinition: {fileID: 0}
+  diceFaceUpgradeDefinition: {fileID: 0}
+  consumableDefinitionPlaceholder: {fileID: 0}
+  permanentUpgradeDefinitionPlaceholder: {fileID: 0}
+  hpRepairDefinitionPlaceholder: {fileID: 0}

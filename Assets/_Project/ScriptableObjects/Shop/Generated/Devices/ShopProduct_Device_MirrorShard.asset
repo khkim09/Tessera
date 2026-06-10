@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a78b2f09ea475bd4a9434aae9428d8f9, type: 3}
+  m_Name: ShopProduct_Device_MirrorShard
+  m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
+  productId: shop.device.mirror_shard
+  displayName: Mirror Shard
+  description: Adds Force +2 if the mirror slot has the same dice value.
+  icon: {fileID: 0}
+  productType: 10
+  tier: 2
+  baseMoneyPrice: 8
+  baseOverchargePrice: 0
+  deviceDefinition: {fileID: 11400000, guid: 829dd39f94d756c4780d2125f11ad2ed, type: 2}
+  diceTypeDefinition: {fileID: 0}
+  diceFaceUpgradeDefinition: {fileID: 0}
+  consumableDefinitionPlaceholder: {fileID: 0}
+  permanentUpgradeDefinitionPlaceholder: {fileID: 0}
+  hpRepairDefinitionPlaceholder: {fileID: 0}

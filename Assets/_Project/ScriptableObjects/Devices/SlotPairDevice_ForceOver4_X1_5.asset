@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: SlotPairDevice_ForceOver4_X1_5
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.SlotPairDeviceDefinitionSO
   deviceId: device.force_over_4_x1_5
-  displayName: Pressure Amplifier
+  displayName: StageThreat Amplifier
   description: Multiplies Force by 1.5 if current Force is at least 4.
   icon: {fileID: 0}
   deviceType: 4
@@ -21,3 +21,10 @@ MonoBehaviour:
   floatValue: 1.5
   forceThreshold: 4
   requiredPatternType: 0
+  secondaryPatternType: 0
+  requiredParity: 0
+  requiredMinDiceValue: 1
+  requiredMaxDiceValue: 6
+  requiredSlotIndex: -1
+  requiredStageThreatLevel: 0
+  trueDamageValue: 0

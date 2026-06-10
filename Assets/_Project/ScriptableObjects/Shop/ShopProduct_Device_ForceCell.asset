@@ -14,13 +14,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.device.force_cell
   displayName: Force Cell
-  description: Adds Force +1 if this dice is included in the cast calculation.
+  description: Legacy flat force device. Currently mapped to included dice condition.
   icon: {fileID: 0}
-  productType: 1
+  productType: 10
   tier: 1
-  baseMoneyPrice: 12
+  baseMoneyPrice: 4
   baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: 522791ecf4c8de748859ea0f616fb3d8, type: 2}
-  diceDefinitionPlaceholder: {fileID: 0}
-  itemDefinitionPlaceholder: {fileID: 0}
-  relicDefinitionPlaceholder: {fileID: 0}
+  diceTypeDefinition: {fileID: 0}
+  diceFaceUpgradeDefinition: {fileID: 0}
+  consumableDefinitionPlaceholder: {fileID: 0}
+  permanentUpgradeDefinitionPlaceholder: {fileID: 0}
+  hpRepairDefinitionPlaceholder: {fileID: 0}

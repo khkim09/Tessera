@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a78b2f09ea475bd4a9434aae9428d8f9, type: 3}
+  m_Name: ShopProduct_Device_FrontLoader
+  m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
+  productId: shop.device.front_loader
+  displayName: Front Loader
+  description: Adds Score +18 if this is slot index 1.
+  icon: {fileID: 0}
+  productType: 10
+  tier: 1
+  baseMoneyPrice: 4
+  baseOverchargePrice: 0
+  deviceDefinition: {fileID: 11400000, guid: 8f698dace80eaf54d9be8f4fde99409d, type: 2}
+  diceTypeDefinition: {fileID: 0}
+  diceFaceUpgradeDefinition: {fileID: 0}
+  consumableDefinitionPlaceholder: {fileID: 0}
+  permanentUpgradeDefinitionPlaceholder: {fileID: 0}
+  hpRepairDefinitionPlaceholder: {fileID: 0}

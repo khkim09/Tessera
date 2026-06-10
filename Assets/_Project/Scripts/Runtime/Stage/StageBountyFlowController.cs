@@ -799,7 +799,12 @@ namespace Tessera.Runtime
                 ? currentNode.Definition.BountyRank
                 : 1;
 
-            return Mathf.Max(0, baseRetryMoneyCost + currentStageState.ChainCount * 2 + bountyRank * 3);
+            return Mathf.Max(
+                0,
+                baseRetryMoneyCost
+                + currentStageState.ChainCount * 2
+                + currentStageState.StageThreatLevel * 3
+                + bountyRank * 2);
         }
 
         /// <summary>Round 승리 후 남은 Attempt 수를 계산한다.</summary>

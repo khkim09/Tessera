@@ -12,12 +12,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 35f25a57e1fad904d937741a7708d7af, type: 3}
   m_Name: SlotPairDevice_AddScore_Flat4
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.SlotPairDeviceDefinitionSO
-  deviceId: device.add_score.flat_4
+  deviceId: device.score.flat_4
   displayName: Flat Scorer
-  description: Adds Score +4 regardless of dice value.
+  description: Legacy flat score device. Currently mapped to any dice condition.
   icon: {fileID: 0}
-  deviceType: 5
+  deviceType: 20
   intValue: 4
   floatValue: 1
   forceThreshold: 0
   requiredPatternType: 0
+  secondaryPatternType: 0
+  requiredParity: 0
+  requiredMinDiceValue: 1
+  requiredMaxDiceValue: 6
+  requiredSlotIndex: -1
+  requiredStageThreatLevel: 0
+  trueDamageValue: 0

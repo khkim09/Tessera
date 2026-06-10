@@ -21,3 +21,10 @@ MonoBehaviour:
   floatValue: 1
   forceThreshold: 0
   requiredPatternType: 0
+  secondaryPatternType: 0
+  requiredParity: 0
+  requiredMinDiceValue: 1
+  requiredMaxDiceValue: 6
+  requiredSlotIndex: -1
+  requiredStageThreatLevel: 0
+  trueDamageValue: 0

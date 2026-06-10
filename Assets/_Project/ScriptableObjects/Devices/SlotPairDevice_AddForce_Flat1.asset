@@ -13,11 +13,18 @@ MonoBehaviour:
   m_Name: SlotPairDevice_AddForce_Flat1
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.SlotPairDeviceDefinitionSO
   deviceId: device.force.flat_1
-  displayName: Force Cell
-  description: Adds Force +1 if this dice is included in the cast calculation.
+  displayName: Flat Force Cell
+  description: Legacy flat force device. Currently mapped to included dice condition.
   icon: {fileID: 0}
   deviceType: 2
   intValue: 1
   floatValue: 1
   forceThreshold: 0
   requiredPatternType: 0
+  secondaryPatternType: 0
+  requiredParity: 0
+  requiredMinDiceValue: 1
+  requiredMaxDiceValue: 6
+  requiredSlotIndex: -1
+  requiredStageThreatLevel: 0
+  trueDamageValue: 0

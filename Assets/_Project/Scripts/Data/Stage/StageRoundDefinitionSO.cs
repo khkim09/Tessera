@@ -198,7 +198,8 @@ namespace Tessera.Data
                 brokenCastOverchargeAmount: Mathf.Max(0, brokenCastOverchargeAmount),
                 brokenCastGrantsNextAttemptFreeReroll: brokenCastGrantsNextAttemptFreeReroll,
                 brokenCastFreeRerollTokenAmount: Mathf.Max(0, brokenCastFreeRerollTokenAmount),
-                tableRules: tableRules);
+                tableRules: tableRules,
+                stageThreatLevel: resolvedStageThreatLevel);
         }
 
         /// <summary>이 Round에서 사용할 상대 SlotPair Device 장착 배열을 생성한다.</summary>

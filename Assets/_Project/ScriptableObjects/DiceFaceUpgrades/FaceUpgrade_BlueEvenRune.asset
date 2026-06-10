@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3e732e98a3167e04d941e7c482ec8950, type: 3}
+  m_Name: FaceUpgrade_BlueEvenRune
+  m_EditorClassIdentifier: Tessera.Data::Tessera.Data.DiceFaceUpgradeDefinitionSO
+  upgradeId: face.blue_even_rune
+  displayName: Blue Even Rune
+  description: Adds Force +0.2 when rolled if the face value is even.
+  icon: {fileID: 0}
+  requiresSpecificNumber: 0
+  targetNumber: 2
+  replacementFaceType: 0
+  replacementNumberValue: 2
+  effectType: 11
+  intValue: 0
+  floatValue: 0.2
+  rarity: 1
+  baseMoneyPrice: 3
