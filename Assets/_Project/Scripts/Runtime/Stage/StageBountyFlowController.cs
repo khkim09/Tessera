@@ -50,6 +50,8 @@ namespace Tessera.Runtime
         private System.IDisposable roundWonSubscription;
         private System.IDisposable roundLostSubscription;
         private System.IDisposable economyRefreshSubscription;
+        private System.IDisposable shopEquippedDeviceSellSubscription;
+        private System.IDisposable shopEquippedDeviceSwapSubscription;
 
         /// <summary>런 세션을 연결하고 Runtime 이벤트를 구독한다.</summary>
         public void Initialize(TesseraRunSession session)
@@ -66,6 +68,8 @@ namespace Tessera.Runtime
             shopRepairSubscription = TesseraEventBus.Subscribe<StageShopRepairRequestedEvent>(HandleShopRepairRequested);
             shopUpgradeTierSubscription = TesseraEventBus.Subscribe<StageShopUpgradeTierRequestedEvent>(HandleShopUpgradeTierRequested);
             shopProductBuyConfirmedSubscription = TesseraEventBus.Subscribe<StageShopProductBuyConfirmedEvent>(HandleShopProductBuyConfirmed);
+            shopEquippedDeviceSellSubscription = TesseraEventBus.Subscribe<StageShopEquippedDeviceSellRequestedEvent>(HandleShopEquippedDeviceSellRequested);
+            shopEquippedDeviceSwapSubscription = TesseraEventBus.Subscribe<StageShopEquippedDeviceSwapRequestedEvent>(HandleShopEquippedDeviceSwapRequested);
             roundWonSubscription = TesseraEventBus.Subscribe<GameplayRoundWonEvent>(HandleRoundWon);
             roundLostSubscription = TesseraEventBus.Subscribe<GameplayRoundLostEvent>(HandleRoundLost);
             economyRefreshSubscription = TesseraEventBus.Subscribe<StageEconomyRefreshRequestedEvent>(HandleStageEconomyRefreshRequested);
@@ -107,6 +111,8 @@ namespace Tessera.Runtime
             shopRepairSubscription?.Dispose();
             shopUpgradeTierSubscription?.Dispose();
             shopProductBuyConfirmedSubscription?.Dispose();
+            shopEquippedDeviceSellSubscription?.Dispose();
+            shopEquippedDeviceSwapSubscription?.Dispose();
             roundWonSubscription?.Dispose();
             roundLostSubscription?.Dispose();
             economyRefreshSubscription?.Dispose();
@@ -117,10 +123,12 @@ namespace Tessera.Runtime
             shopContinueSubscription = null;
             shopRepairSubscription = null;
             shopUpgradeTierSubscription = null;
+            shopProductBuyConfirmedSubscription = null;
+            shopEquippedDeviceSellSubscription = null;
+            shopEquippedDeviceSwapSubscription = null;
             roundWonSubscription = null;
             roundLostSubscription = null;
             economyRefreshSubscription = null;
-            shopProductBuyConfirmedSubscription = null;
         }
 
         /// <summary>지정 Stage를 시작한다.</summary>
@@ -712,6 +720,123 @@ namespace Tessera.Runtime
             PublishStageEconomyChanged(string.Empty);
 
             ShowShop(currentShopReasonType, purchaseMessage, false);
+        }
+
+        /// <summary>Shop에서 장착된 Device 판매 요청을 처리한다.</summary>
+        private void HandleShopEquippedDeviceSellRequested(StageShopEquippedDeviceSellRequestedEvent gameEvent)
+        {
+            if (runSession == null)
+                return;
+
+            SlotPairDeviceDefinitionSO device = runSession.GetEquippedDevice(gameEvent.SlotIndex);
+
+            if (device == null)
+            {
+                ShowShop(currentShopReasonType, "No Device equipped in this slot.", false);
+                return;
+            }
+
+            int refundMoney = ResolveDeviceRefundMoney(device);
+
+            if (!runSession.ClearEquippedDeviceSlot(gameEvent.SlotIndex, out SlotPairDeviceDefinitionSO removedDevice))
+            {
+                ShowShop(currentShopReasonType, "Failed to sell Device.", false);
+                return;
+            }
+
+            // 실제로 제거된 Device 기준으로 메시지를 구성한다.
+            if (removedDevice != null)
+                device = removedDevice;
+
+            if (refundMoney > 0)
+                runSession.AddMoney(refundMoney);
+
+            string message = $"Sold {device.DisplayName}. Money +{refundMoney}.";
+
+            TesseraEventBus.Publish(
+                new StageShopPlayerDevicesChangedEvent(
+                    runSession,
+                    message));
+
+            PublishStageEconomyChanged(string.Empty);
+            ShowShop(currentShopReasonType, message, false);
+        }
+
+        /// <summary>Shop에서 장착된 Device 슬롯 Swap 요청을 처리한다.</summary>
+        private void HandleShopEquippedDeviceSwapRequested(StageShopEquippedDeviceSwapRequestedEvent gameEvent)
+        {
+            if (runSession == null)
+                return;
+
+            SlotPairDeviceDefinitionSO sourceDevice = runSession.GetEquippedDevice(gameEvent.SourceSlotIndex);
+            SlotPairDeviceDefinitionSO targetDevice = runSession.GetEquippedDevice(gameEvent.TargetSlotIndex);
+
+            if (sourceDevice == null && targetDevice == null)
+            {
+                ShowShop(currentShopReasonType, "No Devices to swap.", false);
+                return;
+            }
+
+            if (!runSession.SwapEquippedDevices(gameEvent.SourceSlotIndex, gameEvent.TargetSlotIndex))
+            {
+                ShowShop(currentShopReasonType, "Failed to swap Devices.", false);
+                return;
+            }
+
+            string sourceName = sourceDevice != null ? sourceDevice.DisplayName : "Empty";
+            string targetName = targetDevice != null ? targetDevice.DisplayName : "Empty";
+            string message = $"Swapped {sourceName} and {targetName}.";
+
+            TesseraEventBus.Publish(
+                new StageShopPlayerDevicesChangedEvent(
+                    runSession,
+                    message));
+
+            PublishStageEconomyChanged(string.Empty);
+            ShowShop(currentShopReasonType, message, false);
+        }
+
+        /// <summary>장착 Device의 판매 환불 Money를 계산한다.</summary>
+        private int ResolveDeviceRefundMoney(SlotPairDeviceDefinitionSO device)
+        {
+            if (device == null)
+                return 0;
+
+            ShopProductDefinitionSO matchedProduct = FindShopProductByDevice(device);
+            int basePrice = matchedProduct != null
+                ? matchedProduct.BaseMoneyPrice
+                : 2;
+
+            // 현재 프로토타입 판매가는 구매가의 절반, 최소 1 Money로 처리한다.
+            return Mathf.Max(1, Mathf.FloorToInt(basePrice * 0.5f));
+        }
+
+        /// <summary>현재 Workshop 규칙에서 지정 Device를 판매하는 ShopProduct를 찾는다.</summary>
+        private ShopProductDefinitionSO FindShopProductByDevice(SlotPairDeviceDefinitionSO device)
+        {
+            if (device == null)
+                return null;
+
+            StageWorkshopRulesSO rules = ResolveCurrentWorkshopRules();
+
+            if (rules == null || rules.ProductPool == null)
+                return null;
+
+            for (int i = 0; i < rules.ProductPool.Count; i++)
+            {
+                ShopProductDefinitionSO product = rules.ProductPool[i];
+
+                if (product == null)
+                    continue;
+
+                if (product.ProductType != ShopProductType.Device)
+                    continue;
+
+                if (product.DeviceDefinition == device)
+                    return product;
+            }
+
+            return null;
         }
 
         /// <summary>현재 Workshop Tier 기준으로 Shop 상품 목록을 재생성한다.</summary>

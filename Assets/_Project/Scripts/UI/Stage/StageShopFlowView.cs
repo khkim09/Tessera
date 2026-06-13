@@ -29,23 +29,13 @@ namespace Tessera.UI
         [SerializeField] private TMP_Text continueButtonText;
 
         [Header("Shop Products")]
-        [SerializeField] private Transform productCardRoot;
+        [SerializeField] private Transform productCardAnchorRoot;
         [SerializeField] private ShopProductCardView productCardPrefab;
         [SerializeField] private RectTransform[] productCardAnchors;
 
-        [Header("Shop Card Cancel Area")]
-        [SerializeField] private Button cardSelectionCancelButton;
-
-        [Header("Shop Tooltip")]
-        [SerializeField] private ShopProductTooltipView tooltipViewPrefab;
-        [SerializeField] private RectTransform tooltipParent;
-
         private TesseraRunSession currentRunSession;
         private IReadOnlyList<ShopInventorySlot> currentProductSlots;
-        private int flippedProductSlotIndex = -1;
         private readonly List<ShopProductCardView> productCards = new List<ShopProductCardView>();
-
-        private ShopProductTooltipView tooltipViewInstance;
 
         #region Events
 
@@ -66,22 +56,30 @@ namespace Tessera.UI
         /// <summary>버튼 클릭 이벤트를 연결한다.</summary>
         private void OnEnable()
         {
+            // 중복 구독 방지를 위해 제거 후 다시 연결한다.
             if (repairButton != null)
+            {
+                repairButton.onClick.RemoveListener(HandleRepairClicked);
                 repairButton.onClick.AddListener(HandleRepairClicked);
+            }
 
             if (upgradeTierButton != null)
+            {
+                upgradeTierButton.onClick.RemoveListener(HandleUpgradeTierClicked);
                 upgradeTierButton.onClick.AddListener(HandleUpgradeTierClicked);
+            }
 
             if (continueButton != null)
+            {
+                continueButton.onClick.RemoveListener(HandleContinueClicked);
                 continueButton.onClick.AddListener(HandleContinueClicked);
-
-            if (cardSelectionCancelButton != null)
-                cardSelectionCancelButton.onClick.AddListener(HandleCardSelectionCanceled);
+            }
         }
 
         /// <summary>버튼 클릭 이벤트를 해제한다.</summary>
         private void OnDisable()
         {
+            // View 비활성화 시 Shell 버튼 이벤트만 정리한다.
             if (repairButton != null)
                 repairButton.onClick.RemoveListener(HandleRepairClicked);
 
@@ -90,12 +88,13 @@ namespace Tessera.UI
 
             if (continueButton != null)
                 continueButton.onClick.RemoveListener(HandleContinueClicked);
+        }
 
-            if (cardSelectionCancelButton != null)
-                cardSelectionCancelButton.onClick.RemoveListener(HandleCardSelectionCanceled);
-
+        /// <summary>View 파괴 시 생성된 상품 카드 이벤트 연결을 정리한다.</summary>
+        private void OnDestroy()
+        {
+            // 실제 파괴 시점에만 ProductCard 이벤트 구독을 해제한다.
             UnbindProductCards();
-            HideTooltip();
         }
 
         /// <summary>Shop Shell을 표시한다.</summary>
@@ -107,20 +106,20 @@ namespace Tessera.UI
             IReadOnlyList<ShopInventorySlot> productSlots,
             StageWorkshopRulesSO workshopRules)
         {
+            // 현재 Shop 상태를 저장한다.
             SetVisible(true);
 
             currentRunSession = runSession;
             currentProductSlots = productSlots;
-            flippedProductSlotIndex = -1;
 
             if (titleText != null)
                 titleText.text = ResolveTitle(reasonType);
 
+            // Shell 표시 정보를 최신 상태로 갱신한다.
             RefreshMessage(message);
             RefreshResourceText(runSession, boardState);
             RefreshButtons(runSession, reasonType, workshopRules);
             RefreshProductCards(productSlots, runSession);
-            HideTooltip();
         }
 
         /// <summary>View 표시 상태를 변경한다.</summary>
@@ -203,6 +202,7 @@ namespace Tessera.UI
             IReadOnlyList<ShopInventorySlot> productSlots,
             TesseraRunSession runSession)
         {
+            // 현재 상품 슬롯 수만큼 카드 생성 또는 재사용한다.
             int slotCount = productSlots != null ? productSlots.Count : 0;
 
             for (int i = 0; i < slotCount; i++)
@@ -213,36 +213,33 @@ namespace Tessera.UI
                 if (card == null)
                     continue;
 
+                // 재사용 카드도 이벤트 구독 상태를 매번 보정한다.
+                BindProductCardEvents(card);
                 card.Bind(slot, runSession);
 
                 if (slot == null || slot.IsSoldOut)
-                {
-                    card.SetFlipped(false);
                     card.SetVisible(false);
-                    continue;
-                }
-
-                card.SetFlipped(slot.SlotIndex == flippedProductSlotIndex);
             }
 
+            // 남는 카드 인스턴스는 숨긴다.
             for (int i = slotCount; i < productCards.Count; i++)
             {
                 if (productCards[i] == null)
                     continue;
 
                 productCards[i].SetVisible(false);
-                productCards[i].SetFlipped(false);
             }
         }
 
         /// <summary>지정 인덱스의 상품 카드 View를 반환하거나 생성한다.</summary>
         private ShopProductCardView GetOrCreateProductCard(int index)
         {
+            // 요청 인덱스까지 카드 인스턴스를 생성한다.
             while (productCards.Count <= index)
             {
                 ShopProductCardView card = null;
 
-                if (productCardPrefab != null && productCardRoot != null)
+                if (productCardPrefab != null && productCardAnchorRoot != null)
                 {
                     Transform parent = ResolveProductCardParent(productCards.Count);
                     card = Instantiate(productCardPrefab, parent);
@@ -250,12 +247,7 @@ namespace Tessera.UI
                 }
 
                 if (card != null)
-                {
-                    card.BuyRequested += HandleProductCardSelected;
-                    card.PurchaseConfirmed += HandleProductCardPurchaseConfirmed;
-                    card.TooltipRequested += HandleProductTooltipRequested;
-                    card.TooltipHidden += HandleProductTooltipHidden;
-                }
+                    BindProductCardEvents(card);
 
                 productCards.Add(card);
             }
@@ -272,7 +264,7 @@ namespace Tessera.UI
                 && productCardAnchors[cardIndex] != null)
                 return productCardAnchors[cardIndex];
 
-            return productCardRoot;
+            return productCardAnchorRoot;
         }
 
         /// <summary>상품 카드 RectTransform을 수동 배치 Anchor에 맞춘다.</summary>
@@ -301,75 +293,39 @@ namespace Tessera.UI
             }
         }
 
+        /// <summary>상품 카드 이벤트를 중복 없이 연결한다.</summary>
+        private void BindProductCardEvents(ShopProductCardView card)
+        {
+            if (card == null)
+                return;
+
+            // ProductCard는 클릭 즉시 구매 확정만 전달한다.
+            card.PurchaseConfirmed -= HandleProductCardPurchaseConfirmed;
+            card.PurchaseConfirmed += HandleProductCardPurchaseConfirmed;
+        }
+
         /// <summary>상품 카드 이벤트 연결을 해제한다.</summary>
         private void UnbindProductCards()
         {
-            for (int i = 0; i < productCards.Count; i++)
-            {
-                if (productCards[i] == null)
-                    continue;
-
-                productCards[i].BuyRequested -= HandleProductCardSelected;
-                productCards[i].PurchaseConfirmed -= HandleProductCardPurchaseConfirmed;
-                productCards[i].TooltipRequested -= HandleProductTooltipRequested;
-                productCards[i].TooltipHidden -= HandleProductTooltipHidden;
-            }
-        }
-
-        /// <summary>상품 카드 앞면 클릭 시 해당 카드만 뒤집는다.</summary>
-        private void HandleProductCardSelected(int productSlotIndex)
-        {
-            SetFlippedProductCard(productSlotIndex);
-        }
-
-        /// <summary>상품 카드 뒷면 가격 버튼 클릭 시 구매 확정을 외부로 전달한다.</summary>
-        private void HandleProductCardPurchaseConfirmed(int productSlotIndex)
-        {
-            if (!CanConfirmProductPurchase(productSlotIndex))
-                return;
-
-            ProductBuyConfirmed?.Invoke(productSlotIndex);
-            SetFlippedProductCard(-1);
-        }
-
-        /// <summary>카드 외부 클릭 시 현재 뒤집힌 카드를 원복한다.</summary>
-        private void HandleCardSelectionCanceled()
-        {
-            SetFlippedProductCard(-1);
-        }
-
-        /// <summary>현재 뒤집힌 상품 카드를 설정한다.</summary>
-        private void SetFlippedProductCard(int productSlotIndex)
-        {
-            flippedProductSlotIndex = productSlotIndex;
-
+            // View 파괴 시 카드 구매 이벤트만 해제한다.
             for (int i = 0; i < productCards.Count; i++)
             {
                 ShopProductCardView card = productCards[i];
 
-                if (card == null)
-                    continue;
+                if (card == null) continue;
 
-                ShopInventorySlot slot = GetProductSlotByCardIndex(i);
-                bool flipped = slot != null && slot.SlotIndex == flippedProductSlotIndex;
-                card.SetFlipped(flipped);
+                card.PurchaseConfirmed -= HandleProductCardPurchaseConfirmed;
             }
         }
 
-        /// <summary>Tooltip View 인스턴스를 반환한다.</summary>
-        private ShopProductTooltipView GetOrCreateTooltipView()
+        /// <summary>상품 카드 클릭 시 구매 확정을 외부로 전달한다.</summary>
+        private void HandleProductCardPurchaseConfirmed(int productSlotIndex)
         {
-            if (tooltipViewInstance != null)
-                return tooltipViewInstance;
+            // 구매 가능 여부는 View 단에서 한 번 더 검증한다.
+            if (!CanConfirmProductPurchase(productSlotIndex))
+                return;
 
-            if (tooltipViewPrefab == null)
-                return null;
-
-            Transform parent = tooltipParent != null ? tooltipParent : root != null ? root.transform : transform;
-            tooltipViewInstance = Instantiate(tooltipViewPrefab, parent);
-            tooltipViewInstance.Hide();
-
-            return tooltipViewInstance;
+            ProductBuyConfirmed?.Invoke(productSlotIndex);
         }
 
         /// <summary>상품 구매 확정 가능 여부를 검사하고 실패 메시지를 표시한다.</summary>
@@ -439,46 +395,6 @@ namespace Tessera.UI
             return null;
         }
 
-        /// <summary>카드 인덱스에 해당하는 상품 슬롯을 반환한다.</summary>
-        private ShopInventorySlot GetProductSlotByCardIndex(int cardIndex)
-        {
-            if (currentProductSlots == null)
-                return null;
-
-            if (cardIndex < 0 || cardIndex >= currentProductSlots.Count)
-                return null;
-
-            return currentProductSlots[cardIndex];
-        }
-
-        /// <summary>상품 설명 툴팁을 표시한다.</summary>
-        private void HandleProductTooltipRequested(
-            string displayName,
-            string description,
-            string tierLabel,
-            Vector2 screenPosition)
-        {
-            ShopProductTooltipView tooltipView = GetOrCreateTooltipView();
-
-            if (tooltipView == null)
-                return;
-
-            tooltipView.Show(displayName, description, tierLabel);
-        }
-
-        /// <summary>상품 설명 툴팁을 숨긴다.</summary>
-        private void HideTooltip()
-        {
-            if (tooltipViewInstance != null)
-                tooltipViewInstance.Hide();
-        }
-
-        /// <summary>상품 설명 툴팁을 숨긴다.</summary>
-        private void HandleProductTooltipHidden()
-        {
-            HideTooltip();
-        }
-
         /// <summary>Shop 메시지 텍스트를 갱신한다.</summary>
         private void SetShopMessage(string message)
         {
@@ -518,31 +434,22 @@ namespace Tessera.UI
         /// <summary>Repair 버튼 클릭을 외부 이벤트로 전달한다.</summary>
         private void HandleRepairClicked()
         {
-            SetFlippedProductCard(-1);
+            // StageFlow 쪽에서 실제 Repair 처리를 수행한다.
             RepairRequested?.Invoke();
         }
 
         /// <summary>Upgrade Tier 버튼 클릭을 외부 이벤트로 전달한다.</summary>
         private void HandleUpgradeTierClicked()
         {
-            SetFlippedProductCard(-1);
+            // StageFlow 쪽에서 Tier 상승과 상품 Refresh를 수행한다.
             UpgradeTierRequested?.Invoke();
         }
 
         /// <summary>Continue 버튼 클릭을 외부 이벤트로 전달한다.</summary>
         private void HandleContinueClicked()
         {
-            SetFlippedProductCard(-1);
+            // Workshop 종료 요청을 외부로 전달한다.
             ContinueRequested?.Invoke();
-        }
-
-        /// <summary>TMP 텍스트를 안전하게 갱신한다.</summary>
-        private static void SetText(TMP_Text targetText, string value)
-        {
-            if (targetText == null)
-                return;
-
-            targetText.text = value ?? string.Empty;
         }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System;
+using Cysharp.Threading.Tasks;
 using Tessera.Core;
 using Tessera.Data;
 using Tessera.Runtime;
@@ -12,12 +13,27 @@ namespace Tessera.UI
         [Header("Gameplay")]
         [SerializeField] private TesseraGameplayBattlePresenter gameplayPresenter;
         [SerializeField] private DeviceRack3DView playerDeviceRackForShop;
+        [SerializeField] private TesseraCameraPoseController cameraPoseController;
 
         [Header("Stage UI")]
         [SerializeField] private BountyBoardView bountyBoardView;
         [SerializeField] private StageRewardDecisionView rewardDecisionView;
         [SerializeField] private RoundFailureDecisionView roundFailureDecisionView;
         [SerializeField] private StageShopFlowView shopFlowView;
+
+        [Header("Shop Device Hover UI")]
+        [SerializeField] private DeviceSlotHoverActionUIView[] playerDeviceSlotHoverActionUI = new DeviceSlotHoverActionUIView[5];
+        [SerializeField] private int defaultDeviceSellRefundMoney = 1;
+
+        [Header("Debug")]
+        [SerializeField] private bool enableShopDeviceInputDebugLog = true;
+
+        private bool isShopVisible;
+        private int draggingShopDeviceSlotIndex = -1; // 드래그 중인 deviceslot
+        private bool isShopDeviceDragging; // 드래그 발생 여부
+        private int hoveredDeviceSlotIndex = -1; // 호버 중인 DeviceSlot
+        private int visibleDeviceHoverUIIndex = -1; // 현재 표시 중인 슬롯별 Hover UI
+        private int hoverHideRequestSerial; // Hide 요청 무효화
 
         private IDisposable roundStartSubscription;
         private IDisposable bountyBoardShowSubscription;
@@ -69,6 +85,24 @@ namespace Tessera.UI
                 shopFlowView.UpgradeTierRequested += HandleShopUpgradeTierRequested;
                 shopFlowView.ProductBuyConfirmed += HandleShopProductBuyConfirmed;
             }
+
+            if (playerDeviceRackForShop != null)
+            {
+                playerDeviceRackForShop.SlotHoverEntered += HandleShopDeviceSlotHoverEntered;
+                playerDeviceRackForShop.SlotHoverExited += HandleShopDeviceSlotHoverExited;
+                playerDeviceRackForShop.SlotDragStarted += HandleShopDeviceSlotDragStarted;
+                playerDeviceRackForShop.SlotDragEnded += HandleShopDeviceSlotDragEnded;
+                playerDeviceRackForShop.SlotDropped += HandleShopDeviceSlotDropped;
+
+                LogShopDeviceInput($"[Subscribe] Rack={playerDeviceRackForShop.name}, Hover/Drag handlers registered.");
+            }
+            else
+            {
+                LogShopDeviceInputWarning("[Subscribe] playerDeviceRackForShop is not assigned. DeviceSlot sell/swap input cannot be received.");
+            }
+
+            SubscribeDeviceSlotHoverActionUIs();
+            HideAllDeviceHoverUIs();
         }
 
         /// <summary>이벤트 구독 및 View 이벤트 연결을 해제한다.</summary>
@@ -121,13 +155,37 @@ namespace Tessera.UI
                 shopFlowView.UpgradeTierRequested -= HandleShopUpgradeTierRequested;
                 shopFlowView.ProductBuyConfirmed -= HandleShopProductBuyConfirmed;
             }
+
+            if (playerDeviceRackForShop != null)
+            {
+                playerDeviceRackForShop.SlotHoverEntered -= HandleShopDeviceSlotHoverEntered;
+                playerDeviceRackForShop.SlotHoverExited -= HandleShopDeviceSlotHoverExited;
+                playerDeviceRackForShop.SlotDragStarted -= HandleShopDeviceSlotDragStarted;
+                playerDeviceRackForShop.SlotDragEnded -= HandleShopDeviceSlotDragEnded;
+                playerDeviceRackForShop.SlotDropped -= HandleShopDeviceSlotDropped;
+            }
+
+            UnsubscribeDeviceSlotHoverActionUIs();
         }
 
         /// <summary>Stage Round 시작 요청을 Gameplay Presenter에 전달한다.</summary>
         private void HandleRoundStartRequested(StageRoundStartRequestedEvent gameEvent)
         {
+            // Round 시작 시 전투용 사선 카메라로 복귀한다.
+            if (cameraPoseController != null)
+                cameraPoseController.MoveToBattleView("Round started.");
+
             if (gameplayPresenter == null)
                 return;
+
+            // Round 시작 시 Shop 전용 DeviceSlot 상호작용을 끈다.
+            isShopVisible = false;
+            ResetShopDeviceInteractionState();
+
+            // Shop 전용 Hover/Action UI를 모두 닫는다.
+            HideAllDeviceHoverUIs();
+
+            LogShopDeviceInput("[RoundStart] Shop device input disabled.");
 
             gameplayPresenter.StartRound(
                 gameEvent.RuleContext,
@@ -175,6 +233,17 @@ namespace Tessera.UI
         {
             if (shopFlowView == null)
                 return;
+
+            // Shop 진입 시 Device 관리가 편하도록 TopDown 카메라로 전환한다.
+            if (cameraPoseController != null)
+                cameraPoseController.MoveToShopView("Shop opened.");
+
+            // Shop 진입 중에는 장착 DeviceSlot 판매/스왑 입력을 허용한다.
+            isShopVisible = true;
+            ResetShopDeviceInteractionState();
+            HideAllDeviceHoverUIs();
+
+            LogShopDeviceInput("[ShowShop] Shop device input enabled.");
 
             shopFlowView.Show(
                 gameEvent.RunSession,
@@ -246,9 +315,20 @@ namespace Tessera.UI
             TesseraEventBus.Publish(new RoundFailureDecisionRequestedEvent(RoundFailureDecisionType.Abandon));
         }
 
-        /// <summary>Workshop Continue 요청을 Runtime 이벤트로 변환한다.</summary>
+        /// <summary>Shop Continue 요청을 Runtime 이벤트로 변환한다.</summary>
         private void HandleShopContinueRequested()
         {
+            // Continue 직후 BountyBoard 또는 Round 흐름으로 돌아가므로 우선 전투 카메라로 복귀시킨다.
+            if (cameraPoseController != null)
+                cameraPoseController.MoveToBattleView("Shop continue requested.");
+
+            // Shop Continue 후에는 DeviceSlot 판매/스왑 입력을 막는다.
+            isShopVisible = false;
+            ResetShopDeviceInteractionState();
+            HideAllDeviceHoverUIs();
+
+            LogShopDeviceInput("[ShopContinue] Shop device input disabled.");
+
             TesseraEventBus.Publish(new StageShopContinueRequestedEvent());
         }
 
@@ -273,6 +353,7 @@ namespace Tessera.UI
         /// <summary>Shop에서 Player Device 장착 변경 이벤트를 받으면 3D Rack과 Gameplay Presenter 표시를 갱신한다.</summary>
         private void HandleShopPlayerDevicesChanged(StageShopPlayerDevicesChangedEvent gameEvent)
         {
+            HideAllDeviceHoverUIs();
             RefreshPlayerDeviceRackForShop(gameEvent.RunSession);
 
             if (gameplayPresenter != null)
@@ -307,6 +388,324 @@ namespace Tessera.UI
             TesseraEventBus.Publish(new GameplayRoundLostEvent(result, playerHP));
         }
 
+        #region Event
+
+        /// <summary>Shop 상태에서 Player DeviceSlot Hover 진입을 Tooltip과 임시 ActionButton 표시로 변환한다.</summary>
+        private void HandleShopDeviceSlotHoverEntered(int slotIndex)
+        {
+            // Shop 화면과 드래그 상태를 확인해 불필요한 Hover UI 표시를 막는다.
+            LogShopDeviceInput($"[HoverEntered] Slot={slotIndex}, IsShopVisible={isShopVisible}, IsDragging={isShopDeviceDragging}");
+
+            if (!isShopVisible) return;
+            if (isShopDeviceDragging) return;
+            if (playerDeviceRackForShop == null) return;
+
+            SlotPairDeviceDefinitionSO device = playerDeviceRackForShop.GetDevice(slotIndex);
+
+            if (device == null)
+            {
+                HideAllDeviceHoverUIs();
+                LogShopDeviceInput($"[HoverIgnored] Reason=EmptySlot, Slot={slotIndex}");
+                return;
+            }
+
+            hoveredDeviceSlotIndex = slotIndex;
+            ShowDeviceHoverUI(slotIndex, device);
+        }
+
+        /// <summary>Shop 상태에서 Player DeviceSlot Hover 이탈을 Tooltip 숨김과 임시 ActionButton 숨김으로 변환한다.</summary>
+        private void HandleShopDeviceSlotHoverExited(int slotIndex)
+        {
+            // 버튼으로 이동하는 중일 수 있으므로 한 프레임 늦게 Hide 여부를 판단한다.
+            LogShopDeviceInput($"[HoverExited] Slot={slotIndex}, Visible={visibleDeviceHoverUIIndex}");
+
+            if (hoveredDeviceSlotIndex == slotIndex)
+                hoveredDeviceSlotIndex = -1;
+
+            RequestHideDeviceHoverUI(slotIndex);
+        }
+
+        /// <summary>Shop 상태에서 Player DeviceSlot 클릭 입력은 현재 UX에서 사용하지 않는다.</summary>
+        private void HandleShopDeviceSlotClicked(int slotIndex)
+        {
+            // 클릭 고정 UX는 제거했고, Hover + Button 클릭만 사용한다.
+            LogShopDeviceInput($"[SlotClickedIgnored] Slot={slotIndex}");
+        }
+
+        /// <summary>Shop 상태에서 Player DeviceSlot 드래그 시작을 기록한다.</summary>
+        private void HandleShopDeviceSlotDragStarted(int slotIndex)
+        {
+            LogShopDeviceInput($"[DragStarted] Slot={slotIndex}, IsShopVisible={isShopVisible}");
+
+            if (!isShopVisible)
+                return;
+
+            if (playerDeviceRackForShop == null)
+                return;
+
+            if (playerDeviceRackForShop.GetDevice(slotIndex) == null)
+            {
+                LogShopDeviceInput($"[DragStartIgnored] Reason=EmptySource, Slot={slotIndex}");
+                return;
+            }
+
+            isShopDeviceDragging = true;
+            draggingShopDeviceSlotIndex = slotIndex;
+
+            // 드래그 중에는 선택 패널을 닫아 입력 충돌을 막는다.
+            HideAllDeviceHoverUIs();
+
+            LogShopDeviceInput($"[DragStartedAccepted] Source={draggingShopDeviceSlotIndex}");
+        }
+
+        /// <summary>Shop 상태에서 Player DeviceSlot Drop 대상을 Swap 요청으로 변환한다.</summary>
+        private void HandleShopDeviceSlotDropped(int targetSlotIndex)
+        {
+            LogShopDeviceInput(
+                $"[Drop] Target={targetSlotIndex}, Source={draggingShopDeviceSlotIndex}, " +
+                $"IsShopVisible={isShopVisible}, IsDragging={isShopDeviceDragging}");
+
+            if (!isShopVisible)
+                return;
+
+            if (!isShopDeviceDragging || draggingShopDeviceSlotIndex < 0)
+            {
+                LogShopDeviceInput($"[DropBlocked] Reason=NoDragSource, Target={targetSlotIndex}");
+                return;
+            }
+
+            int sourceSlotIndex = draggingShopDeviceSlotIndex;
+
+            if (sourceSlotIndex == targetSlotIndex)
+            {
+                LogShopDeviceInput($"[DropIgnored] Reason=SameSlot, Slot={targetSlotIndex}");
+                return;
+            }
+
+            HideAllDeviceHoverUIs();
+
+            LogShopDeviceInput($"[SwapRequest] Source={sourceSlotIndex}, Target={targetSlotIndex}");
+
+            // 실제 장착 교체는 Runtime Controller가 처리한다.
+            TesseraEventBus.Publish(new StageShopEquippedDeviceSwapRequestedEvent(sourceSlotIndex, targetSlotIndex));
+        }
+
+        /// <summary>Shop 상태에서 Player DeviceSlot 드래그 종료 상태를 정리한다.</summary>
+        private void HandleShopDeviceSlotDragEnded(int slotIndex)
+        {
+            LogShopDeviceInput($"[DragEnded] Slot={slotIndex}, Source={draggingShopDeviceSlotIndex}");
+
+            if (!isShopVisible)
+                return;
+
+            ResetShopDeviceInteractionState();
+        }
+
+        #endregion
+
+        #region Helper
+
+        /// <summary>슬롯별 Hover UI 이벤트를 구독한다.</summary>
+        private void SubscribeDeviceSlotHoverActionUIs()
+        {
+            // 배열 순서를 슬롯 인덱스로 사용하고 각 UI의 Sell/Exit 이벤트를 Bridge로 연결한다.
+            if (playerDeviceSlotHoverActionUI == null)
+                return;
+
+            for (int i = 0; i < playerDeviceSlotHoverActionUI.Length; i++)
+            {
+                DeviceSlotHoverActionUIView hoverUI = playerDeviceSlotHoverActionUI[i];
+
+                if (hoverUI == null)
+                    continue;
+
+                hoverUI.Initialize(i);
+
+                hoverUI.SellRequested -= HandleDeviceHoverUISellRequested;
+                hoverUI.SellRequested += HandleDeviceHoverUISellRequested;
+
+                hoverUI.HoverAreaExited -= HandleDeviceHoverUIAreaExited;
+                hoverUI.HoverAreaExited += HandleDeviceHoverUIAreaExited;
+            }
+        }
+
+        /// <summary>슬롯별 Hover UI 이벤트 구독을 해제한다.</summary>
+        private void UnsubscribeDeviceSlotHoverActionUIs()
+        {
+            // Bridge 비활성화 시 슬롯별 UI 이벤트 참조를 정리한다.
+            if (playerDeviceSlotHoverActionUI == null)
+                return;
+
+            for (int i = 0; i < playerDeviceSlotHoverActionUI.Length; i++)
+            {
+                DeviceSlotHoverActionUIView hoverUI = playerDeviceSlotHoverActionUI[i];
+
+                if (hoverUI == null)
+                    continue;
+
+                hoverUI.SellRequested -= HandleDeviceHoverUISellRequested;
+                hoverUI.HoverAreaExited -= HandleDeviceHoverUIAreaExited;
+            }
+        }
+
+        /// <summary>슬롯별 Hover UI의 Sell 요청을 Runtime 판매 이벤트로 변환한다.</summary>
+        private void HandleDeviceHoverUISellRequested(int slotIndex)
+        {
+            // Sell 실행 후에는 장착 상태가 바뀌므로 Hover UI를 모두 닫는다.
+            LogShopDeviceInput($"[SellRequested] Slot={slotIndex}, IsShopVisible={isShopVisible}");
+
+            if (!isShopVisible)
+                return;
+
+            HideAllDeviceHoverUIs();
+            ResetShopDeviceInteractionState();
+
+            // 실제 판매와 Money 증가는 Runtime Controller가 처리한다.
+            TesseraEventBus.Publish(new StageShopEquippedDeviceSellRequestedEvent(slotIndex));
+        }
+
+        /// <summary>슬롯별 Hover UI 확장 영역 이탈을 숨김 후보로 처리한다.</summary>
+        private void HandleDeviceHoverUIAreaExited(int slotIndex)
+        {
+            // 버튼 영역에서 나간 직후 슬롯 위에 다시 들어갈 수 있으므로 지연 Hide를 요청한다.
+            RequestHideDeviceHoverUI(slotIndex);
+        }
+
+        /// <summary>지정 슬롯의 고정 배치 Hover UI를 표시한다.</summary>
+        private void ShowDeviceHoverUI(int slotIndex, SlotPairDeviceDefinitionSO device)
+        {
+            // 새 Hover 표시가 들어오면 이전 지연 Hide 요청을 무효화한다.
+            hoverHideRequestSerial++;
+
+            if (visibleDeviceHoverUIIndex >= 0 && visibleDeviceHoverUIIndex != slotIndex)
+                HideCurrentDeviceHoverUI();
+
+            DeviceSlotHoverActionUIView hoverUI = GetDeviceHoverUI(slotIndex);
+
+            if (hoverUI == null)
+            {
+                LogShopDeviceInputWarning($"[HoverUIBlocked] Reason=MissingHoverUI, Slot={slotIndex}");
+                return;
+            }
+
+            int refundMoney = ResolveDeviceSellRefundMoneyForPreview(device);
+
+            visibleDeviceHoverUIIndex = slotIndex;
+            hoverUI.ShowSell(device, refundMoney);
+
+            LogShopDeviceInput($"[HoverUIShown] Slot={slotIndex}, Device={device.DisplayName}, Refund={refundMoney}");
+        }
+
+        /// <summary>지정 슬롯 Hover UI 숨김 판단을 한 프레임 지연 요청한다.</summary>
+        private void RequestHideDeviceHoverUI(int slotIndex)
+        {
+            // Physics Hover Exit과 UI Pointer Enter의 이벤트 순서 차이를 흡수한다.
+            int requestSerial = ++hoverHideRequestSerial;
+            TryHideDeviceHoverUIAfterFrameAsync(slotIndex, requestSerial).Forget();
+        }
+
+        /// <summary>한 프레임 뒤 현재 Hover 상태를 다시 확인하고 Hover UI를 숨긴다.</summary>
+        private async UniTaskVoid TryHideDeviceHoverUIAfterFrameAsync(int slotIndex, int requestSerial)
+        {
+            // ActionButton으로 포인터가 이동하는 시간을 주기 위해 프레임 끝까지 기다린다.
+            await UniTask.Yield(PlayerLoopTiming.LastPostLateUpdate);
+
+            if (requestSerial != hoverHideRequestSerial)
+                return;
+
+            TryHideDeviceHoverUI(slotIndex);
+        }
+
+        /// <summary>슬롯과 ActionButton Hover 상태를 보고 Hover UI 숨김 여부를 결정한다.</summary>
+        private void TryHideDeviceHoverUI(int slotIndex)
+        {
+            // 현재 표시 중인 슬롯과 다른 슬롯의 이탈 이벤트는 무시한다.
+            if (visibleDeviceHoverUIIndex != slotIndex)
+                return;
+
+            DeviceSlotHoverActionUIView hoverUI = GetDeviceHoverUI(slotIndex);
+
+            if (hoverUI == null)
+            {
+                HideCurrentDeviceHoverUI();
+                return;
+            }
+
+            if (hoveredDeviceSlotIndex == slotIndex)
+                return;
+
+            if (hoverUI.IsPointerOverActionArea)
+                return;
+
+            HideCurrentDeviceHoverUI();
+        }
+
+        /// <summary>현재 표시 중인 Hover UI를 숨긴다.</summary>
+        private void HideCurrentDeviceHoverUI()
+        {
+            // 현재 활성 슬롯 UI만 닫아 다른 슬롯 Anchor 상태를 건드리지 않는다.
+            if (visibleDeviceHoverUIIndex >= 0)
+            {
+                DeviceSlotHoverActionUIView hoverUI = GetDeviceHoverUI(visibleDeviceHoverUIIndex);
+
+                if (hoverUI != null)
+                    hoverUI.Hide();
+            }
+
+            visibleDeviceHoverUIIndex = -1;
+        }
+
+        /// <summary>모든 슬롯별 Hover UI를 숨기고 Hover 상태를 초기화한다.</summary>
+        private void HideAllDeviceHoverUIs()
+        {
+            // 화면 전환/드래그/판매 이후에는 stale target 방지를 위해 전체를 닫는다.
+            hoverHideRequestSerial++;
+            hoveredDeviceSlotIndex = -1;
+            visibleDeviceHoverUIIndex = -1;
+
+            if (playerDeviceSlotHoverActionUI == null)
+                return;
+
+            for (int i = 0; i < playerDeviceSlotHoverActionUI.Length; i++)
+            {
+                if (playerDeviceSlotHoverActionUI[i] == null)
+                    continue;
+
+                playerDeviceSlotHoverActionUI[i].Hide();
+            }
+        }
+
+        /// <summary>지정 슬롯 인덱스에 해당하는 Hover UI를 반환한다.</summary>
+        private DeviceSlotHoverActionUIView GetDeviceHoverUI(int slotIndex)
+        {
+            // 배열 범위를 벗어난 슬롯 요청은 안전하게 무시한다.
+            if (playerDeviceSlotHoverActionUI == null)
+                return null;
+
+            if (slotIndex < 0 || slotIndex >= playerDeviceSlotHoverActionUI.Length)
+                return null;
+
+            return playerDeviceSlotHoverActionUI[slotIndex];
+        }
+
+        /// <summary>장착 Device 판매 미리보기용 환불 금액을 계산한다.</summary>
+        private int ResolveDeviceSellRefundMoneyForPreview(SlotPairDeviceDefinitionSO device)
+        {
+            if (device == null)
+                return 0;
+
+            // 실제 환불 금액은 Runtime Controller가 최종 결정한다.
+            // 현재 UI 미리보기는 프로토타입 기본값을 사용한다.
+            return Mathf.Max(1, defaultDeviceSellRefundMoney);
+        }
+
+        /// <summary>Shop DeviceSlot 드래그/선택 상태를 초기화한다.</summary>
+        private void ResetShopDeviceInteractionState()
+        {
+            isShopDeviceDragging = false;
+            draggingShopDeviceSlotIndex = -1;
+        }
+
         /// <summary>Gameplay Presenter의 현재 RoundState에서 플레이어 HP를 읽는다.</summary>
         private int GetCurrentPlayerHPFromPresenter()
         {
@@ -317,5 +716,29 @@ namespace Tessera.UI
 
             return roundState.Encounter.PlayerCurrentHP;
         }
+
+        #endregion
+
+        #region Debug
+
+        /// <summary>Shop Device 입력 디버그 로그를 출력한다.</summary>
+        private void LogShopDeviceInput(string message)
+        {
+            if (!enableShopDeviceInputDebugLog)
+                return;
+
+            Debug.Log($"[Tessera][ShopDeviceInput]{message}");
+        }
+
+        /// <summary>Shop Device 입력 디버그 경고 로그를 출력한다.</summary>
+        private void LogShopDeviceInputWarning(string message)
+        {
+            if (!enableShopDeviceInputDebugLog)
+                return;
+
+            Debug.LogWarning($"[Tessera][ShopDeviceInput]{message}");
+        }
+
+        #endregion
     }
 }

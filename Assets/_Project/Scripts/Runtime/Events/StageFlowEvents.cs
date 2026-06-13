@@ -241,6 +241,49 @@ namespace Tessera.Runtime
         }
     }
 
+    /// <summary>UI에서 장착 Device 판매 확인 패널 표시를 요청했을 때 Runtime으로 보내는 이벤트다.</summary>
+    public readonly struct StageShopEquippedDeviceSellPreviewRequestedEvent
+    {
+        /// <summary>판매 확인을 표시할 Player Device 슬롯 인덱스다.</summary>
+        public int SlotIndex { get; }
+
+        /// <summary>판매 확인 패널 표시 요청 이벤트를 생성한다.</summary>
+        public StageShopEquippedDeviceSellPreviewRequestedEvent(int slotIndex)
+        {
+            SlotIndex = slotIndex;
+        }
+    }
+
+    /// <summary>UI에서 장착된 Player Device 판매를 요청했을 때 Runtime으로 보내는 이벤트다.</summary>
+    public readonly struct StageShopEquippedDeviceSellRequestedEvent
+    {
+        /// <summary>판매할 Player Device 슬롯 인덱스다.</summary>
+        public int SlotIndex { get; }
+
+        /// <summary>판매 요청 이벤트를 생성한다.</summary>
+        public StageShopEquippedDeviceSellRequestedEvent(int slotIndex)
+        {
+            SlotIndex = slotIndex;
+        }
+    }
+
+    /// <summary>UI에서 장착된 Player Device 슬롯 교체를 요청했을 때 Runtime으로 보내는 이벤트다.</summary>
+    public readonly struct StageShopEquippedDeviceSwapRequestedEvent
+    {
+        /// <summary>드래그 시작 Device 슬롯 인덱스다.</summary>
+        public int SourceSlotIndex { get; }
+
+        /// <summary>드롭 대상 Device 슬롯 인덱스다.</summary>
+        public int TargetSlotIndex { get; }
+
+        /// <summary>Device 슬롯 교체 요청 이벤트를 생성한다.</summary>
+        public StageShopEquippedDeviceSwapRequestedEvent(int sourceSlotIndex, int targetSlotIndex)
+        {
+            SourceSlotIndex = sourceSlotIndex;
+            TargetSlotIndex = targetSlotIndex;
+        }
+    }
+
     /// <summary>Shop에서 Player Device 장착 상태가 변경되었음을 알리는 이벤트다.</summary>
     public readonly struct StageShopPlayerDevicesChangedEvent
     {

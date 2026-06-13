@@ -24,6 +24,9 @@ namespace Tessera.Data
         [SerializeField] private int productSlotCount = 3;
         [SerializeField] private bool allowDuplicateProducts;
 
+        /// <summary>슬롯별 상품 타입/풀 추출 규칙이다. 비어 있으면 기존 공통 ProductPool 방식으로 동작한다.</summary>
+        [SerializeField] private ShopProductSlotRule[] productSlotRules;
+
         /// <summary>Workshop 진입 시 기본 Tier.</summary>
         public int BaseWorkshopTier => Mathf.Max(1, baseWorkshopTier);
 
@@ -46,10 +49,22 @@ namespace Tessera.Data
         public IReadOnlyList<ShopProductDefinitionSO> ProductPool => productPool;
 
         /// <summary>Shop에 표시할 상품 슬롯 수를 반환한다.</summary>
-        public int ProductSlotCount => Mathf.Max(1, productSlotCount);
+        public int ProductSlotCount
+        {
+            get
+            {
+                if (productSlotRules != null && productSlotRules.Length > 0)
+                    return Mathf.Max(1, productSlotRules.Length);
+
+                return Mathf.Max(1, productSlotCount);
+            }
+        }
 
         /// <summary>Shop 상품 중복 등장을 허용하는지 반환한다.</summary>
         public bool AllowDuplicateProducts => allowDuplicateProducts;
+
+        /// <summary>슬롯별 상품 추출 규칙을 반환한다.</summary>
+        public IReadOnlyList<ShopProductSlotRule> ProductSlotRules => productSlotRules;
 
         /// <summary>현재 Workshop Tier 기준으로 상품 최대 Tier를 계산한다.</summary>
         public int ResolveAllowedProductMaxTier(int currentWorkshopTier)

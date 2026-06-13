@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Threading;
-using Cysharp.Threading.Tasks;
 using Tessera.Data;
 using Tessera.Runtime;
 using TMPro;
@@ -10,80 +8,83 @@ using UnityEngine.UI;
 
 namespace Tessera.UI
 {
-    /// <summary>Shop 상품 카드 UI 하나를 표시하고 선택/구매/툴팁 이벤트를 전달한다.</summary>
-    public class ShopProductCardView : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+    /// <summary>Shop 상품 카드 UI 하나를 표시하고 카드 클릭 구매와 prefab 내부 툴팁을 처리한다.</summary>
+    public class ShopProductCardView : MonoBehaviour
     {
         [Header("Root")]
         [SerializeField] private GameObject root;
         [SerializeField] private Button cardButton;
-        [SerializeField] private RectTransform flipRoot;
+        [SerializeField] private Image backgroundImage;
 
-        [Header("Front")]
-        [SerializeField] private GameObject frontRoot;
-        [SerializeField] private TMP_Text nameText;
-        [SerializeField] private TMP_Text tierText;
-        [SerializeField] private TMP_Text frontPriceText;
+        [Header("Content")]
         [SerializeField] private Image iconImage;
+        [SerializeField] private TMP_Text priceText;
 
-        [Header("Back")]
-        [SerializeField] private GameObject backRoot;
-        [SerializeField] private Button priceButton;
-        [SerializeField] private TMP_Text backPriceText;
+        [Header("Tooltip")]
+        [SerializeField] private ShopProductTooltipView tooltipView;
 
-        [Header("Flip")]
-        [SerializeField] private float flipDurationSeconds = 0.18f;
-
-        private int boundSlotIndex = -1;
+        private int boundSlotIndex = -1; // Shop 슬롯 인덱스
+        private bool isPurchasable; // 클릭 가능 여부 (구매 가능 여부)
         private string boundDisplayName = string.Empty;
         private string boundDescription = string.Empty;
         private string boundTierLabel = string.Empty;
-        private bool isFlipped;
-        private bool isAnimating;
-        private CancellationTokenSource flipCancellation;
 
-        /// <summary>카드 앞면 선택 요청 이벤트.</summary>
-        public event Action<int> BuyRequested;
-
-        /// <summary>카드 뒷면 가격 버튼 클릭 이벤트.</summary>
         public event Action<int> PurchaseConfirmed;
 
-        /// <summary>툴팁 표시 요청 이벤트.</summary>
-        public event Action<string, string, string, Vector2> TooltipRequested;
-
-        /// <summary>툴팁 숨김 요청 이벤트.</summary>
-        public event Action TooltipHidden;
-
-        /// <summary>버튼 이벤트를 연결한다.</summary>
-        private void OnEnable()
+        /// <summary>컴포넌트 추가 시 기본 참조와 raycast 설정을 보정한다.</summary>
+        private void Reset()
         {
-            if (cardButton != null)
-                cardButton.onClick.AddListener(HandleCardClicked);
-
-            if (priceButton != null)
-                priceButton.onClick.AddListener(HandlePriceClicked);
+            // Prefab 편집 중 필드 연결 누락을 줄이기 위해 자동 참조를 보정한다.
+            AssignReferencesIfMissing();
+            ConfigureRaycastTargets();
         }
 
-        /// <summary>버튼 이벤트와 비동기 연출을 정리한다.</summary>
+        /// <summary>초기화 시 참조, raycast, tooltip 표시 상태를 정리한다.</summary>
+        private void Awake()
+        {
+            // TooltipRoot가 prefab에서 비활성화되어 있어도 참조 가능하도록 inactive 포함 검색을 사용한다.
+            AssignReferencesIfMissing();
+            ConfigureRaycastTargets();
+            HideTooltip();
+        }
+
+        /// <summary>활성화 시 카드 버튼 이벤트를 연결한다.</summary>
+        private void OnEnable()
+        {
+            // 재활성화 시 중복 구독을 방지한다.
+            if (cardButton != null)
+            {
+                cardButton.onClick.RemoveListener(HandleCardClicked);
+                cardButton.onClick.AddListener(HandleCardClicked);
+            }
+        }
+
+        /// <summary>비활성화 시 카드 버튼 이벤트와 Tooltip 상태를 정리한다.</summary>
         private void OnDisable()
         {
+            // 비활성 카드가 구매 이벤트를 발생시키지 않도록 구독을 해제한다.
             if (cardButton != null)
                 cardButton.onClick.RemoveListener(HandleCardClicked);
 
-            if (priceButton != null)
-                priceButton.onClick.RemoveListener(HandlePriceClicked);
-
-            CancelFlipAnimation();
+            HideTooltip();
         }
 
-        /// <summary>파괴 시 비동기 연출을 정리한다.</summary>
+        /// <summary>파괴 시 외부 이벤트 참조를 정리한다.</summary>
         private void OnDestroy()
         {
-            CancelFlipAnimation();
+            // StageShopFlowView 쪽에 파괴된 카드 참조가 남지 않도록 이벤트를 정리한다.
+            PurchaseConfirmed = null;
         }
 
-        /// <summary>상품 슬롯 상태를 카드 UI에 반영한다.</summary>
+        /// <summary>상품 슬롯과 현재 RunSession 기준으로 카드 표시 정보를 갱신한다.</summary>
         public void Bind(ShopInventorySlot slot, TesseraRunSession runSession)
         {
+            // 재바인딩 시 이전 tooltip이 남지 않도록 먼저 닫는다.
+            HideTooltip();
+
+            AssignReferencesIfMissing();
+            ConfigureRaycastTargets();
+
             boundSlotIndex = slot != null ? slot.SlotIndex : -1;
 
             ShopProductDefinitionSO product = slot != null ? slot.ProductDefinition : null;
@@ -92,43 +93,38 @@ namespace Tessera.UI
             boundDescription = product != null ? product.Description : string.Empty;
             boundTierLabel = product != null ? $"Tier {product.Tier}" : string.Empty;
 
-            SetVisible(slot != null && !slot.IsSoldOut);
+            bool visible = slot != null && !slot.IsSoldOut;
+            SetVisible(visible);
 
-            if (slot == null || slot.IsSoldOut)
+            if (!visible)
+            {
+                isPurchasable = false;
+                RefreshInteractable(false);
                 return;
+            }
 
-            SetText(nameText, !string.IsNullOrWhiteSpace(boundDisplayName) ? boundDisplayName : "Empty");
-            SetText(tierText, boundTierLabel);
-
-            string priceText = BuildPriceText(slot);
-            SetText(frontPriceText, priceText);
-            SetText(backPriceText, priceText);
-
+            SetText(priceText, BuildPriceText(slot));
             RefreshIcon(product);
-            RefreshInteractable(slot, runSession);
+            RefreshBackground(product);
+
+            isPurchasable = CanClickProduct(slot, runSession);
+            RefreshInteractable(isPurchasable);
         }
 
         /// <summary>카드 표시 상태를 변경한다.</summary>
         public void SetVisible(bool visible)
         {
+            // ProductCard 루트가 연결되어 있으면 루트 전체를 켜고 끈다.
             if (root != null)
                 root.SetActive(visible);
             else
                 gameObject.SetActive(visible);
         }
 
-        /// <summary>카드 앞면/뒷면 표시 상태를 변경한다.</summary>
-        public void SetFlipped(bool flipped)
-        {
-            if (isFlipped == flipped && !isAnimating)
-                return;
-
-            PlayFlipAsync(flipped).Forget();
-        }
-
         /// <summary>가격 표시 문자열을 만든다.</summary>
         private static string BuildPriceText(ShopInventorySlot slot)
         {
+            // Money와 Overcharge 복합 가격까지 동일한 위치에 표시한다.
             if (slot == null)
                 return string.Empty;
 
@@ -141,179 +137,210 @@ namespace Tessera.UI
             return $"${slot.MoneyPrice}";
         }
 
-        /// <summary>상품 아이콘을 갱신한다.</summary>
+        /// <summary>카드 클릭 가능 여부를 검사한다.</summary>
+        private static bool CanClickProduct(ShopInventorySlot slot, TesseraRunSession runSession)
+        {
+            // 세부 구매 실패 사유는 StageShopFlowView.CanConfirmProductPurchase에서 처리한다.
+            if (runSession == null)
+                return false;
+
+            if (slot == null)
+                return false;
+
+            if (slot.IsSoldOut)
+                return false;
+
+            if (slot.ProductDefinition == null)
+                return false;
+
+            return slot.ProductDefinition.IsPurchasableInCurrentBuild();
+        }
+
+        /// <summary>상품 아이콘 이미지를 갱신한다.</summary>
         private void RefreshIcon(ShopProductDefinitionSO product)
         {
+            // 아이콘이 없는 상품은 아이콘 이미지만 숨긴다.
             if (iconImage == null)
                 return;
 
             Sprite icon = product != null ? product.Icon : null;
+
             iconImage.sprite = icon;
             iconImage.enabled = icon != null;
+            iconImage.raycastTarget = false;
         }
 
-        /// <summary>카드/가격 버튼 상호작용 상태를 갱신한다.</summary>
-        private void RefreshInteractable(ShopInventorySlot slot, TesseraRunSession runSession)
+        /// <summary>상품 배경 이미지를 갱신한다.</summary>
+        private void RefreshBackground(ShopProductDefinitionSO product)
         {
-            bool canSelect =
-                slot != null
-                && !slot.IsSoldOut
-                && slot.ProductDefinition != null
-                && slot.ProductDefinition.IsPurchasableInCurrentBuild();
-
-            if (cardButton != null)
-                cardButton.interactable = canSelect && !isFlipped && !isAnimating;
-
-            if (priceButton != null)
-                priceButton.interactable = canSelect && isFlipped && !isAnimating;
-        }
-
-        /// <summary>카드 뒤집기 연출을 재생한다.</summary>
-        private async UniTaskVoid PlayFlipAsync(bool targetFlipped)
-        {
-            CancelFlipAnimation();
-
-            flipCancellation = new CancellationTokenSource();
-            CancellationToken token = flipCancellation.Token;
-
-            isAnimating = true;
-
-            if (cardButton != null)
-                cardButton.interactable = false;
-
-            if (priceButton != null)
-                priceButton.interactable = false;
-
-            RectTransform targetRoot = flipRoot != null ? flipRoot : transform as RectTransform;
-
-            if (targetRoot == null)
-            {
-                ApplyFlipState(targetFlipped);
-                isAnimating = false;
-                return;
-            }
-
-            float halfDuration = Mathf.Max(0.01f, flipDurationSeconds * 0.5f);
-
-            try
-            {
-                await ScaleXAsync(targetRoot, 1f, 0f, halfDuration, token);
-                ApplyFlipState(targetFlipped);
-                await ScaleXAsync(targetRoot, 0f, 1f, halfDuration, token);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
-            finally
-            {
-                if (targetRoot != null)
-                    targetRoot.localScale = Vector3.one;
-
-                isAnimating = false;
-                RefreshButtonStateAfterFlip();
-            }
-        }
-
-        /// <summary>카드 X 스케일을 보간한다.</summary>
-        private static async UniTask ScaleXAsync(
-            RectTransform targetRoot,
-            float from,
-            float to,
-            float duration,
-            CancellationToken token)
-        {
-            float elapsed = 0f;
-
-            while (elapsed < duration)
-            {
-                token.ThrowIfCancellationRequested();
-
-                elapsed += Time.unscaledDeltaTime;
-                float t = Mathf.Clamp01(elapsed / duration);
-                float value = Mathf.Lerp(from, to, t);
-
-                Vector3 scale = targetRoot.localScale;
-                scale.x = value;
-                targetRoot.localScale = scale;
-
-                await UniTask.Yield(PlayerLoopTiming.Update, token);
-            }
-
-            Vector3 finalScale = targetRoot.localScale;
-            finalScale.x = to;
-            targetRoot.localScale = finalScale;
-        }
-
-        /// <summary>실제 앞면/뒷면 활성 상태를 적용한다.</summary>
-        private void ApplyFlipState(bool flipped)
-        {
-            isFlipped = flipped;
-
-            if (frontRoot != null)
-                frontRoot.SetActive(!isFlipped);
-
-            if (backRoot != null)
-                backRoot.SetActive(isFlipped);
-        }
-
-        /// <summary>뒤집기 연출 후 버튼 상태를 갱신한다.</summary>
-        private void RefreshButtonStateAfterFlip()
-        {
-            if (cardButton != null)
-                cardButton.interactable = !isFlipped;
-
-            if (priceButton != null)
-                priceButton.interactable = isFlipped;
-        }
-
-        /// <summary>진행 중인 뒤집기 연출을 취소한다.</summary>
-        private void CancelFlipAnimation()
-        {
-            if (flipCancellation == null)
+            // 현재 SO에는 배경 Sprite 필드가 없으므로 prefab 기본 배경을 유지한다.
+            if (backgroundImage == null)
                 return;
 
-            flipCancellation.Cancel();
-            flipCancellation.Dispose();
-            flipCancellation = null;
+            backgroundImage.enabled = true;
+            backgroundImage.raycastTarget = true;
+
+            // TODO: ShopProductDefinitionSO에 CardBackgroundSprite가 추가되면 여기서 할당한다.
+            // backgroundImage.sprite = product != null ? product.CardBackgroundSprite : null;
         }
 
-        /// <summary>카드 앞면 클릭을 외부로 전달한다.</summary>
+        /// <summary>카드 버튼 상호작용 상태를 갱신한다.</summary>
+        private void RefreshInteractable(bool interactable)
+        {
+            // 구매 불가능한 구현 미완성 상품은 클릭만 막는다.
+            if (cardButton != null)
+                cardButton.interactable = interactable;
+        }
+
+        /// <summary>카드 클릭 시 즉시 구매 확정 이벤트를 전달한다.</summary>
         private void HandleCardClicked()
         {
-            if (boundSlotIndex < 0 || isFlipped || isAnimating)
+            // Unity UI Button은 같은 버튼 위에서 PointerUp이 끝났을 때 onClick을 호출한다.
+            if (boundSlotIndex < 0)
                 return;
 
-            BuyRequested?.Invoke(boundSlotIndex);
-        }
-
-        /// <summary>카드 뒷면 가격 버튼 클릭을 외부로 전달한다.</summary>
-        private void HandlePriceClicked()
-        {
-            if (boundSlotIndex < 0 || !isFlipped || isAnimating)
+            if (!isPurchasable)
                 return;
 
             PurchaseConfirmed?.Invoke(boundSlotIndex);
         }
 
-        /// <summary>마우스 진입 시 설명 툴팁 표시를 요청한다.</summary>
-        public void OnPointerEnter(PointerEventData eventData)
+        /// <summary>포인터 진입 시 prefab 내부 Tooltip을 표시한다.</summary>
+        public void HandlePointerEntered(PointerEventData eventData)
         {
+            // 설명이 없는 상품은 tooltip을 띄우지 않는다.
+            if (boundSlotIndex < 0)
+                return;
+
+            if (tooltipView == null)
+                return;
+
             if (string.IsNullOrWhiteSpace(boundDescription))
                 return;
 
-            TooltipRequested?.Invoke(boundDisplayName, boundDescription, boundTierLabel, eventData.position);
+            tooltipView.Show(boundDisplayName, boundDescription, boundTierLabel);
         }
 
-        /// <summary>마우스 이탈 시 설명 툴팁 숨김을 요청한다.</summary>
-        public void OnPointerExit(PointerEventData eventData)
+        /// <summary>포인터 이탈 시 prefab 내부 Tooltip을 숨긴다.</summary>
+        public void HandlePointerExited(PointerEventData eventData)
         {
-            TooltipHidden?.Invoke();
+            // 카드 영역 밖으로 나가면 tooltip을 닫는다.
+            HideTooltip();
+        }
+
+        /// <summary>Tooltip을 숨긴다.</summary>
+        private void HideTooltip()
+        {
+            // TooltipRoot가 비활성 상태여도 View 참조만 있으면 안전하게 Hide 가능하다.
+            if (tooltipView != null)
+                tooltipView.Hide();
+        }
+
+        /// <summary>누락된 UI 참조를 자동 보정한다.</summary>
+        private void AssignReferencesIfMissing()
+        {
+            // A안 기준: ShopProductCardView는 ContentRoot에 붙고, 부모가 ProductCard 루트다.
+            if (root == null)
+                root = ResolveRootObject();
+
+            if (cardButton == null)
+                cardButton = GetComponent<Button>();
+
+            if (backgroundImage == null)
+                backgroundImage = GetComponent<Image>();
+
+            if (iconImage == null)
+                iconImage = FindImageByName("IconImage");
+
+            if (priceText == null)
+                priceText = FindTextByName("PriceText");
+
+            if (tooltipView == null && root != null)
+                tooltipView = root.GetComponentInChildren<ShopProductTooltipView>(true);
+        }
+
+        /// <summary>ProductCard 루트 오브젝트를 반환한다.</summary>
+        private GameObject ResolveRootObject()
+        {
+            // ContentRoot의 부모가 ProductCard 루트인 구조를 우선 사용한다.
+            if (transform.parent != null)
+                return transform.parent.gameObject;
+
+            return gameObject;
+        }
+
+        /// <summary>카드 버튼 구조에 맞게 Graphic RaycastTarget을 보정한다.</summary>
+        private void ConfigureRaycastTargets()
+        {
+            // ContentRoot 배경 이미지만 실제 클릭/hover 판정 대상으로 둔다.
+            if (backgroundImage != null)
+                backgroundImage.raycastTarget = true;
+
+            if (root == null)
+                return;
+
+            Graphic[] graphics = root.GetComponentsInChildren<Graphic>(true);
+
+            for (int i = 0; i < graphics.Length; i++)
+            {
+                Graphic graphic = graphics[i];
+
+                if (graphic == null)
+                    continue;
+
+                if (graphic == backgroundImage)
+                    continue;
+
+                graphic.raycastTarget = false;
+            }
+        }
+
+        /// <summary>지정 이름의 TMP_Text 자식 참조를 찾는다.</summary>
+        private TMP_Text FindTextByName(string targetName)
+        {
+            // 비활성 TooltipRoot까지 포함될 수 있으므로 이름 기반으로 정확히 찾는다.
+            Transform searchRoot = root != null ? root.transform : transform;
+            TMP_Text[] texts = searchRoot.GetComponentsInChildren<TMP_Text>(true);
+
+            for (int i = 0; i < texts.Length; i++)
+            {
+                TMP_Text text = texts[i];
+
+                if (text == null)
+                    continue;
+
+                if (text.name == targetName)
+                    return text;
+            }
+
+            return null;
+        }
+
+        /// <summary>지정 이름의 Image 자식 참조를 찾는다.</summary>
+        private Image FindImageByName(string targetName)
+        {
+            // 비활성 자식까지 포함해 IconImage를 찾는다.
+            Transform searchRoot = root != null ? root.transform : transform;
+            Image[] images = searchRoot.GetComponentsInChildren<Image>(true);
+
+            for (int i = 0; i < images.Length; i++)
+            {
+                Image image = images[i];
+
+                if (image == null)
+                    continue;
+
+                if (image.name == targetName)
+                    return image;
+            }
+
+            return null;
         }
 
         /// <summary>TMP 텍스트를 안전하게 갱신한다.</summary>
         private static void SetText(TMP_Text targetText, string value)
         {
+            // 참조가 없는 텍스트는 조용히 생략한다.
             if (targetText == null)
                 return;
 

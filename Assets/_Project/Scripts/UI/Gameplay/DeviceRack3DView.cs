@@ -11,11 +11,19 @@ namespace Tessera.UI
         [Header("Slots")]
         [SerializeField] private DeviceSlot3DView[] slots = new DeviceSlot3DView[5];
 
+        [Header("Debug")]
+        [SerializeField] private bool enableInputDebugLog = true;
+
         /// <summary>슬롯 개수를 반환한다.</summary>
         public int SlotCount => slots != null ? slots.Length : 0;
 
-        /// <summary>Rack 내부 DeviceSlot 클릭 이벤트.</summary>
         public event Action<int> SlotClicked;
+        public event Action<int> SlotDragStarted;
+        public event Action<int> SlotDragEnded;
+        public event Action<int> SlotDropped;
+
+        public event Action<int> SlotHoverEntered;
+        public event Action<int> SlotHoverExited;
 
         /// <summary>인스펙터에서 슬롯을 자동 수집한다.</summary>
         private void Reset()
@@ -34,6 +42,9 @@ namespace Tessera.UI
         /// <summary>슬롯 클릭 이벤트를 구독한다.</summary>
         private void OnEnable()
         {
+            LogInput($"[OnEnable] Rack={name}, SlotCount={SlotCount}");
+
+            // 각 슬롯의 Pointer 이벤트를 Rack 단위 이벤트로 중계한다.
             SubscribeSlotClickEvents();
         }
 
@@ -100,6 +111,153 @@ namespace Tessera.UI
             }
         }
 
+        #region Slot Events
+
+        /// <summary>자식 DeviceSlot 클릭 이벤트를 구독한다.</summary>
+        private void SubscribeSlotClickEvents()
+        {
+            if (slots == null)
+                return;
+
+            for (int i = 0; i < slots.Length; i++)
+            {
+                if (slots[i] == null)
+                    continue;
+
+                slots[i].Clicked -= HandleSlotClicked;
+                slots[i].Clicked += HandleSlotClicked;
+
+                slots[i].DragStarted -= HandleSlotDragStarted;
+                slots[i].DragStarted += HandleSlotDragStarted;
+
+                slots[i].DragEnded -= HandleSlotDragEnded;
+                slots[i].DragEnded += HandleSlotDragEnded;
+
+                slots[i].Dropped -= HandleSlotDropped;
+                slots[i].Dropped += HandleSlotDropped;
+
+                slots[i].HoverEntered -= HandleSlotHoverEntered;
+                slots[i].HoverEntered += HandleSlotHoverEntered;
+
+                slots[i].HoverExited -= HandleSlotHoverExited;
+                slots[i].HoverExited += HandleSlotHoverExited;
+
+                LogInput(
+                    $"[Subscribe] Rack={name}, ArrayIndex={i}, " +
+                    $"Slot={slots[i].name}, SlotIndex={slots[i].SlotIndex}");
+            }
+        }
+
+        /// <summary>자식 DeviceSlot 클릭 이벤트 구독을 해제한다.</summary>
+        private void UnsubscribeSlotClickEvents()
+        {
+            if (slots == null)
+                return;
+
+            for (int i = 0; i < slots.Length; i++)
+            {
+                if (slots[i] == null)
+                    continue;
+
+                slots[i].Clicked -= HandleSlotClicked;
+                slots[i].DragStarted -= HandleSlotDragStarted;
+                slots[i].DragEnded -= HandleSlotDragEnded;
+                slots[i].Dropped -= HandleSlotDropped;
+
+                slots[i].HoverEntered -= HandleSlotHoverEntered;
+                slots[i].HoverExited -= HandleSlotHoverExited;
+            }
+        }
+
+        /// <summary>자식 슬롯 클릭을 Rack 단위 이벤트로 전달한다.</summary>
+        private void HandleSlotClicked(int slotIndex)
+        {
+            LogInput($"[Clicked] Rack={name}, Slot={slotIndex}");
+
+            SlotClicked?.Invoke(slotIndex);
+        }
+
+        /// <summary>자식 슬롯 BeginDrag를 Rack 단위 이벤트로 전달한다.</summary>
+        private void HandleSlotDragStarted(int slotIndex)
+        {
+            LogInput($"[DragStarted] Rack={name}, Slot={slotIndex}");
+
+            SlotDragStarted?.Invoke(slotIndex);
+        }
+
+        /// <summary>자식 슬롯 EndDrag를 Rack 단위 이벤트로 전달한다.</summary>
+        private void HandleSlotDragEnded(int slotIndex)
+        {
+            LogInput($"[DragEnded] Rack={name}, Slot={slotIndex}");
+
+            SlotDragEnded?.Invoke(slotIndex);
+        }
+
+        /// <summary>자식 슬롯 Drop을 Rack 단위 이벤트로 전달한다.</summary>
+        private void HandleSlotDropped(int slotIndex)
+        {
+            LogInput($"[Dropped] Rack={name}, Slot={slotIndex}");
+
+            SlotDropped?.Invoke(slotIndex);
+        }
+
+        /// <summary>자식 슬롯 Hover 진입을 Rack 단위 이벤트로 전달한다.</summary>
+        private void HandleSlotHoverEntered(int slotIndex)
+        {
+            // DeviceSlot 단위 hover를 Rack 외부에서 처리할 수 있게 중계한다.
+            LogInput($"[HoverEntered] Rack={name}, Slot={slotIndex}");
+
+            SlotHoverEntered?.Invoke(slotIndex);
+        }
+
+        /// <summary>자식 슬롯 Hover 이탈을 Rack 단위 이벤트로 전달한다.</summary>
+        private void HandleSlotHoverExited(int slotIndex)
+        {
+            // DeviceSlot 단위 hover 종료를 Rack 외부에서 처리할 수 있게 중계한다.
+            LogInput($"[HoverExited] Rack={name}, Slot={slotIndex}");
+
+            SlotHoverExited?.Invoke(slotIndex);
+        }
+
+        #endregion
+
+        /// <summary>화면 좌표 기준으로 Rack 내부 슬롯 인덱스를 반환한다.</summary>
+        public bool TryFindSlotIndexUnderScreenPoint(Vector2 screenPoint, Camera targetCamera, out int slotIndex)
+        {
+            slotIndex = -1;
+
+            Camera cameraToUse = targetCamera != null ? targetCamera : Camera.main;
+
+            if (cameraToUse == null)
+                return false;
+
+            Ray ray = cameraToUse.ScreenPointToRay(screenPoint);
+
+            if (!Physics.Raycast(ray, out RaycastHit hit, 100f))
+                return false;
+
+            if (slots == null)
+                return false;
+
+            Collider hitCollider = hit.collider;
+
+            for (int i = 0; i < slots.Length; i++)
+            {
+                if (slots[i] == null)
+                    continue;
+
+                if (slots[i].ContainsCollider(hitCollider))
+                {
+                    slotIndex = i;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        #region Helper
+
         /// <summary>지정 슬롯만 계산 강조 상태로 표시한다.</summary>
         public void HighlightSlot(int slotIndex)
         {
@@ -130,7 +288,7 @@ namespace Tessera.UI
             }
         }
 
-        /// <summary>지정 슬롯의 DeviceSlot Transform을 반환한다.</summary>
+        /// <summary>지정 슬롯의 Transform을 반환한다.</summary>
         public Transform GetSlotTransform(int slotIndex)
         {
             if (slots == null)
@@ -256,41 +414,34 @@ namespace Tessera.UI
             return slotTransform.rotation;
         }
 
-        /// <summary>자식 DeviceSlot 클릭 이벤트를 구독한다.</summary>
-        private void SubscribeSlotClickEvents()
+        /// <summary>지정 슬롯의 현재 Device를 반환한다.</summary>
+        public SlotPairDeviceDefinitionSO GetDevice(int slotIndex)
         {
             if (slots == null)
+                return null;
+
+            if (slotIndex < 0 || slotIndex >= slots.Length)
+                return null;
+
+            if (slots[slotIndex] == null)
+                return null;
+
+            return slots[slotIndex].CurrentDevice;
+        }
+
+        #endregion
+
+        #region Debug
+
+        /// <summary>DeviceRack 입력 디버그 로그를 출력한다.</summary>
+        private void LogInput(string message)
+        {
+            if (!enableInputDebugLog)
                 return;
 
-            for (int i = 0; i < slots.Length; i++)
-            {
-                if (slots[i] == null)
-                    continue;
-
-                slots[i].Clicked -= HandleSlotClicked;
-                slots[i].Clicked += HandleSlotClicked;
-            }
+            Debug.Log($"[Tessera][DeviceRackInput]{message}");
         }
 
-        /// <summary>자식 DeviceSlot 클릭 이벤트 구독을 해제한다.</summary>
-        private void UnsubscribeSlotClickEvents()
-        {
-            if (slots == null)
-                return;
-
-            for (int i = 0; i < slots.Length; i++)
-            {
-                if (slots[i] == null)
-                    continue;
-
-                slots[i].Clicked -= HandleSlotClicked;
-            }
-        }
-
-        /// <summary>자식 슬롯 클릭을 Rack 단위 이벤트로 전달한다.</summary>
-        private void HandleSlotClicked(int slotIndex)
-        {
-            SlotClicked?.Invoke(slotIndex);
-        }
+        #endregion
     }
 }
