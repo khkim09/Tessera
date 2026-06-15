@@ -19,6 +19,7 @@ namespace Tessera.UI
 
         private SlotPairDeviceDefinitionSO currentDevice;
         private int slotIndex = -1;
+        private bool interactionEnabled = true;
         private GameObject equippedDeviceViewObject;
         private EquippedDevice3DView equippedDeviceView;
 
@@ -79,6 +80,17 @@ namespace Tessera.UI
             LogInput($"[Initialize] Slot={name}, SlotIndex={slotIndex}");
         }
 
+        /// <summary>슬롯 Hover/Drag/Drop 상호작용 허용 여부를 설정한다.</summary>
+        public void SetInteractionEnabled(bool enabled)
+        {
+            interactionEnabled = enabled;
+
+            if (!interactionEnabled && hoverHighlightTarget != null)
+                hoverHighlightTarget.ResetHighlight();
+
+            RefreshHoverFeedbackEnabled();
+        }
+
         /// <summary>지정한 Collider가 이 슬롯 또는 자식에 속하는지 확인한다.</summary>
         public bool ContainsCollider(Collider targetCollider)
         {
@@ -93,8 +105,8 @@ namespace Tessera.UI
         {
             LogInput($"[DragStarted] Slot={name}, SlotIndex={slotIndex}");
 
-            if (slotIndex < 0)
-                return;
+            if (!interactionEnabled) return;
+            if (slotIndex < 0) return;
 
             DragStarted?.Invoke(slotIndex);
         }
@@ -104,8 +116,8 @@ namespace Tessera.UI
         {
             LogInput($"[DragEnded] Slot={name}, SlotIndex={slotIndex}");
 
-            if (slotIndex < 0)
-                return;
+            if (!interactionEnabled) return;
+            if (slotIndex < 0) return;
 
             DragEnded?.Invoke(slotIndex);
         }
@@ -115,8 +127,8 @@ namespace Tessera.UI
         {
             LogInput($"[Dropped] Slot={name}, SlotIndex={slotIndex}");
 
-            if (slotIndex < 0)
-                return;
+            if (!interactionEnabled) return;
+            if (slotIndex < 0) return;
 
             Dropped?.Invoke(slotIndex);
         }
@@ -126,8 +138,8 @@ namespace Tessera.UI
         {
             LogInput($"[HoverEntered] Slot={name}, SlotIndex={slotIndex}");
 
-            if (slotIndex < 0)
-                return;
+            if (!interactionEnabled) return;
+            if (slotIndex < 0) return;
 
             HoverEntered?.Invoke(slotIndex);
         }
@@ -137,8 +149,8 @@ namespace Tessera.UI
         {
             LogInput($"[HoverExited] Slot={name}, SlotIndex={slotIndex}");
 
-            if (slotIndex < 0)
-                return;
+            if (!interactionEnabled) return;
+            if (slotIndex < 0) return;
 
             HoverExited?.Invoke(slotIndex);
         }
@@ -227,14 +239,14 @@ namespace Tessera.UI
             equippedDeviceViewObject = null;
         }
 
-        /// <summary>현재 장착 상태 기준으로 Hover Scale 허용 여부를 갱신한다.</summary>
+        /// <summary>현재 장착 상태와 상호작용 허용 여부 기준으로 Hover Scale 허용 여부를 갱신한다.</summary>
         private void RefreshHoverFeedbackEnabled()
         {
             if (hoverHighlightTarget == null)
                 return;
 
             bool hasDevice = currentDevice != null;
-            hoverHighlightTarget.SetHoverFeedbackEnabled(hasDevice);
+            hoverHighlightTarget.SetHoverFeedbackEnabled(interactionEnabled && hasDevice);
         }
 
         /// <summary>자식 Collider에 Pointer Relay를 자동 등록한다.</summary>

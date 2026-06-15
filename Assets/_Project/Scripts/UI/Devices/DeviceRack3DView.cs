@@ -10,6 +10,9 @@ namespace Tessera.UI
         [Header("Slots")]
         [SerializeField] private DeviceSlot3DView[] slots = new DeviceSlot3DView[5];
 
+        [Header("Interaction")]
+        [SerializeField] private bool interactionEnabled = true;
+
         [Header("Debug")]
         [SerializeField] private bool enableInputDebugLog = true;
 
@@ -64,6 +67,24 @@ namespace Tessera.UI
                     continue;
 
                 slots[i].Initialize(i);
+                slots[i].SetInteractionEnabled(interactionEnabled);
+            }
+        }
+
+        /// <summary>Rack 하위 슬롯의 Hover/Drag/Drop 상호작용 허용 여부를 설정한다.</summary>
+        public void SetInteractionEnabled(bool enabled)
+        {
+            interactionEnabled = enabled;
+
+            if (slots == null)
+                return;
+
+            for (int i = 0; i < slots.Length; i++)
+            {
+                if (slots[i] == null)
+                    continue;
+
+                slots[i].SetInteractionEnabled(interactionEnabled);
             }
         }
 

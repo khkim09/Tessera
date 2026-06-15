@@ -4,12 +4,14 @@ using Tessera.Runtime;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 namespace Tessera.UI
 {
     /// <summary>Bounty Board에 표시되는 수배지 카드 View다.</summary>
-    public class BountyCardView : MonoBehaviour
+    public class BountyCardView : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
+        [Header("UI Elements")]
         [SerializeField] private Button button;
         [SerializeField] private TMP_Text titleText;
         [SerializeField] private TMP_Text typeText;
@@ -17,8 +19,18 @@ namespace Tessera.UI
         [SerializeField] private TMP_Text stateText;
         [SerializeField] private TMP_Text stageThreatText;
 
+        [Header("Hover Feedback")]
+        [SerializeField] private RectTransform scaleRoot;
+        [SerializeField] private Image highlightImage;
+        [SerializeField] private float hoverScaleMultiplier = 1.2f;
+        [SerializeField] private Color highlightColor = new Color(1f, 0.86f, 0.18f, 1f);
+        [SerializeField] private Vector2 highlightDistance = new Vector2(4f, -4f);
+
         private StageBountyNodeState node;
         private StageBountyBoardState boardState;
+        private Vector3 normalScale = Vector3.one;
+        private Outline hoverOutline;
+        private bool isHovering;
 
         /// <summary>카드 선택 이벤트.</summary>
         public event Action<StageBountyNodeState> Selected;
@@ -26,6 +38,10 @@ namespace Tessera.UI
         /// <summary>버튼 클릭 이벤트를 연결한다.</summary>
         private void OnEnable()
         {
+            AssignHoverReferencesIfMissing();
+            CacheNormalScale();
+            SetHoverFeedback(false);
+
             if (button != null)
                 button.onClick.AddListener(HandleClicked);
         }
@@ -35,6 +51,8 @@ namespace Tessera.UI
         {
             if (button != null)
                 button.onClick.RemoveListener(HandleClicked);
+
+            SetHoverFeedback(false);
         }
 
         /// <summary>카드를 지정 수배지 상태로 갱신한다.</summary>
@@ -60,6 +78,8 @@ namespace Tessera.UI
 
             if (button != null)
                 button.interactable = node != null && node.IsAvailable;
+
+            SetHoverFeedback(false);
         }
 
         /// <summary>기존 호출 호환용 Bind 메서드다.</summary>
@@ -160,6 +180,71 @@ namespace Tessera.UI
                 return;
 
             Selected?.Invoke(node);
+        }
+
+        /// <summary>포인터 진입 시 카드 hover 피드백을 표시한다.</summary>
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            if (button != null && !button.interactable)
+                return;
+
+            SetHoverFeedback(true);
+        }
+
+        /// <summary>포인터 이탈 시 카드 hover 피드백을 숨긴다.</summary>
+        public void OnPointerExit(PointerEventData eventData)
+        {
+            SetHoverFeedback(false);
+        }
+
+        /// <summary>Hover 피드백용 참조를 자동 보정한다.</summary>
+        private void AssignHoverReferencesIfMissing()
+        {
+            if (scaleRoot == null)
+                scaleRoot = transform as RectTransform;
+
+            if (highlightImage == null && button != null)
+                highlightImage = button.targetGraphic as Image;
+
+            if (highlightImage == null)
+                highlightImage = GetComponent<Image>();
+
+            if (highlightImage == null)
+                return;
+
+            hoverOutline = highlightImage.GetComponent<Outline>();
+
+            if (hoverOutline == null)
+                hoverOutline = highlightImage.gameObject.AddComponent<Outline>();
+
+            hoverOutline.effectColor = highlightColor;
+            hoverOutline.effectDistance = highlightDistance;
+            hoverOutline.useGraphicAlpha = false;
+            hoverOutline.enabled = false;
+        }
+
+        /// <summary>기본 Scale 값을 캐싱한다.</summary>
+        private void CacheNormalScale()
+        {
+            if (scaleRoot == null)
+                return;
+
+            normalScale = scaleRoot.localScale;
+        }
+
+        /// <summary>Hover 피드백 표시 상태를 적용한다.</summary>
+        private void SetHoverFeedback(bool active)
+        {
+            if (isHovering == active)
+                return;
+
+            isHovering = active;
+
+            if (scaleRoot != null)
+                scaleRoot.localScale = active ? normalScale * hoverScaleMultiplier : normalScale;
+
+            if (hoverOutline != null)
+                hoverOutline.enabled = active;
         }
     }
 }

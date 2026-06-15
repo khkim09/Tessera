@@ -1629,14 +1629,20 @@ namespace Tessera.UI
 
         #region Device Data
 
-        /// <summary>3D Device 슬롯 표시 인덱스를 초기화한다.</summary>
+        /// <summary>3D Device 슬롯 표시 인덱스와 상호작용 정책을 초기화한다.</summary>
         private void InitializeDeviceSlots()
         {
             if (playerDeviceRack3DView != null)
+            {
+                playerDeviceRack3DView.SetInteractionEnabled(true);
                 playerDeviceRack3DView.InitializeSlots();
+            }
 
             if (opponentDeviceRack3DView != null)
+            {
+                opponentDeviceRack3DView.SetInteractionEnabled(false);
                 opponentDeviceRack3DView.InitializeSlots();
+            }
         }
 
         /// <summary>RunSession의 장착 Device 배열을 Presenter 내부 배열로 복사한다.</summary>

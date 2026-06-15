@@ -23,11 +23,21 @@ namespace Tessera.UI
         [Header("Tooltip")]
         [SerializeField] private ShopProductTooltipView tooltipView;
 
+        [Header("Hover Feedback")]
+        [SerializeField] private RectTransform scaleRoot;
+        [SerializeField] private Image highlightImage;
+        [SerializeField] private float hoverScaleMultiplier = 1.2f;
+        [SerializeField] private Color highlightColor = new Color(1f, 0.86f, 0.18f, 1f);
+        [SerializeField] private Vector2 highlightDistance = new Vector2(4f, -4f);
+
         private int boundSlotIndex = -1; // Shop 슬롯 인덱스
         private bool isPurchasable; // 클릭 가능 여부 (구매 가능 여부)
         private string boundDisplayName = string.Empty;
         private string boundDescription = string.Empty;
         private string boundTierLabel = string.Empty;
+        private Vector3 normalScale = Vector3.one;
+        private Outline hoverOutline;
+        private bool isHovering;
 
         public event Action<int> PurchaseConfirmed;
 
@@ -36,7 +46,10 @@ namespace Tessera.UI
         {
             // Prefab 편집 중 필드 연결 누락을 줄이기 위해 자동 참조를 보정한다.
             AssignReferencesIfMissing();
+            AssignHoverReferencesIfMissing();
             ConfigureRaycastTargets();
+            CacheNormalScale();
+            SetHoverFeedback(false);
         }
 
         /// <summary>초기화 시 참조, raycast, tooltip 표시 상태를 정리한다.</summary>
@@ -44,8 +57,11 @@ namespace Tessera.UI
         {
             // TooltipRoot가 prefab에서 비활성화되어 있어도 참조 가능하도록 inactive 포함 검색을 사용한다.
             AssignReferencesIfMissing();
+            AssignHoverReferencesIfMissing();
             ConfigureRaycastTargets();
+            CacheNormalScale();
             HideTooltip();
+            SetHoverFeedback(false);
         }
 
         /// <summary>활성화 시 카드 버튼 이벤트를 연결한다.</summary>
@@ -67,6 +83,7 @@ namespace Tessera.UI
                 cardButton.onClick.RemoveListener(HandleCardClicked);
 
             HideTooltip();
+            SetHoverFeedback(false);
         }
 
         /// <summary>파괴 시 외부 이벤트 참조를 정리한다.</summary>
@@ -81,6 +98,7 @@ namespace Tessera.UI
         {
             // 재바인딩 시 이전 tooltip이 남지 않도록 먼저 닫는다.
             HideTooltip();
+            SetHoverFeedback(false);
 
             AssignReferencesIfMissing();
             ConfigureRaycastTargets();
@@ -196,35 +214,32 @@ namespace Tessera.UI
         private void HandleCardClicked()
         {
             // Unity UI Button은 같은 버튼 위에서 PointerUp이 끝났을 때 onClick을 호출한다.
-            if (boundSlotIndex < 0)
-                return;
-
-            if (!isPurchasable)
-                return;
+            if (boundSlotIndex < 0) return;
+            if (!isPurchasable) return;
 
             PurchaseConfirmed?.Invoke(boundSlotIndex);
         }
 
-        /// <summary>포인터 진입 시 prefab 내부 Tooltip을 표시한다.</summary>
+        /// <summary>포인터 진입 시 Hover 피드백과 prefab 내부 Tooltip을 표시한다.</summary>
         public void HandlePointerEntered(PointerEventData eventData)
         {
-            // 설명이 없는 상품은 tooltip을 띄우지 않는다.
+            // 구매 가능 여부와 무관하게 상품 정보 확인은 가능하므로 hover 피드백은 슬롯 유효성만 본다.
             if (boundSlotIndex < 0)
                 return;
 
-            if (tooltipView == null)
-                return;
+            SetHoverFeedback(true);
 
-            if (string.IsNullOrWhiteSpace(boundDescription))
-                return;
+            if (tooltipView == null) return;
+            if (string.IsNullOrWhiteSpace(boundDescription)) return;
 
             tooltipView.Show(boundDisplayName, boundDescription, boundTierLabel);
         }
 
-        /// <summary>포인터 이탈 시 prefab 내부 Tooltip을 숨긴다.</summary>
+        /// <summary>포인터 이탈 시 Hover 피드백과 prefab 내부 Tooltip을 숨긴다.</summary>
         public void HandlePointerExited(PointerEventData eventData)
         {
-            // 카드 영역 밖으로 나가면 tooltip을 닫는다.
+            // 카드 영역 밖으로 나가면 hover 상태와 tooltip을 닫는다.
+            SetHoverFeedback(false);
             HideTooltip();
         }
 
@@ -234,6 +249,58 @@ namespace Tessera.UI
             // TooltipRoot가 비활성 상태여도 View 참조만 있으면 안전하게 Hide 가능하다.
             if (tooltipView != null)
                 tooltipView.Hide();
+        }
+
+        /// <summary>Hover 피드백용 참조를 자동 보정한다.</summary>
+        private void AssignHoverReferencesIfMissing()
+        {
+            // TooltipRoot가 scale되지 않도록 ContentRoot/Button 쪽 RectTransform을 우선 사용한다.
+            if (scaleRoot == null && cardButton != null)
+                scaleRoot = cardButton.transform as RectTransform;
+
+            if (scaleRoot == null)
+                scaleRoot = transform as RectTransform;
+
+            // 외곽선은 카드 배경 Image에 적용한다.
+            if (highlightImage == null)
+                highlightImage = backgroundImage;
+
+            if (highlightImage == null)
+                return;
+
+            hoverOutline = highlightImage.GetComponent<Outline>();
+
+            if (hoverOutline == null)
+                hoverOutline = highlightImage.gameObject.AddComponent<Outline>();
+
+            hoverOutline.effectColor = highlightColor;
+            hoverOutline.effectDistance = highlightDistance;
+            hoverOutline.useGraphicAlpha = false;
+            hoverOutline.enabled = false;
+        }
+
+        /// <summary>기본 Scale 값을 캐싱한다.</summary>
+        private void CacheNormalScale()
+        {
+            if (scaleRoot == null)
+                return;
+
+            normalScale = scaleRoot.localScale;
+        }
+
+        /// <summary>Hover 피드백 표시 상태를 적용한다.</summary>
+        private void SetHoverFeedback(bool active)
+        {
+            if (isHovering == active)
+                return;
+
+            isHovering = active;
+
+            if (scaleRoot != null)
+                scaleRoot.localScale = active ? normalScale * hoverScaleMultiplier : normalScale;
+
+            if (hoverOutline != null)
+                hoverOutline.enabled = active;
         }
 
         /// <summary>누락된 UI 참조를 자동 보정한다.</summary>
@@ -257,6 +324,8 @@ namespace Tessera.UI
 
             if (tooltipView == null && root != null)
                 tooltipView = root.GetComponentInChildren<ShopProductTooltipView>(true);
+
+            AssignHoverReferencesIfMissing();
         }
 
         /// <summary>ProductCard 루트 오브젝트를 반환한다.</summary>
