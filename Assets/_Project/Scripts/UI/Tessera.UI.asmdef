@@ -5,6 +5,7 @@
         "Tessera.Core",
         "Tessera.Data",
         "Tessera.Runtime",
+        "Tessera.Presentation",
         "Unity.TextMeshPro",
         "UnityEngine.UI",
         "UniTask",

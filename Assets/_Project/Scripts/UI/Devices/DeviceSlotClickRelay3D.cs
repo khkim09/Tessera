@@ -5,7 +5,6 @@ namespace Tessera.UI
 {
     /// <summary>자식 Collider의 Pointer 이벤트를 부모 DeviceSlot3DView로 전달하는 Relay다.</summary>
     public class DeviceSlotClickRelay3D : MonoBehaviour,
-        IPointerClickHandler,
         IPointerEnterHandler,
         IPointerExitHandler,
         IBeginDragHandler,
@@ -26,13 +25,6 @@ namespace Tessera.UI
         {
             if (owner == slot)
                 owner = null;
-        }
-
-        /// <summary>Pointer Click 이벤트를 슬롯 클릭으로 전달한다.</summary>
-        public void OnPointerClick(PointerEventData eventData)
-        {
-            // Collider 클릭을 DeviceSlot 클릭 이벤트로 변환한다.
-            owner?.NotifySlotClicked();
         }
 
         /// <summary>Pointer Enter 이벤트를 슬롯 Hover 진입으로 전달한다.</summary>

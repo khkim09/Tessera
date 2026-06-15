@@ -15,6 +15,7 @@ namespace Tessera.Data
         [TextArea]
         [SerializeField] private string description = "No device effect.";
         [SerializeField] private Sprite icon;
+        [SerializeField] private GameObject equippedViewPrefab;
 
         [Header("Effect")]
         [SerializeField] private SlotPairDeviceType deviceType = SlotPairDeviceType.None;
@@ -45,6 +46,7 @@ namespace Tessera.Data
         public string DisplayName => displayName;
         public string Description => description;
         public Sprite Icon => icon;
+        public GameObject EquippedViewPrefab => equippedViewPrefab;
 
         public SlotPairDeviceType DeviceType => deviceType;
         public int IntValue => intValue;
@@ -62,6 +64,7 @@ namespace Tessera.Data
         public int RequiredStageThreatLevel => Mathf.Max(0, requiredStageThreatLevel);
         public int TrueDamageValue => Mathf.Max(0, trueDamageValue);
 
+        /// <summary>Device SO를 현재 Core 계산용 정의로 변환한다.</summary>
         public SlotPairDeviceDefinition ToCoreDefinition()
         {
             if (deviceType == SlotPairDeviceType.AddScoreByDiceValue)
@@ -74,9 +77,11 @@ namespace Tessera.Data
                 return SlotPairDeviceDefinition.AddForceIfSameAsPrevious(GetSafeIntValue(1));
 
             if (deviceType == SlotPairDeviceType.MultiplyForceIfCurrentForceAtLeast)
+            {
                 return SlotPairDeviceDefinition.MultiplyForceIfCurrentForceAtLeast(
                     Mathf.Max(0f, forceThreshold),
                     GetSafeFloatValue(1f));
+            }
 
             if (deviceType == SlotPairDeviceType.AddScoreIfCastType)
                 return SlotPairDeviceDefinition.AddScoreIfCastType(requiredPatternType, GetSafeIntValue(1));
@@ -97,11 +102,13 @@ namespace Tessera.Data
                 description);
         }
 
+        /// <summary>양수가 아니면 대체 정수 값을 반환한다.</summary>
         private int GetSafeIntValue(int fallback)
         {
             return intValue <= 0 ? fallback : intValue;
         }
 
+        /// <summary>양수가 아니면 대체 실수 값을 반환한다.</summary>
         private float GetSafeFloatValue(float fallback)
         {
             return floatValue <= 0f ? fallback : floatValue;

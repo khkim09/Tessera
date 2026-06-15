@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using Tessera.Data;
 using UnityEngine;
 
@@ -17,7 +16,6 @@ namespace Tessera.UI
         /// <summary>슬롯 개수를 반환한다.</summary>
         public int SlotCount => slots != null ? slots.Length : 0;
 
-        public event Action<int> SlotClicked;
         public event Action<int> SlotDragStarted;
         public event Action<int> SlotDragEnded;
         public event Action<int> SlotDropped;
@@ -69,27 +67,6 @@ namespace Tessera.UI
             }
         }
 
-        /// <summary>SO 배열 기준으로 3D Device 슬롯 표시를 갱신한다.</summary>
-        public void SetDevices(IReadOnlyList<SlotPairDeviceDefinitionSO> devices)
-        {
-            if (slots == null)
-                return;
-
-            for (int i = 0; i < slots.Length; i++)
-            {
-                if (slots[i] == null)
-                    continue;
-
-                SlotPairDeviceDefinitionSO device = null;
-
-                if (devices != null && i >= 0 && i < devices.Count)
-                    device = devices[i];
-
-                // 각 슬롯은 null이면 빈 슬롯으로 표시한다.
-                slots[i].SetDevice(device);
-            }
-        }
-
         /// <summary>배열 기준으로 3D Device 슬롯 표시를 갱신한다.</summary>
         public void SetDevices(SlotPairDeviceDefinitionSO[] devices)
         {
@@ -124,9 +101,6 @@ namespace Tessera.UI
                 if (slots[i] == null)
                     continue;
 
-                slots[i].Clicked -= HandleSlotClicked;
-                slots[i].Clicked += HandleSlotClicked;
-
                 slots[i].DragStarted -= HandleSlotDragStarted;
                 slots[i].DragStarted += HandleSlotDragStarted;
 
@@ -159,7 +133,6 @@ namespace Tessera.UI
                 if (slots[i] == null)
                     continue;
 
-                slots[i].Clicked -= HandleSlotClicked;
                 slots[i].DragStarted -= HandleSlotDragStarted;
                 slots[i].DragEnded -= HandleSlotDragEnded;
                 slots[i].Dropped -= HandleSlotDropped;
@@ -167,14 +140,6 @@ namespace Tessera.UI
                 slots[i].HoverEntered -= HandleSlotHoverEntered;
                 slots[i].HoverExited -= HandleSlotHoverExited;
             }
-        }
-
-        /// <summary>자식 슬롯 클릭을 Rack 단위 이벤트로 전달한다.</summary>
-        private void HandleSlotClicked(int slotIndex)
-        {
-            LogInput($"[Clicked] Rack={name}, Slot={slotIndex}");
-
-            SlotClicked?.Invoke(slotIndex);
         }
 
         /// <summary>자식 슬롯 BeginDrag를 Rack 단위 이벤트로 전달한다.</summary>

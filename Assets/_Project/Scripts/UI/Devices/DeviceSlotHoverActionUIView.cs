@@ -7,34 +7,22 @@ namespace Tessera.UI
     /// <summary>하나의 DeviceSlot에 고정 배치된 Tooltip과 ActionButton 묶음 View다.</summary>
     public sealed class DeviceSlotHoverActionUIView : MonoBehaviour
     {
-        /// <summary>이 Hover UI가 연결된 DeviceSlot 인덱스다.</summary>
         [Header("Slot")]
         [SerializeField] private int slotIndex;
 
-        /// <summary>장착 Device 설명을 표시할 Tooltip View다.</summary>
         [Header("Views")]
         [SerializeField] private ShopProductTooltipView tooltipView;
-
-        /// <summary>Sell/Buy 버튼을 표시할 ActionButton View다.</summary>
         [SerializeField] private EquippedDeviceActionButton3DView actionButtonView;
 
-        /// <summary>Hover UI 디버그 로그 출력 여부다.</summary>
         [Header("Debug")]
         [SerializeField] private bool enableDebugLog;
 
-        /// <summary>ActionButton Hover 영역 위에 포인터가 올라와 있는지 여부다.</summary>
-        private bool isPointerOverActionArea;
+        private bool isPointerOverActionArea; // Hover 중 여부
 
-        /// <summary>이 Hover UI가 연결된 DeviceSlot 인덱스를 반환한다.</summary>
         public int SlotIndex => slotIndex;
-
-        /// <summary>ActionButton Hover 영역 위에 포인터가 있는지 반환한다.</summary>
         public bool IsPointerOverActionArea => isPointerOverActionArea;
 
-        /// <summary>Sell 버튼 클릭 요청 이벤트다.</summary>
         public event Action<int> SellRequested;
-
-        /// <summary>Hover 확장 영역 이탈 이벤트다.</summary>
         public event Action<int> HoverAreaExited;
 
         /// <summary>컴포넌트 추가 시 기본 참조를 자동 연결한다.</summary>
@@ -90,6 +78,27 @@ namespace Tessera.UI
         {
             // StageFlowUIBridge 배열 순서와 View 내부 인덱스를 동기화한다.
             slotIndex = newSlotIndex;
+        }
+
+        /// <summary>장착 Device 기준으로 Tooltip만 표시한다.</summary>
+        public void ShowTooltip(SlotPairDeviceDefinitionSO device)
+        {
+            // 빈 슬롯이면 Hover UI를 표시하지 않는다.
+            if (device == null)
+            {
+                Hide();
+                return;
+            }
+
+            AssignReferencesIfMissing();
+
+            if (tooltipView != null)
+                tooltipView.ShowDeviceStatic(device);
+
+            if (actionButtonView != null)
+                actionButtonView.Hide();
+
+            Log($"[ShowTooltip] Slot={slotIndex}, Device={device.DisplayName}");
         }
 
         /// <summary>장착 Device 기준으로 Tooltip과 Sell 버튼을 표시한다.</summary>

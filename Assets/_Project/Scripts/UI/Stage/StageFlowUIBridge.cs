@@ -390,13 +390,12 @@ namespace Tessera.UI
 
         #region Event
 
-        /// <summary>Shop 상태에서 Player DeviceSlot Hover 진입을 Tooltip과 임시 ActionButton 표시로 변환한다.</summary>
+        /// <summary>Player DeviceSlot Hover 진입을 Tooltip 또는 Shop Action UI 표시로 변환한다.</summary>
         private void HandleShopDeviceSlotHoverEntered(int slotIndex)
         {
-            // Shop 화면과 드래그 상태를 확인해 불필요한 Hover UI 표시를 막는다.
+            // Tooltip은 항상 허용하고, Sell 버튼만 Shop 상태에서 허용한다.
             LogShopDeviceInput($"[HoverEntered] Slot={slotIndex}, IsShopVisible={isShopVisible}, IsDragging={isShopDeviceDragging}");
 
-            if (!isShopVisible) return;
             if (isShopDeviceDragging) return;
             if (playerDeviceRackForShop == null) return;
 
@@ -413,7 +412,7 @@ namespace Tessera.UI
             ShowDeviceHoverUI(slotIndex, device);
         }
 
-        /// <summary>Shop 상태에서 Player DeviceSlot Hover 이탈을 Tooltip 숨김과 임시 ActionButton 숨김으로 변환한다.</summary>
+        /// /// <summary>Player DeviceSlot Hover 이탈을 Tooltip 또는 Shop Action UI 숨김 후보로 처리한다.</summary>
         private void HandleShopDeviceSlotHoverExited(int slotIndex)
         {
             // 버튼으로 이동하는 중일 수 있으므로 한 프레임 늦게 Hide 여부를 판단한다.
@@ -425,23 +424,13 @@ namespace Tessera.UI
             RequestHideDeviceHoverUI(slotIndex);
         }
 
-        /// <summary>Shop 상태에서 Player DeviceSlot 클릭 입력은 현재 UX에서 사용하지 않는다.</summary>
-        private void HandleShopDeviceSlotClicked(int slotIndex)
-        {
-            // 클릭 고정 UX는 제거했고, Hover + Button 클릭만 사용한다.
-            LogShopDeviceInput($"[SlotClickedIgnored] Slot={slotIndex}");
-        }
-
         /// <summary>Shop 상태에서 Player DeviceSlot 드래그 시작을 기록한다.</summary>
         private void HandleShopDeviceSlotDragStarted(int slotIndex)
         {
             LogShopDeviceInput($"[DragStarted] Slot={slotIndex}, IsShopVisible={isShopVisible}");
 
-            if (!isShopVisible)
-                return;
-
-            if (playerDeviceRackForShop == null)
-                return;
+            if (!isShopVisible) return;
+            if (playerDeviceRackForShop == null) return;
 
             if (playerDeviceRackForShop.GetDevice(slotIndex) == null)
             {
@@ -571,7 +560,7 @@ namespace Tessera.UI
             RequestHideDeviceHoverUI(slotIndex);
         }
 
-        /// <summary>지정 슬롯의 고정 배치 Hover UI를 표시한다.</summary>
+        /// <summary>지정 슬롯의 고정 배치 Hover UI를 현재 상태에 맞게 표시한다.</summary>
         private void ShowDeviceHoverUI(int slotIndex, SlotPairDeviceDefinitionSO device)
         {
             // 새 Hover 표시가 들어오면 이전 지연 Hide 요청을 무효화한다.
@@ -588,12 +577,20 @@ namespace Tessera.UI
                 return;
             }
 
-            int refundMoney = ResolveDeviceSellRefundMoneyForPreview(device);
-
             visibleDeviceHoverUIIndex = slotIndex;
-            hoverUI.ShowSell(device, refundMoney);
 
-            LogShopDeviceInput($"[HoverUIShown] Slot={slotIndex}, Device={device.DisplayName}, Refund={refundMoney}");
+            if (isShopVisible)
+            {
+                int refundMoney = ResolveDeviceSellRefundMoneyForPreview(device);
+                hoverUI.ShowSell(device, refundMoney);
+
+                LogShopDeviceInput($"[HoverUIShown] Mode=Sell, Slot={slotIndex}, Device={device.DisplayName}, Refund={refundMoney}");
+                return;
+            }
+
+            hoverUI.ShowTooltip(device);
+
+            LogShopDeviceInput($"[HoverUIShown] Mode=TooltipOnly, Slot={slotIndex}, Device={device.DisplayName}");
         }
 
         /// <summary>지정 슬롯 Hover UI 숨김 판단을 한 프레임 지연 요청한다.</summary>

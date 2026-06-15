@@ -1,6 +1,8 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 namespace Tessera.Presentation
 {
@@ -17,9 +19,11 @@ namespace Tessera.Presentation
         [SerializeField] private LayerMask hoverLayerMask = ~0;
         [SerializeField] private float maxDistance = 100f;
         [SerializeField] private QueryTriggerInteraction triggerInteraction = QueryTriggerInteraction.Ignore;
-        [SerializeField] private bool ignoreWhenPointerOverUI = true;
+        [SerializeField] private bool blockWhenPointerOverUI = true; // UI 아래 있는 3D 오브젝트 Hover 차단 여부
 
+        private readonly List<RaycastResult> uiRaycastResults = new List<RaycastResult>(16);
         private TesseraHoverHighlightTarget currentTarget;
+        private PointerEventData pointerEventData;
 
         /// <summary>카메라 참조를 보정한다.</summary>
         private void Awake()
@@ -31,7 +35,7 @@ namespace Tessera.Presentation
         /// <summary>매 프레임 마우스 Hover 대상을 갱신한다.</summary>
         private void Update()
         {
-            if (ShouldIgnoreHoverByUI())
+            if (ShouldBlockByUI())
             {
                 SetCurrentTarget(null);
                 return;
@@ -62,7 +66,7 @@ namespace Tessera.Presentation
                 currentTarget.SetHighlighted(true);
         }
 
-        /// <summary>마우스 위치 기준으로 Hover 가능한 대상을 Raycast한다.</summary>
+        /// <summary>마우스 위치 기준으로 Hover 가능한 3D 대상을 Raycast한다.</summary>
         private TesseraHoverHighlightTarget RaycastHoverTarget()
         {
             if (targetCamera == null)
@@ -80,16 +84,36 @@ namespace Tessera.Presentation
             return hit.collider.GetComponentInParent<TesseraHoverHighlightTarget>();
         }
 
-        /// <summary>마우스가 UI 위에 있을 때 3D Hover를 무시해야 하는지 확인한다.</summary>
-        private bool ShouldIgnoreHoverByUI()
+        /// <summary>현재 포인터 위치의 UI가 3D Hover를 차단해야 하는지 확인한다.</summary>
+        private bool ShouldBlockByUI()
         {
-            if (!ignoreWhenPointerOverUI)
+            if (!blockWhenPointerOverUI)
                 return false;
 
             if (EventSystem.current == null)
                 return false;
 
-            return EventSystem.current.IsPointerOverGameObject();
+            if (Mouse.current == null)
+                return false;
+
+            if (pointerEventData == null)
+                pointerEventData = new PointerEventData(EventSystem.current);
+
+            pointerEventData.Reset();
+            pointerEventData.position = Mouse.current.position.ReadValue();
+
+            uiRaycastResults.Clear();
+            EventSystem.current.RaycastAll(pointerEventData, uiRaycastResults);
+
+            for (int i = 0; i < uiRaycastResults.Count; i++)
+            {
+                RaycastResult result = uiRaycastResults[i];
+
+                if (result.module is GraphicRaycaster)
+                    return true;
+            }
+
+            return false;
         }
     }
 }

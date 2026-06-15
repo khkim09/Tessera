@@ -1,7 +1,7 @@
 ﻿<Solution>
   <Project Path="Tessera.Presentation.csproj" />
-  <Project Path="Tessera.Core.csproj" />
   <Project Path="Tessera.UI.csproj" />
+  <Project Path="Tessera.Core.csproj" />
   <Project Path="Tessera.Editor.csproj" />
   <Project Path="Tessera.Data.csproj" />
   <Project Path="Tessera.Runtime.csproj" />

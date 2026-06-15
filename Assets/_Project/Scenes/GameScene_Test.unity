@@ -9236,10 +9236,10 @@ MonoBehaviour:
   targetCamera: {fileID: 702736728}
   hoverLayerMask:
     serializedVersion: 2
-    m_Bits: 896
+    m_Bits: 128
   maxDistance: 100
   triggerInteraction: 1
-  ignoreWhenPointerOverUI: 0
+  blockWhenPointerOverUI: 1
 --- !u!1 &1070856831
 GameObject:
   m_ObjectHideFlags: 0
@@ -9439,16 +9439,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d101d2eb0c4c6984a8ff384e5b2632cc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Tessera.Presentation::Tessera.Presentation.TesseraHoverHighlightTarget
-  targetRenderers: []
-  highlightLayerMask:
-    serializedVersion: 2
-    m_Bits: 256
-  includeInactiveRenderers: 1
-  useHoverMotion: 0
-  motionRoot: {fileID: 4335080413535894886}
-  shakePositionAmount: 0.015
-  shakeRotationAmount: 1.2
-  shakeSpeed: 18
+  scaleRoot: {fileID: 0}
+  hoverScaleMultiplier: 1.2
+  hoverFeedbackEnabled: 1
 --- !u!1001 &1090315104
 PrefabInstance:
   m_ObjectHideFlags: 0

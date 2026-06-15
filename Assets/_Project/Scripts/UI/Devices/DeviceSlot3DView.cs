@@ -1,6 +1,6 @@
 ﻿using System;
 using Tessera.Data;
-using TMPro;
+using Tessera.Presentation;
 using UnityEngine;
 
 namespace Tessera.UI
@@ -9,29 +9,22 @@ namespace Tessera.UI
     public class DeviceSlot3DView : MonoBehaviour
     {
         [Header("References")]
-        [SerializeField] private MeshRenderer slotRenderer;
-        [SerializeField] private TMP_Text displayNameText;
-        [SerializeField] private TMP_Text indexText;
-
-        [Header("Colors")]
-        [SerializeField] private Color emptyColor = new Color(0.42f, 0.46f, 0.50f, 1f);
-        [SerializeField] private Color equippedColor = new Color(0.18f, 0.25f, 0.42f, 1f);
-        [SerializeField] private Color highlightedColor = new Color(0.85f, 0.72f, 0.25f, 1f);
+        [SerializeField] private Transform equippedDeviceRoot;
+        [SerializeField] private Transform equippedDeviceViewAnchor;
+        [SerializeField] private GameObject fallbackEquippedDeviceViewPrefab;
+        [SerializeField] private TesseraHoverHighlightTarget hoverHighlightTarget;
 
         [Header("Debug")]
         [SerializeField] private bool enableInputDebugLog = true;
 
         private SlotPairDeviceDefinitionSO currentDevice;
-        private Material runtimeMaterial;
         private int slotIndex = -1;
+        private GameObject equippedDeviceViewObject;
+        private EquippedDevice3DView equippedDeviceView;
 
-        /// <summary>현재 슬롯 인덱스를 반환한다.</summary>
         public int SlotIndex => slotIndex;
-
-        /// <summary>현재 표시 중인 Device를 반환한다.</summary>
         public SlotPairDeviceDefinitionSO CurrentDevice => currentDevice;
 
-        public event Action<int> Clicked;
         public event Action<int> DragStarted;
         public event Action<int> DragEnded;
         public event Action<int> Dropped;
@@ -42,18 +35,15 @@ namespace Tessera.UI
         /// <summary>컴포넌트가 추가될 때 기본 참조를 자동 보정한다.</summary>
         private void Reset()
         {
-            // 같은 오브젝트의 MeshRenderer를 기본 슬롯 렌더러로 사용한다.
-            slotRenderer = GetComponent<MeshRenderer>();
+            hoverHighlightTarget = GetComponent<TesseraHoverHighlightTarget>();
         }
 
         /// <summary>런타임 Material을 준비한다.</summary>
         private void Awake()
         {
-            // 원본 Material을 오염시키지 않도록 인스턴스를 사용한다.
-            EnsureRuntimeMaterial();
-
             // 자식 Collider가 EventSystem 이벤트를 부모 슬롯으로 전달하도록 Relay를 등록한다.
             RegisterClickRelays();
+            RefreshHoverFeedbackEnabled();
         }
 
         /// <summary>활성화 시 Collider Relay와 버튼 이벤트를 연결한다.</summary>
@@ -73,8 +63,8 @@ namespace Tessera.UI
         private void OnDestroy()
         {
             UnregisterClickRelays();
+            ClearEquippedDeviceView();
 
-            Clicked = null;
             DragStarted = null;
             DragEnded = null;
             Dropped = null;
@@ -86,11 +76,7 @@ namespace Tessera.UI
         public void Initialize(int slotIndex)
         {
             this.slotIndex = slotIndex;
-
             LogInput($"[Initialize] Slot={name}, SlotIndex={slotIndex}");
-
-            // 슬롯 번호는 디버그 단계에서만 작게 표시한다.
-            SetText(indexText, (slotIndex + 1).ToString());
         }
 
         /// <summary>지정한 Collider가 이 슬롯 또는 자식에 속하는지 확인한다.</summary>
@@ -100,19 +86,6 @@ namespace Tessera.UI
                 return false;
 
             return targetCollider.transform == transform || targetCollider.transform.IsChildOf(transform);
-        }
-
-        #region Event Nofifiers
-
-        /// <summary>외부 Collider Relay에서 슬롯 클릭을 전달받는다.</summary>
-        public void NotifySlotClicked()
-        {
-            LogInput($"[Clicked] Slot={name}, SlotIndex={slotIndex}");
-
-            if (slotIndex < 0)
-                return;
-
-            Clicked?.Invoke(slotIndex);
         }
 
         /// <summary>외부 Collider Relay에서 슬롯 드래그 시작을 전달받는다.</summary>
@@ -151,7 +124,6 @@ namespace Tessera.UI
         /// <summary>외부 Collider Relay에서 슬롯 Hover 진입을 전달받는다.</summary>
         public void NotifySlotHoverEntered()
         {
-            // Hover 시작을 슬롯 인덱스 기준으로 외부에 전달한다.
             LogInput($"[HoverEntered] Slot={name}, SlotIndex={slotIndex}");
 
             if (slotIndex < 0)
@@ -163,7 +135,6 @@ namespace Tessera.UI
         /// <summary>외부 Collider Relay에서 슬롯 Hover 이탈을 전달받는다.</summary>
         public void NotifySlotHoverExited()
         {
-            // Hover 종료를 슬롯 인덱스 기준으로 외부에 전달한다.
             LogInput($"[HoverExited] Slot={name}, SlotIndex={slotIndex}");
 
             if (slotIndex < 0)
@@ -171,8 +142,6 @@ namespace Tessera.UI
 
             HoverExited?.Invoke(slotIndex);
         }
-
-        #endregion
 
         /// <summary>지정한 Device 데이터를 3D 슬롯에 반영한다.</summary>
         public void SetDevice(SlotPairDeviceDefinitionSO device)
@@ -188,73 +157,84 @@ namespace Tessera.UI
             SetEquipped(device);
         }
 
+        /// <summary>계산 또는 선택 강조 상태를 표시한다.</summary>
+        public void SetHighlighted(bool isHighlighted)
+        {
+            if (equippedDeviceView == null)
+                return;
+
+            equippedDeviceView.SetHighlighted(isHighlighted);
+        }
+
         /// <summary>빈 슬롯 상태로 표시한다.</summary>
         private void SetEmpty()
         {
-            // 슬롯 틀은 유지하고, 장착 Device 표시 Root만 숨긴다.
-            SetSlotColor(emptyColor);
-            SetText(displayNameText, string.Empty);
+            ClearEquippedDeviceView();
+
+            if (equippedDeviceRoot != null)
+                equippedDeviceRoot.gameObject.SetActive(false);
+
+            RefreshHoverFeedbackEnabled();
         }
 
         /// <summary>장착된 Device 상태로 표시한다.</summary>
         private void SetEquipped(SlotPairDeviceDefinitionSO device)
         {
-            // 슬롯 틀은 유지하고, 장착 Device 앞면만 표시한다.
-            SetSlotColor(equippedColor);
-            SetText(displayNameText, device != null ? device.DisplayName : string.Empty);
+            if (equippedDeviceRoot != null)
+                equippedDeviceRoot.gameObject.SetActive(true);
+
+            RebuildEquippedDeviceView(device);
+            RefreshHoverFeedbackEnabled();
         }
 
-        #region Material
-
-        /// <summary>계산 또는 선택 강조 상태를 표시한다.</summary>
-        public void SetHighlighted(bool isHighlighted)
+        /// <summary>장착 Device SO에 맞는 View 프리팹을 생성한다.</summary>
+        private void RebuildEquippedDeviceView(SlotPairDeviceDefinitionSO device)
         {
-            // 계산 중인 SlotPair를 임시 색상으로 강조한다.
-            SetSlotColor(isHighlighted ? highlightedColor : GetBaseColor());
+            ClearEquippedDeviceView();
+
+            Transform parent = equippedDeviceViewAnchor != null ? equippedDeviceViewAnchor : equippedDeviceRoot;
+
+            if (parent == null)
+                return;
+
+            GameObject prefab = device != null && device.EquippedViewPrefab != null
+                ? device.EquippedViewPrefab
+                : fallbackEquippedDeviceViewPrefab;
+
+            if (prefab == null)
+                return;
+
+            equippedDeviceViewObject = Instantiate(prefab, parent);
+            equippedDeviceViewObject.transform.localPosition = Vector3.zero;
+            equippedDeviceViewObject.transform.localRotation = Quaternion.identity;
+            equippedDeviceViewObject.transform.localScale = Vector3.one;
+
+            equippedDeviceView = equippedDeviceViewObject.GetComponent<EquippedDevice3DView>();
+
+            if (equippedDeviceView != null)
+                equippedDeviceView.Bind(device);
         }
 
-        /// <summary>현재 상태 기준 기본 색상을 반환한다.</summary>
-        private Color GetBaseColor()
+        /// <summary>현재 생성된 장착 Device View 오브젝트를 제거한다.</summary>
+        private void ClearEquippedDeviceView()
         {
-            return currentDevice == null ? emptyColor : equippedColor;
+            equippedDeviceView = null;
+
+            if (equippedDeviceViewObject == null)
+                return;
+
+            Destroy(equippedDeviceViewObject);
+            equippedDeviceViewObject = null;
         }
 
-        /// <summary>슬롯 렌더러 색상을 변경한다.</summary>
-        private void SetSlotColor(Color color)
+        /// <summary>현재 장착 상태 기준으로 Hover Scale 허용 여부를 갱신한다.</summary>
+        private void RefreshHoverFeedbackEnabled()
         {
-            if (slotRenderer == null)
+            if (hoverHighlightTarget == null)
                 return;
 
-            EnsureRuntimeMaterial();
-
-            if (runtimeMaterial == null)
-                return;
-
-            runtimeMaterial.color = color;
-        }
-
-        /// <summary>런타임 전용 Material 인스턴스를 준비한다.</summary>
-        private void EnsureRuntimeMaterial()
-        {
-            if (slotRenderer == null)
-                return;
-
-            if (runtimeMaterial != null)
-                return;
-
-            // sharedMaterial 대신 material을 통해 슬롯별 색상 변경을 독립시킨다.
-            runtimeMaterial = slotRenderer.material;
-        }
-
-        #endregion
-
-        /// <summary>TMP 텍스트를 안전하게 갱신한다.</summary>
-        private static void SetText(TMP_Text targetText, string value)
-        {
-            if (targetText == null)
-                return;
-
-            targetText.text = value;
+            bool hasDevice = currentDevice != null;
+            hoverHighlightTarget.SetHoverFeedbackEnabled(hasDevice);
         }
 
         /// <summary>자식 Collider에 Pointer Relay를 자동 등록한다.</summary>
@@ -272,7 +252,6 @@ namespace Tessera.UI
                 if (relay == null)
                     relay = childColliders[i].gameObject.AddComponent<DeviceSlotClickRelay3D>();
 
-                // Collider 이벤트를 이 슬롯 View로 전달한다.
                 relay.Bind(this);
             }
         }
@@ -291,8 +270,6 @@ namespace Tessera.UI
             }
         }
 
-        #region Debug
-
         /// <summary>DeviceSlot 입력 디버그 로그를 출력한다.</summary>
         private void LogInput(string message)
         {
@@ -301,16 +278,5 @@ namespace Tessera.UI
 
             Debug.Log($"[Tessera][DeviceSlotInput]{message}");
         }
-
-        /// <summary>DeviceSlot 입력 디버그 경고 로그를 출력한다.</summary>
-        private void LogInputWarning(string message)
-        {
-            if (!enableInputDebugLog)
-                return;
-
-            Debug.LogWarning($"[Tessera][DeviceSlotInput]{message}");
-        }
-
-        #endregion
     }
 }
