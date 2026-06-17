@@ -38,6 +38,18 @@ namespace Tessera.Presentation
                 SetHighlighted(false);
         }
 
+        /// <summary>현재 Hover 허용 상태에서 Hover Scale을 즉시 적용한다.</summary>
+        public void ForceApplyHoverHighlight()
+        {
+            if (!hoverFeedbackEnabled)
+            {
+                ResetHighlight();
+                return;
+            }
+
+            SetHighlighted(true);
+        }
+
         /// <summary>Hover Scale 표시 상태를 변경한다.</summary>
         public void SetHighlighted(bool highlighted)
         {

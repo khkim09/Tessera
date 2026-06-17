@@ -186,18 +186,14 @@ namespace Tessera.UI
 
         #region Events And Properties
 
-
         /// <summary>Round 승리 확정</summary>
         public event Action<ClashResolveResult> RoundWon;
 
         /// <summary>Round 패배 확정</summary>
         public event Action<ClashResolveResult> RoundLost;
 
-
-
         /// <summary>현재 진행 중인 Core RoundState를 반환한다.</summary>
         public RoundState CurrentRoundState => roundState;
-
 
         #endregion
 
@@ -216,13 +212,13 @@ namespace Tessera.UI
             InitializeDeviceSlots();
         }
 
-        /// <summary>버튼 이벤트를 연결한다.</summary>
+        /// <summary>버튼 및 DeviceSlot 이벤트를 연결한다.</summary>
         private void OnEnable()
         {
             AddButtonListeners();
         }
 
-        /// <summary>버튼 이벤트를 해제한다.</summary>
+        /// <summary>버튼 및 DeviceSlot 이벤트를 해제한다.</summary>
         private void OnDisable()
         {
             RemoveButtonListeners();
@@ -607,15 +603,14 @@ namespace Tessera.UI
         /// <summary>IDeviceSlotReorderHandler: 두 Device 슬롯의 SlotPairDeviceDefinitionSO를 교체한다.</summary>
         public void RequestDeviceSlotSwap(int sourceSlotIndex, int targetSlotIndex)
         {
-            if (!CanActInCurrentAttempt())
-                return;
-
-            if (sourceSlotIndex == targetSlotIndex)
-                return;
+            if (!CanSwapPlayerDevicesNow()) return;
+            if (sourceSlotIndex == targetSlotIndex) return;
+            if (!IsValidDeviceSlotIndex(sourceSlotIndex)) return;
+            if (!IsValidDeviceSlotIndex(targetSlotIndex)) return;
+            if (slotPairDevices == null || slotPairDevices[sourceSlotIndex] == null) return;
 
             if (runSession != null)
             {
-                // 정식 Run에서는 RunSession이 장착 Device의 원본 데이터다.
                 if (!runSession.SwapEquippedDevices(sourceSlotIndex, targetSlotIndex))
                     return;
 
@@ -623,11 +618,6 @@ namespace Tessera.UI
             }
             else
             {
-                // Debug 단독 실행에서는 Presenter 내부 배열만 교체한다.
-                if (slotPairDevices == null) return;
-                if (sourceSlotIndex < 0 || sourceSlotIndex >= slotPairDevices.Length) return;
-                if (targetSlotIndex < 0 || targetSlotIndex >= slotPairDevices.Length) return;
-
                 SlotPairDeviceDefinitionSO temp = slotPairDevices[sourceSlotIndex];
                 slotPairDevices[sourceSlotIndex] = slotPairDevices[targetSlotIndex];
                 slotPairDevices[targetSlotIndex] = temp;
@@ -640,6 +630,49 @@ namespace Tessera.UI
                 BuildCurrentSlotPairPreview();
                 RefreshSelectedCastTexts();
             }
+        }
+
+        /// <summary>현재 Gameplay 중 Player DeviceSlot swap이 가능한지 확인한다.</summary>
+        public bool CanSwapPlayerDevicesNow()
+        {
+            if (slotPairDevices == null)
+                return false;
+
+            if (roundState == null)
+                return false;
+
+            if (roundState.IsRoundEnded)
+                return false;
+
+            if (roundState.CurrentAttempt == null)
+                return false;
+
+            if (roundState.CurrentAttempt.IsSubmitted)
+                return false;
+
+            switch (interactionState)
+            {
+                case BattleInteractionState.PlayerIdle:
+                case BattleInteractionState.EnemyTurn:
+                    return true;
+
+                case BattleInteractionState.None:
+                case BattleInteractionState.DiceRolling:
+                case BattleInteractionState.CastResolving:
+                case BattleInteractionState.AttemptTransition:
+                case BattleInteractionState.RoundEnded:
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>DeviceSlot 인덱스가 현재 장착 배열 범위 안에 있는지 확인한다.</summary>
+        private bool IsValidDeviceSlotIndex(int slotIndex)
+        {
+            if (slotPairDevices == null)
+                return false;
+
+            return slotIndex >= 0 && slotIndex < slotPairDevices.Length;
         }
 
         #endregion

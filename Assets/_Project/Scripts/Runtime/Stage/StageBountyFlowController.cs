@@ -768,18 +768,36 @@ namespace Tessera.Runtime
             if (runSession == null)
                 return;
 
-            SlotPairDeviceDefinitionSO sourceDevice = runSession.GetEquippedDevice(gameEvent.SourceSlotIndex);
-            SlotPairDeviceDefinitionSO targetDevice = runSession.GetEquippedDevice(gameEvent.TargetSlotIndex);
+            int sourceSlotIndex = gameEvent.SourceSlotIndex;
+            int targetSlotIndex = gameEvent.TargetSlotIndex;
 
-            if (sourceDevice == null && targetDevice == null)
+            if (sourceSlotIndex == targetSlotIndex)
+                return;
+
+            if (!IsValidDeviceSlotIndex(sourceSlotIndex))
             {
-                ShowShop(currentShopReasonType, "No Devices to swap.", false);
+                Debug.LogWarning($"[Tessera][ShopDeviceSwap] Invalid source slot. Source={sourceSlotIndex}");
                 return;
             }
 
-            if (!runSession.SwapEquippedDevices(gameEvent.SourceSlotIndex, gameEvent.TargetSlotIndex))
+            if (!IsValidDeviceSlotIndex(targetSlotIndex))
             {
-                ShowShop(currentShopReasonType, "Failed to swap Devices.", false);
+                Debug.LogWarning($"[Tessera][ShopDeviceSwap] Invalid target slot. Target={targetSlotIndex}");
+                return;
+            }
+
+            SlotPairDeviceDefinitionSO sourceDevice = runSession.GetEquippedDevice(sourceSlotIndex);
+            SlotPairDeviceDefinitionSO targetDevice = runSession.GetEquippedDevice(targetSlotIndex);
+
+            if (sourceDevice == null)
+            {
+                Debug.LogWarning($"[Tessera][ShopDeviceSwap] Source slot is empty. Source={sourceSlotIndex}");
+                return;
+            }
+
+            if (!runSession.SwapEquippedDevices(sourceSlotIndex, targetSlotIndex))
+            {
+                Debug.LogWarning($"[Tessera][ShopDeviceSwap] RunSession swap failed. Source={sourceSlotIndex}, Target={targetSlotIndex}");
                 return;
             }
 
@@ -787,13 +805,8 @@ namespace Tessera.Runtime
             string targetName = targetDevice != null ? targetDevice.DisplayName : "Empty";
             string message = $"Swapped {sourceName} and {targetName}.";
 
-            TesseraEventBus.Publish(
-                new StageShopPlayerDevicesChangedEvent(
-                    runSession,
-                    message));
-
+            TesseraEventBus.Publish(new StageShopPlayerDevicesChangedEvent(runSession, message));
             PublishStageEconomyChanged(string.Empty);
-            ShowShop(currentShopReasonType, message, false);
         }
 
         /// <summary>장착 Device의 판매 환불 Money를 계산한다.</summary>
@@ -984,6 +997,12 @@ namespace Tessera.Runtime
                 return;
 
             TesseraEventBus.Publish(new StageEconomyChangedEvent(runSession, currentStageState, reason));
+        }
+
+        /// <summary>DeviceSlot 인덱스가 RunSession 장착 슬롯 범위 안에 있는지 확인한다.</summary>
+        private bool IsValidDeviceSlotIndex(int slotIndex)
+        {
+            return slotIndex >= 0 && slotIndex < TesseraRunSession.MaxDeviceSlots;
         }
 
         #region 상점 Rules

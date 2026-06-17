@@ -8,6 +8,7 @@ namespace Tessera.UI
         IPointerEnterHandler,
         IPointerExitHandler,
         IBeginDragHandler,
+        IDragHandler,
         IEndDragHandler,
         IDropHandler
     {
@@ -44,15 +45,19 @@ namespace Tessera.UI
         /// <summary>Begin Drag 이벤트를 슬롯 드래그 시작으로 전달한다.</summary>
         public void OnBeginDrag(PointerEventData eventData)
         {
-            // Collider drag 시작을 DeviceSlot drag 이벤트로 변환한다.
-            owner?.NotifySlotDragStarted();
+            owner?.NotifySlotDragStarted(eventData);
+        }
+
+        /// <summary>Drag 진행 이벤트를 슬롯 드래그 이동으로 전달한다.</summary>
+        public void OnDrag(PointerEventData eventData)
+        {
+            owner?.NotifySlotDragged(eventData);
         }
 
         /// <summary>End Drag 이벤트를 슬롯 드래그 종료로 전달한다.</summary>
         public void OnEndDrag(PointerEventData eventData)
         {
-            // Collider drag 종료를 DeviceSlot drag 이벤트로 변환한다.
-            owner?.NotifySlotDragEnded();
+            owner?.NotifySlotDragEnded(eventData);
         }
 
         /// <summary>Drop 이벤트를 슬롯 Drop 대상으로 전달한다.</summary>

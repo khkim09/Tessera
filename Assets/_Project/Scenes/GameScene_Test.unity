@@ -701,6 +701,18 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3861106946949341514, guid: cd93ba482e09282448caa50d92fe06e3, type: 3}
+      propertyPath: swapPreviewLocalOffset.y
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3861106946949341514, guid: cd93ba482e09282448caa50d92fe06e3, type: 3}
+      propertyPath: swapPreviewLocalOffset.z
+      value: 0.6
+      objectReference: {fileID: 0}
+    - target: {fileID: 3861106946949341514, guid: cd93ba482e09282448caa50d92fe06e3, type: 3}
+      propertyPath: swapPreviewScaleMultiplier
+      value: 0.55
+      objectReference: {fileID: 0}
     - target: {fileID: 6310092646873955446, guid: cd93ba482e09282448caa50d92fe06e3, type: 3}
       propertyPath: m_Name
       value: PlayerDeviceSlot_4
@@ -3730,6 +3742,18 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3861106946949341514, guid: cd93ba482e09282448caa50d92fe06e3, type: 3}
+      propertyPath: swapPreviewLocalOffset.y
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3861106946949341514, guid: cd93ba482e09282448caa50d92fe06e3, type: 3}
+      propertyPath: swapPreviewLocalOffset.z
+      value: 0.6
+      objectReference: {fileID: 0}
+    - target: {fileID: 3861106946949341514, guid: cd93ba482e09282448caa50d92fe06e3, type: 3}
+      propertyPath: swapPreviewScaleMultiplier
+      value: 0.55
+      objectReference: {fileID: 0}
     - target: {fileID: 6310092646873955446, guid: cd93ba482e09282448caa50d92fe06e3, type: 3}
       propertyPath: m_Name
       value: PlayerDeviceSlot_1
@@ -6325,6 +6349,20 @@ MonoBehaviour:
   - {fileID: 915722039}
   - {fileID: 134171124}
   interactionEnabled: 1
+  swapPreviewWorldRoot: {fileID: 1686229310}
+  swapPreviewLiftDistance: 0.06
+  swapPreviewScaleMultiplier: 1.05
+  dropConfirmSettleDuration: 0.1
+  dropConfirmSettleScaleMultiplier: 1.04
+  dragSnapSlotCenterLocalX:
+  - -1.6
+  - -1.2
+  - -0.8
+  - -0.4
+  - 0
+  dragSnapOuterPadding: 0.2
+  dragSnapSwitchHysteresis: 0.006
+  invalidDropReturnDuration: 0.14
   enableInputDebugLog: 1
 --- !u!1 &750300758
 GameObject:
@@ -6353,7 +6391,7 @@ RectTransform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 750300758}
   m_LocalRotation: {x: 0.7071068, y: -0, z: -0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 0, z: -0.100000024}
+  m_LocalPosition: {x: 0, y: 0, z: -0.024999917}
   m_LocalScale: {x: 0.003, y: 0.0030000003, z: 0.0030000003}
   m_ConstrainProportionsScale: 1
   m_Children:
@@ -6365,7 +6403,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: -1.47, y: 0.87}
+  m_AnchoredPosition: {x: -1.44, y: 0.87}
   m_SizeDelta: {x: 220, y: 120}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!225 &750300760
@@ -6744,6 +6782,18 @@ PrefabInstance:
     - target: {fileID: 3122675004097133426, guid: cd93ba482e09282448caa50d92fe06e3, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3861106946949341514, guid: cd93ba482e09282448caa50d92fe06e3, type: 3}
+      propertyPath: swapPreviewLocalOffset.y
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3861106946949341514, guid: cd93ba482e09282448caa50d92fe06e3, type: 3}
+      propertyPath: swapPreviewLocalOffset.z
+      value: 0.6
+      objectReference: {fileID: 0}
+    - target: {fileID: 3861106946949341514, guid: cd93ba482e09282448caa50d92fe06e3, type: 3}
+      propertyPath: swapPreviewScaleMultiplier
+      value: 0.55
       objectReference: {fileID: 0}
     - target: {fileID: 6310092646873955446, guid: cd93ba482e09282448caa50d92fe06e3, type: 3}
       propertyPath: m_Name
@@ -7730,6 +7780,18 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3861106946949341514, guid: cd93ba482e09282448caa50d92fe06e3, type: 3}
+      propertyPath: swapPreviewLocalOffset.y
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3861106946949341514, guid: cd93ba482e09282448caa50d92fe06e3, type: 3}
+      propertyPath: swapPreviewLocalOffset.z
+      value: 0.6
+      objectReference: {fileID: 0}
+    - target: {fileID: 3861106946949341514, guid: cd93ba482e09282448caa50d92fe06e3, type: 3}
+      propertyPath: swapPreviewScaleMultiplier
+      value: 0.55
+      objectReference: {fileID: 0}
     - target: {fileID: 6310092646873955446, guid: cd93ba482e09282448caa50d92fe06e3, type: 3}
       propertyPath: m_Name
       value: PlayerDeviceSlot_3
@@ -7969,7 +8031,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &965370398
 RectTransform:
   m_ObjectHideFlags: 0
@@ -14058,6 +14120,20 @@ MonoBehaviour:
   - {fileID: 64767243}
   - {fileID: 1967877820}
   interactionEnabled: 0
+  swapPreviewWorldRoot: {fileID: 0}
+  swapPreviewLiftDistance: 0.06
+  swapPreviewScaleMultiplier: 1.05
+  dropConfirmSettleDuration: 0.1
+  dropConfirmSettleScaleMultiplier: 1.04
+  dragSnapSlotCenterLocalX:
+  - -1.6
+  - -1.2
+  - -0.8
+  - -0.4
+  - 0
+  dragSnapOuterPadding: 0.28
+  dragSnapSwitchHysteresis: 0.04
+  invalidDropReturnDuration: 0.14
   enableInputDebugLog: 1
 --- !u!1 &1601055032
 GameObject:
@@ -14330,7 +14406,7 @@ RectTransform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1617329022}
   m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 0, z: -0.82}
+  m_LocalPosition: {x: 0, y: 0, z: -0.7449999}
   m_LocalScale: {x: 0.003, y: 0.003, z: 0.003}
   m_ConstrainProportionsScale: 1
   m_Children:
@@ -14346,7 +14422,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: -1.47, y: 0.87}
+  m_AnchoredPosition: {x: -1.44, y: 0.87}
   m_SizeDelta: {x: 220, y: 300}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1617329025
@@ -18536,6 +18612,18 @@ PrefabInstance:
     - target: {fileID: 3122675004097133426, guid: cd93ba482e09282448caa50d92fe06e3, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3861106946949341514, guid: cd93ba482e09282448caa50d92fe06e3, type: 3}
+      propertyPath: swapPreviewLocalOffset.y
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3861106946949341514, guid: cd93ba482e09282448caa50d92fe06e3, type: 3}
+      propertyPath: swapPreviewLocalOffset.z
+      value: 0.6
+      objectReference: {fileID: 0}
+    - target: {fileID: 3861106946949341514, guid: cd93ba482e09282448caa50d92fe06e3, type: 3}
+      propertyPath: swapPreviewScaleMultiplier
+      value: 0.55
       objectReference: {fileID: 0}
     - target: {fileID: 6310092646873955446, guid: cd93ba482e09282448caa50d92fe06e3, type: 3}
       propertyPath: m_Name

@@ -4,6 +4,7 @@ using Tessera.Core;
 using Tessera.Data;
 using Tessera.Runtime;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace Tessera.UI
 {
@@ -34,6 +35,13 @@ namespace Tessera.UI
         private int hoveredDeviceSlotIndex = -1; // 호버 중인 DeviceSlot
         private int visibleDeviceHoverUIIndex = -1; // 현재 표시 중인 슬롯별 Hover UI
         private int hoverHideRequestSerial; // Hide 요청 무효화
+        private bool isDeviceSlotSwapAllowed; // 현재 Stage/UI 흐름상 Device swap 허용 여부
+        private bool wasDeviceDropHandled; // 현재 Drag에서 Drop 이벤트가 처리되었는지 여부
+        private bool wasDeviceDropAccepted; // 현재 Drag에서 유효 Drop이 승인되었는지 여부
+        private bool shouldShakeOnDeviceDragEnd; // DragEnd 복귀 시 shake 여부
+        private GameObject draggingDeviceViewObject; // 드래그 중인 장착 Device View
+        private SlotPairDeviceDefinitionSO draggingDeviceDefinition; // 드래그 중인 Device 데이터
+        private Vector3 lastDraggingDeviceWorldPosition; // dead-zone 유지용 마지막 드래그 위치
 
         private IDisposable roundStartSubscription;
         private IDisposable bountyBoardShowSubscription;
@@ -90,9 +98,11 @@ namespace Tessera.UI
             {
                 playerDeviceRackForShop.SlotHoverEntered += HandleShopDeviceSlotHoverEntered;
                 playerDeviceRackForShop.SlotHoverExited += HandleShopDeviceSlotHoverExited;
-                playerDeviceRackForShop.SlotDragStarted += HandleShopDeviceSlotDragStarted;
-                playerDeviceRackForShop.SlotDragEnded += HandleShopDeviceSlotDragEnded;
                 playerDeviceRackForShop.SlotDropped += HandleShopDeviceSlotDropped;
+
+                playerDeviceRackForShop.SlotDragStartedWithPointer += HandleDeviceSlotDragStartedWithPointer;
+                playerDeviceRackForShop.SlotDraggedWithPointer += HandleDeviceSlotDraggedWithPointer;
+                playerDeviceRackForShop.SlotDragEndedWithPointer += HandleDeviceSlotDragEndedWithPointer;
 
                 LogShopDeviceInput($"[Subscribe] Rack={playerDeviceRackForShop.name}, Hover/Drag handlers registered.");
             }
@@ -160,9 +170,11 @@ namespace Tessera.UI
             {
                 playerDeviceRackForShop.SlotHoverEntered -= HandleShopDeviceSlotHoverEntered;
                 playerDeviceRackForShop.SlotHoverExited -= HandleShopDeviceSlotHoverExited;
-                playerDeviceRackForShop.SlotDragStarted -= HandleShopDeviceSlotDragStarted;
-                playerDeviceRackForShop.SlotDragEnded -= HandleShopDeviceSlotDragEnded;
                 playerDeviceRackForShop.SlotDropped -= HandleShopDeviceSlotDropped;
+
+                playerDeviceRackForShop.SlotDragStartedWithPointer -= HandleDeviceSlotDragStartedWithPointer;
+                playerDeviceRackForShop.SlotDraggedWithPointer -= HandleDeviceSlotDraggedWithPointer;
+                playerDeviceRackForShop.SlotDragEndedWithPointer -= HandleDeviceSlotDragEndedWithPointer;
             }
 
             UnsubscribeDeviceSlotHoverActionUIs();
@@ -178,14 +190,13 @@ namespace Tessera.UI
             if (gameplayPresenter == null)
                 return;
 
-            // Round 시작 시 Shop 전용 DeviceSlot 상호작용을 끈다.
+            // Round 시작부터 PlayerIdle/EnemyTurn 구간 Device swap은 다시 허용한다.
             isShopVisible = false;
+            isDeviceSlotSwapAllowed = true;
             ResetShopDeviceInteractionState();
-
-            // Shop 전용 Hover/Action UI를 모두 닫는다.
             HideAllDeviceHoverUIs();
 
-            LogShopDeviceInput("[RoundStart] Shop device input disabled.");
+            LogShopDeviceInput("[RoundStart] Gameplay device swap enabled.");
 
             gameplayPresenter.StartRound(
                 gameEvent.RuleContext,
@@ -203,6 +214,13 @@ namespace Tessera.UI
             if (bountyBoardView == null)
                 return;
 
+            isShopVisible = false;
+            isDeviceSlotSwapAllowed = false;
+            ResetShopDeviceInteractionState();
+            HideAllDeviceHoverUIs();
+
+            LogShopDeviceInput("[BountyBoard] Device swap disabled.");
+
             bountyBoardView.Show(gameEvent.BoardState, gameEvent.Message);
         }
 
@@ -212,6 +230,13 @@ namespace Tessera.UI
             if (rewardDecisionView == null)
                 return;
 
+            isShopVisible = false;
+            isDeviceSlotSwapAllowed = false;
+            ResetShopDeviceInteractionState();
+            HideAllDeviceHoverUIs();
+
+            LogShopDeviceInput("[RewardDecision] Device swap disabled.");
+
             rewardDecisionView.Show(gameEvent.BoardState, gameEvent.Message);
         }
 
@@ -220,6 +245,13 @@ namespace Tessera.UI
         {
             if (roundFailureDecisionView == null)
                 return;
+
+            isShopVisible = false;
+            isDeviceSlotSwapAllowed = false;
+            ResetShopDeviceInteractionState();
+            HideAllDeviceHoverUIs();
+
+            LogShopDeviceInput("[RoundFailure] Device swap disabled.");
 
             roundFailureDecisionView.Show(
                 gameEvent.RunSession,
@@ -238,12 +270,13 @@ namespace Tessera.UI
             if (cameraPoseController != null)
                 cameraPoseController.MoveToShopView("Shop opened.");
 
-            // Shop 진입 중에는 장착 DeviceSlot 판매/스왑 입력을 허용한다.
+            // Shop 진입/구성 중에는 아직 swap을 금지한다.
             isShopVisible = true;
+            isDeviceSlotSwapAllowed = false;
             ResetShopDeviceInteractionState();
             HideAllDeviceHoverUIs();
 
-            LogShopDeviceInput("[ShowShop] Shop device input enabled.");
+            LogShopDeviceInput("[ShowShop] Shop device input preparing.");
 
             shopFlowView.Show(
                 gameEvent.RunSession,
@@ -254,6 +287,9 @@ namespace Tessera.UI
                 gameEvent.WorkshopRules);
 
             RefreshPlayerDeviceRackForShop(gameEvent.RunSession);
+
+            isDeviceSlotSwapAllowed = true;
+            LogShopDeviceInput("[ShowShop] Shop device input enabled.");
         }
 
         /// <summary>StageFlow에서 변경된 플레이어 HP 표시 갱신 요청을 Gameplay Presenter에 전달한다.</summary>
@@ -282,18 +318,30 @@ namespace Tessera.UI
         /// <summary>View의 수배지 선택을 Runtime 이벤트로 변환한다.</summary>
         private void HandleBountySelected(StageBountyNodeState node)
         {
+            isDeviceSlotSwapAllowed = false;
+            ResetShopDeviceInteractionState();
+            HideAllDeviceHoverUIs();
+
             TesseraEventBus.Publish(new BountyRoundSelectedEvent(node));
         }
 
         /// <summary>CashOut 요청을 Runtime 이벤트로 변환한다.</summary>
         private void HandleCashOutRequested()
         {
+            isDeviceSlotSwapAllowed = false;
+            ResetShopDeviceInteractionState();
+            HideAllDeviceHoverUIs();
+
             TesseraEventBus.Publish(new RewardDecisionRequestedEvent(StageRewardDecisionType.CashOut));
         }
 
         /// <summary>Keep Fighting 요청을 Runtime 이벤트로 변환한다.</summary>
         private void HandleKeepFightingRequested()
         {
+            isDeviceSlotSwapAllowed = false;
+            ResetShopDeviceInteractionState();
+            HideAllDeviceHoverUIs();
+
             TesseraEventBus.Publish(new RewardDecisionRequestedEvent(StageRewardDecisionType.ChainRush));
         }
 
@@ -324,6 +372,7 @@ namespace Tessera.UI
 
             // Shop Continue 후에는 DeviceSlot 판매/스왑 입력을 막는다.
             isShopVisible = false;
+            isDeviceSlotSwapAllowed = false;
             ResetShopDeviceInteractionState();
             HideAllDeviceHoverUIs();
 
@@ -350,10 +399,17 @@ namespace Tessera.UI
             TesseraEventBus.Publish(new StageShopProductBuyConfirmedEvent(productSlotIndex));
         }
 
-        /// <summary>Shop에서 Player Device 장착 변경 이벤트를 받으면 3D Rack과 Gameplay Presenter 표시를 갱신한다.</summary>
+        /// <summary>Shop에서 Player Device 장착 변경 이벤트를 받으면 RunSession 기준으로 3D Rack과 Gameplay Presenter 표시를 갱신한다.</summary>
         private void HandleShopPlayerDevicesChanged(StageShopPlayerDevicesChangedEvent gameEvent)
         {
             HideAllDeviceHoverUIs();
+
+            if (isShopDeviceDragging && !wasDeviceDropAccepted)
+            {
+                LogShopDeviceInput("[DevicesChangedIgnored] Reason=DraggingNotAccepted");
+                return;
+            }
+
             RefreshPlayerDeviceRackForShop(gameEvent.RunSession);
 
             if (gameplayPresenter != null)
@@ -377,6 +433,10 @@ namespace Tessera.UI
         /// <summary>Gameplay Presenter의 Round 승리 이벤트를 Runtime 이벤트로 변환한다.</summary>
         private void HandleRoundWon(ClashResolveResult result)
         {
+            isDeviceSlotSwapAllowed = false;
+            ResetShopDeviceInteractionState();
+            HideAllDeviceHoverUIs();
+
             int playerHP = GetCurrentPlayerHPFromPresenter();
             TesseraEventBus.Publish(new GameplayRoundWonEvent(result, playerHP));
         }
@@ -384,6 +444,10 @@ namespace Tessera.UI
         /// <summary>Gameplay Presenter의 Round 패배 이벤트를 Runtime 이벤트로 변환한다.</summary>
         private void HandleRoundLost(ClashResolveResult result)
         {
+            isDeviceSlotSwapAllowed = false;
+            ResetShopDeviceInteractionState();
+            HideAllDeviceHoverUIs();
+
             int playerHP = GetCurrentPlayerHPFromPresenter();
             TesseraEventBus.Publish(new GameplayRoundLostEvent(result, playerHP));
         }
@@ -424,42 +488,25 @@ namespace Tessera.UI
             RequestHideDeviceHoverUI(slotIndex);
         }
 
-        /// <summary>Shop 상태에서 Player DeviceSlot 드래그 시작을 기록한다.</summary>
-        private void HandleShopDeviceSlotDragStarted(int slotIndex)
-        {
-            LogShopDeviceInput($"[DragStarted] Slot={slotIndex}, IsShopVisible={isShopVisible}");
-
-            if (!isShopVisible) return;
-            if (playerDeviceRackForShop == null) return;
-
-            if (playerDeviceRackForShop.GetDevice(slotIndex) == null)
-            {
-                LogShopDeviceInput($"[DragStartIgnored] Reason=EmptySource, Slot={slotIndex}");
-                return;
-            }
-
-            isShopDeviceDragging = true;
-            draggingShopDeviceSlotIndex = slotIndex;
-
-            // 드래그 중에는 선택 패널을 닫아 입력 충돌을 막는다.
-            HideAllDeviceHoverUIs();
-
-            LogShopDeviceInput($"[DragStartedAccepted] Source={draggingShopDeviceSlotIndex}");
-        }
-
-        /// <summary>Shop 상태에서 Player DeviceSlot Drop 대상을 Swap 요청으로 변환한다.</summary>
+        /// <summary>Player DeviceSlot Drop 대상을 Swap 요청으로 변환한다.</summary>
         private void HandleShopDeviceSlotDropped(int targetSlotIndex)
         {
             LogShopDeviceInput(
                 $"[Drop] Target={targetSlotIndex}, Source={draggingShopDeviceSlotIndex}, " +
-                $"IsShopVisible={isShopVisible}, IsDragging={isShopDeviceDragging}");
-
-            if (!isShopVisible)
-                return;
+                $"IsDragging={isShopDeviceDragging}, CanCommit={CanCommitDeviceSlotSwap()}");
 
             if (!isShopDeviceDragging || draggingShopDeviceSlotIndex < 0)
             {
                 LogShopDeviceInput($"[DropBlocked] Reason=NoDragSource, Target={targetSlotIndex}");
+                return;
+            }
+
+            wasDeviceDropHandled = true;
+
+            if (!CanCommitDeviceSlotSwap())
+            {
+                shouldShakeOnDeviceDragEnd = true;
+                LogShopDeviceInput($"[DropBlocked] Reason=TimingBlocked, Target={targetSlotIndex}");
                 return;
             }
 
@@ -473,21 +520,169 @@ namespace Tessera.UI
 
             HideAllDeviceHoverUIs();
 
+            wasDeviceDropAccepted = true;
+
+            if (playerDeviceRackForShop != null)
+            {
+                playerDeviceRackForShop.CompleteDeviceDragVisualSwap(
+                    sourceSlotIndex,
+                    targetSlotIndex,
+                    draggingDeviceViewObject,
+                    draggingDeviceDefinition);
+            }
+
+            draggingDeviceViewObject = null;
+            draggingDeviceDefinition = null;
+
             LogShopDeviceInput($"[SwapRequest] Source={sourceSlotIndex}, Target={targetSlotIndex}");
 
-            // 실제 장착 교체는 Runtime Controller가 처리한다.
-            TesseraEventBus.Publish(new StageShopEquippedDeviceSwapRequestedEvent(sourceSlotIndex, targetSlotIndex));
+            if (isShopVisible)
+            {
+                TesseraEventBus.Publish(new StageShopEquippedDeviceSwapRequestedEvent(sourceSlotIndex, targetSlotIndex));
+                return;
+            }
+
+            if (gameplayPresenter != null)
+                gameplayPresenter.RequestDeviceSlotSwap(sourceSlotIndex, targetSlotIndex);
         }
 
-        /// <summary>Shop 상태에서 Player DeviceSlot 드래그 종료 상태를 정리한다.</summary>
-        private void HandleShopDeviceSlotDragEnded(int slotIndex)
+        /// <summary>Player DeviceSlot 드래그 시작 시 실물 Device View를 분리한다.</summary>
+        private void HandleDeviceSlotDragStartedWithPointer(int slotIndex, PointerEventData eventData)
         {
-            LogShopDeviceInput($"[DragEnded] Slot={slotIndex}, Source={draggingShopDeviceSlotIndex}");
+            LogShopDeviceInput($"[DragStarted] Slot={slotIndex}, CanSwap={CanStartDeviceSlotSwap()}");
 
-            if (!isShopVisible)
+            ResetDeviceDragVisualState();
+
+            if (!CanStartDeviceSlotSwap())
                 return;
 
-            ResetShopDeviceInteractionState();
+            if (playerDeviceRackForShop == null)
+                return;
+
+            SlotPairDeviceDefinitionSO device = playerDeviceRackForShop.GetDevice(slotIndex);
+
+            if (device == null)
+            {
+                LogShopDeviceInput($"[DragStartIgnored] Reason=EmptySource, Slot={slotIndex}");
+                return;
+            }
+
+            bool detached = playerDeviceRackForShop.TryBeginDeviceDragVisual(
+                slotIndex,
+                out draggingDeviceViewObject,
+                out draggingDeviceDefinition);
+
+            if (!detached)
+                return;
+
+            isShopDeviceDragging = true;
+            draggingShopDeviceSlotIndex = slotIndex;
+            wasDeviceDropHandled = false;
+            wasDeviceDropAccepted = false;
+            shouldShakeOnDeviceDragEnd = false;
+
+            if (draggingDeviceViewObject != null)
+                lastDraggingDeviceWorldPosition = draggingDeviceViewObject.transform.position;
+
+            HideAllDeviceHoverUIs();
+
+            playerDeviceRackForShop.TryUpdateDeviceDragVisual(
+                draggingDeviceViewObject,
+                eventData,
+                ref lastDraggingDeviceWorldPosition,
+                out int snapSlotIndex);
+
+            playerDeviceRackForShop.UpdateSwapTargetPreview(draggingShopDeviceSlotIndex, snapSlotIndex);
+
+            LogShopDeviceInput($"[DragStartedAccepted] Source={draggingShopDeviceSlotIndex}");
+        }
+
+        /// <summary>Player DeviceSlot 드래그 중 Device View를 마우스 또는 슬롯 Anchor로 이동한다.</summary>
+        private void HandleDeviceSlotDraggedWithPointer(int slotIndex, PointerEventData eventData)
+        {
+            if (!isShopDeviceDragging)
+                return;
+
+            if (playerDeviceRackForShop == null)
+                return;
+
+            playerDeviceRackForShop.TryUpdateDeviceDragVisual(
+                draggingDeviceViewObject,
+                eventData,
+                ref lastDraggingDeviceWorldPosition,
+                out int snapSlotIndex);
+
+            playerDeviceRackForShop.UpdateSwapTargetPreview(draggingShopDeviceSlotIndex, snapSlotIndex);
+        }
+
+        /// <summary>Player DeviceSlot 드래그 종료 시 유효 Drop 여부에 따라 확정 또는 원위치 복귀한다.</summary>
+        private void HandleDeviceSlotDragEndedWithPointer(int slotIndex, PointerEventData eventData)
+        {
+            LogShopDeviceInput(
+                $"[DragEnded] Slot={slotIndex}, Source={draggingShopDeviceSlotIndex}, " +
+                $"DropHandled={wasDeviceDropHandled}, DropAccepted={wasDeviceDropAccepted}");
+
+            if (!isShopDeviceDragging)
+            {
+                ResetDeviceDragVisualState();
+                return;
+            }
+
+            if (!wasDeviceDropHandled && playerDeviceRackForShop != null)
+            {
+                playerDeviceRackForShop.TryUpdateDeviceDragVisual(
+                    draggingDeviceViewObject,
+                    eventData,
+                    ref lastDraggingDeviceWorldPosition,
+                    out int snapSlotIndex);
+
+                playerDeviceRackForShop.UpdateSwapTargetPreview(draggingShopDeviceSlotIndex, snapSlotIndex);
+            }
+
+            if (!wasDeviceDropHandled)
+                TryCommitDeviceSlotDropFromPointer(eventData);
+
+            if (wasDeviceDropAccepted)
+            {
+                ResetDeviceDragVisualState();
+                return;
+            }
+
+            bool playShake = shouldShakeOnDeviceDragEnd || !wasDeviceDropHandled;
+
+            if (playerDeviceRackForShop != null)
+                playerDeviceRackForShop.ClearAllSwapTargetPreviews();
+
+            RestoreRejectedDeviceDragAsync(playShake).Forget();
+        }
+
+        /// <summary>Collider Drop이 발생하지 않은 경우 Pointer 위치 기준으로 DeviceSlot Drop을 보정 처리한다.</summary>
+        private void TryCommitDeviceSlotDropFromPointer(PointerEventData eventData)
+        {
+            if (wasDeviceDropHandled)
+                return;
+
+            if (eventData == null)
+                return;
+
+            if (playerDeviceRackForShop == null)
+                return;
+
+            Camera cameraToUse = eventData.pressEventCamera != null
+                ? eventData.pressEventCamera
+                : Camera.main;
+
+            if (!playerDeviceRackForShop.TryFindSlotIndexUnderScreenPoint(eventData.position, cameraToUse, out int targetSlotIndex))
+            {
+                LogShopDeviceInput(
+                    $"[DropFallbackMiss] Position={eventData.position}, Source={draggingShopDeviceSlotIndex}");
+                return;
+            }
+
+            LogShopDeviceInput(
+                $"[DropFallbackHit] Target={targetSlotIndex}, Source={draggingShopDeviceSlotIndex}, Position={eventData.position}");
+
+            HandleShopDeviceSlotDropped(targetSlotIndex);
         }
 
         #endregion
@@ -699,8 +894,7 @@ namespace Tessera.UI
         /// <summary>Shop DeviceSlot 드래그/선택 상태를 초기화한다.</summary>
         private void ResetShopDeviceInteractionState()
         {
-            isShopDeviceDragging = false;
-            draggingShopDeviceSlotIndex = -1;
+            ResetDeviceDragVisualState();
         }
 
         /// <summary>Gameplay Presenter의 현재 RoundState에서 플레이어 HP를 읽는다.</summary>
@@ -712,6 +906,58 @@ namespace Tessera.UI
                 return 1;
 
             return roundState.Encounter.PlayerCurrentHP;
+        }
+
+        /// <summary>현재 DeviceSlot swap을 시작할 수 있는지 확인한다.</summary>
+        private bool CanStartDeviceSlotSwap()
+        {
+            if (playerDeviceRackForShop == null)
+                return false;
+
+            if (!isDeviceSlotSwapAllowed)
+                return false;
+
+            if (isShopVisible)
+                return true;
+
+            if (gameplayPresenter == null)
+                return false;
+
+            return gameplayPresenter.CanSwapPlayerDevicesNow();
+        }
+
+        /// <summary>현재 DeviceSlot swap을 Drop 확정할 수 있는지 확인한다.</summary>
+        private bool CanCommitDeviceSlotSwap()
+        {
+            return CanStartDeviceSlotSwap();
+        }
+
+        /// <summary>무효 Drop된 Device View를 원래 슬롯으로 복귀시킨다.</summary>
+        private async UniTaskVoid RestoreRejectedDeviceDragAsync(bool playShake)
+        {
+            if (playerDeviceRackForShop != null)
+            {
+                await playerDeviceRackForShop.RestoreDeviceDragVisualAsync(
+                    draggingShopDeviceSlotIndex,
+                    draggingDeviceViewObject,
+                    draggingDeviceDefinition,
+                    playShake);
+            }
+
+            ResetDeviceDragVisualState();
+        }
+
+        /// <summary>Device Drag View 상태를 초기화한다.</summary>
+        private void ResetDeviceDragVisualState()
+        {
+            isShopDeviceDragging = false;
+            draggingShopDeviceSlotIndex = -1;
+            wasDeviceDropHandled = false;
+            wasDeviceDropAccepted = false;
+            shouldShakeOnDeviceDragEnd = false;
+            draggingDeviceViewObject = null;
+            draggingDeviceDefinition = null;
+            lastDraggingDeviceWorldPosition = Vector3.zero;
         }
 
         #endregion
