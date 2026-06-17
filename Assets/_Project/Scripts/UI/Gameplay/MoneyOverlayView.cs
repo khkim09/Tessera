@@ -19,6 +19,10 @@ namespace Tessera.UI
         [SerializeField] private string moneyPrefix = "$";
         [SerializeField] private float moneyDeltaDisplaySeconds = 0.75f;
 
+        [Header("Money Delta Color")]
+        [SerializeField] private Color moneyGainDeltaColor = new Color(0.2f, 1f, 0.2f, 1f);
+        [SerializeField] private Color moneySpendDeltaColor = new Color(1f, 0.18f, 0.18f, 1f);
+
         /// <summary>현재 Overlay에 실제 표시 중인 Money 값이다.</summary>
         private int displayedMoney;
 
@@ -84,14 +88,12 @@ namespace Tessera.UI
 
             int deltaMoney = nextMoney - displayedMoney;
 
-            if (deltaMoney > 0)
+            if (deltaMoney != 0)
             {
-                // 수익은 +$N을 잠시 보여준 뒤 보유 Money에 합산 표시한다.
-                ShowMoneyGainThenRefreshAsync(deltaMoney, nextMoney, this.GetCancellationTokenOnDestroy()).Forget();
+                ShowMoneyDeltaThenRefreshAsync(deltaMoney, nextMoney, this.GetCancellationTokenOnDestroy()).Forget();
                 return;
             }
 
-            // 지출/동일 값은 즉시 반영한다.
             moneyDeltaDisplayVersion++;
             SetMoneyText(nextMoney);
             displayedMoney = nextMoney;
@@ -116,8 +118,8 @@ namespace Tessera.UI
                 moneyText.text = $"{moneyPrefix}{money}";
         }
 
-        /// <summary>Money 증가량을 잠시 표시한 뒤 최종 Money를 반영한다.</summary>
-        private async UniTaskVoid ShowMoneyGainThenRefreshAsync(
+        /// <summary>Money 증감량을 잠시 표시한 뒤 최종 Money를 반영한다.</summary>
+        private async UniTaskVoid ShowMoneyDeltaThenRefreshAsync(
             int deltaMoney,
             int nextMoney,
             CancellationToken cancellationToken)
@@ -126,8 +128,12 @@ namespace Tessera.UI
 
             if (moneyDeltaText != null)
             {
+                string sign = deltaMoney > 0 ? "+" : "-";
+                int absoluteDelta = Mathf.Abs(deltaMoney);
+
                 moneyDeltaText.gameObject.SetActive(true);
-                moneyDeltaText.text = $"+{moneyPrefix}{deltaMoney}";
+                moneyDeltaText.text = $"{sign}{moneyPrefix}{absoluteDelta}";
+                moneyDeltaText.color = deltaMoney < 0 ? moneySpendDeltaColor : moneyGainDeltaColor;
             }
 
             await UniTask.Delay(

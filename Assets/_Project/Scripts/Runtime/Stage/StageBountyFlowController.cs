@@ -201,12 +201,6 @@ namespace Tessera.Runtime
             PublishStageEconomyChanged(message);
         }
 
-        /// <summary>Workshop Shell을 표시한다. resetVisitLimit=false 기본값으로 동작한다.</summary>
-        private void ShowShop(StageShopReasonType reasonType, string message)
-        {
-            ShowShop(reasonType, message, false);
-        }
-
         /// <summary>Workshop Shell을 표시한다. resetVisitLimit=true 시 방문 제한값을 초기화한다.</summary>
         private void ShowShop(StageShopReasonType reasonType, string message, bool resetVisitLimit)
         {
@@ -224,6 +218,9 @@ namespace Tessera.Runtime
 
             StageWorkshopRulesSO rules = ResolveCurrentWorkshopRules();
 
+            TesseraEventBus.Publish(new GameModeChangeRequestedEvent(GameModeType.Shop, currentShopMessage));
+            TesseraEventBus.Publish(new StageShopEnterRequestedEvent(currentShopReasonType, currentShopMessage));
+
             TesseraEventBus.Publish(
                 new StageShopShowRequestedEvent(
                     runSession,
@@ -238,8 +235,6 @@ namespace Tessera.Runtime
                     runSession,
                     "Shop view refreshed."));
 
-            TesseraEventBus.Publish(new StageShopEnterRequestedEvent(currentShopReasonType, currentShopMessage));
-            TesseraEventBus.Publish(new GameModeChangeRequestedEvent(GameModeType.Shop, currentShopMessage));
             PublishStageEconomyChanged(message);
         }
 
@@ -287,6 +282,8 @@ namespace Tessera.Runtime
 
             EnemyIntent openingIntent = node.Definition.BuildOpeningEnemyIntent();
 
+            TesseraEventBus.Publish(new GameModeChangeRequestedEvent(GameModeType.Gameplay, node.Definition.DisplayName));
+
             TesseraEventBus.Publish(
                 new StageRoundStartRequestedEvent(
                     ruleContext,
@@ -297,7 +294,6 @@ namespace Tessera.Runtime
                     node.Definition,
                     openingIntent));
 
-            TesseraEventBus.Publish(new GameModeChangeRequestedEvent(GameModeType.Gameplay, node.Definition.DisplayName));
             PublishStageEconomyChanged($"Bounty started: {node.Definition.DisplayName}");
         }
 
@@ -623,7 +619,7 @@ namespace Tessera.Runtime
                 false);
         }
 
-        /// <summary>Shop 상품 구매 확인을 처리한다. Device 상품은 결제 후 첫 빈 Player DeviceSlot에 즉시 장착한다.</summary>
+        /// <summary>Shop 상품 구매 확인을 처리한다. Device는 장착하고 Dice 계열은 현재 임시 구매 완료 처리한다.</summary>
         private void HandleShopProductBuyConfirmed(StageShopProductBuyConfirmedEvent gameEvent)
         {
             if (runSession == null)
@@ -645,81 +641,211 @@ namespace Tessera.Runtime
 
             ShopProductDefinitionSO product = slot.ProductDefinition;
 
-            if (!product.IsPurchasableInCurrentBuild())
+            if (!CanPurchaseShopProductOnRuntime(slot, product, out string failureMessage))
             {
-                ShowShop(currentShopReasonType, "This product type is not implemented yet.", false);
+                ShowShop(currentShopReasonType, failureMessage, false);
                 return;
             }
 
-            if (product.ProductType != ShopProductType.Device || product.DeviceDefinition == null)
+            if (!TryPayShopProductCost(slot, out failureMessage))
             {
-                ShowShop(currentShopReasonType, "Only Device products can be purchased in this version.", false);
+                ShowShop(currentShopReasonType, failureMessage, false);
                 return;
             }
 
-            if (!runSession.HasEmptyDeviceSlot())
+            if (!TryApplyPurchasedShopProduct(product, out string applyMessage, out bool playerDevicesChanged))
             {
-                ShowShop(
-                    currentShopReasonType,
-                    "Device slots are full. Sell an equipped Device before buying a new one.",
-                    false);
-                return;
-            }
-
-            if (runSession.Money < slot.MoneyPrice)
-            {
-                ShowShop(currentShopReasonType, "Not enough Money.", false);
-                return;
-            }
-
-            if (runSession.Overcharge < slot.OverchargePrice)
-            {
-                ShowShop(currentShopReasonType, "Not enough Overcharge.", false);
-                return;
-            }
-
-            if (!runSession.TrySpendMoney(slot.MoneyPrice))
-            {
-                ShowShop(currentShopReasonType, "Not enough Money.", false);
-                return;
-            }
-
-            if (!runSession.TrySpendOvercharge(slot.OverchargePrice))
-            {
-                runSession.AddMoney(slot.MoneyPrice);
-                ShowShop(currentShopReasonType, "Not enough Overcharge.", false);
-                return;
-            }
-
-            if (!runSession.TryEquipDeviceToFirstEmptySlot(product.DeviceDefinition, out int equippedSlotIndex))
-            {
-                runSession.AddMoney(slot.MoneyPrice);
-
-                if (slot.OverchargePrice > 0)
-                    runSession.AddOvercharge(slot.OverchargePrice);
-
-                ShowShop(
-                    currentShopReasonType,
-                    "Device slots are full. Sell an equipped Device before buying a new one.",
-                    false);
+                RefundShopProductCost(slot);
+                ShowShop(currentShopReasonType, applyMessage, false);
                 return;
             }
 
             slot.MarkSoldOut();
 
-            string purchaseMessage =
-                $"Purchased {product.DisplayName}. Equipped to DeviceSlot {equippedSlotIndex + 1}.";
+            string purchaseMessage = BuildShopProductPurchaseMessage(product, slot, applyMessage);
 
-            TesseraEventBus.Publish(
-                new StageShopPlayerDevicesChangedEvent(
-                    runSession,
-                    purchaseMessage));
+            Debug.Log(
+                $"[Tessera][ShopProductPurchase] Slot={slot.SlotIndex}, Type={product.ProductType}, " +
+                $"Product={product.DisplayName}, Money=-{slot.MoneyPrice}, Overcharge=-{slot.OverchargePrice}, Apply={applyMessage}");
 
-            // Overcharge/HUD는 갱신만 수행한다. 구매 메시지는 StageShopPlayerDevicesChangedEvent 경로에서 1회만 표시한다.
+            if (playerDevicesChanged)
+            {
+                TesseraEventBus.Publish(
+                    new StageShopPlayerDevicesChangedEvent(
+                        runSession,
+                        purchaseMessage));
+            }
+
             PublishOverchargeDisplayRefresh(string.Empty);
-            PublishStageEconomyChanged(string.Empty);
 
             ShowShop(currentShopReasonType, purchaseMessage, false);
+        }
+
+        /// <summary>Runtime 최종 구매 가능 여부를 검사한다.</summary>
+        private bool CanPurchaseShopProductOnRuntime(
+            ShopInventorySlot slot,
+            ShopProductDefinitionSO product,
+            out string failureMessage)
+        {
+            failureMessage = string.Empty;
+
+            if (slot == null || product == null)
+            {
+                failureMessage = "Invalid shop product.";
+                return false;
+            }
+
+            if (!product.IsPurchasableInCurrentBuild())
+            {
+                failureMessage = "This product type is not implemented yet.";
+                return false;
+            }
+
+            if (product.ProductType == ShopProductType.Device && !runSession.HasEmptyDeviceSlot())
+            {
+                failureMessage = "Device slots are full. Sell an equipped Device before buying a new one.";
+                return false;
+            }
+
+            if (runSession.Money < slot.MoneyPrice)
+            {
+                failureMessage = "Not enough Money.";
+                return false;
+            }
+
+            if (runSession.Overcharge < slot.OverchargePrice)
+            {
+                failureMessage = "Not enough Overcharge.";
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>Shop 상품 비용 지불을 시도한다.</summary>
+        private bool TryPayShopProductCost(ShopInventorySlot slot, out string failureMessage)
+        {
+            failureMessage = string.Empty;
+
+            if (slot == null)
+            {
+                failureMessage = "Invalid shop product.";
+                return false;
+            }
+
+            if (!runSession.TrySpendMoney(slot.MoneyPrice))
+            {
+                failureMessage = "Not enough Money.";
+                return false;
+            }
+
+            if (!runSession.TrySpendOvercharge(slot.OverchargePrice))
+            {
+                if (slot.MoneyPrice > 0)
+                    runSession.AddMoney(slot.MoneyPrice);
+
+                failureMessage = "Not enough Overcharge.";
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>이미 지불된 Shop 상품 비용을 환불한다.</summary>
+        private void RefundShopProductCost(ShopInventorySlot slot)
+        {
+            if (slot == null || runSession == null)
+                return;
+
+            if (slot.MoneyPrice > 0)
+                runSession.AddMoney(slot.MoneyPrice);
+
+            if (slot.OverchargePrice > 0)
+                runSession.AddOvercharge(slot.OverchargePrice);
+        }
+
+        /// <summary>구매한 Shop 상품 효과를 현재 구현 범위 안에서 적용한다.</summary>
+        private bool TryApplyPurchasedShopProduct(
+            ShopProductDefinitionSO product,
+            out string applyMessage,
+            out bool playerDevicesChanged)
+        {
+            applyMessage = string.Empty;
+            playerDevicesChanged = false;
+
+            if (product == null)
+            {
+                applyMessage = "Invalid shop product.";
+                return false;
+            }
+
+            if (product.ProductType == ShopProductType.Device)
+            {
+                if (!runSession.TryEquipDeviceToFirstEmptySlot(product.DeviceDefinition, out int equippedSlotIndex))
+                {
+                    applyMessage = "Device slots are full. Sell an equipped Device before buying a new one.";
+                    return false;
+                }
+
+                playerDevicesChanged = true;
+                applyMessage = $"Equipped to DeviceSlot {equippedSlotIndex + 1}.";
+                return true;
+            }
+
+            if (IsDiceProductType(product.ProductType))
+            {
+                Debug.Log(
+                    $"[Tessera][ShopProductPurchase] Dice product purchased as prototype placeholder. " +
+                    $"Type={product.ProductType}, Product={product.DisplayName}. Effect application pending.");
+
+                applyMessage = "Effect application pending. Card removed for prototype verification.";
+                return true;
+            }
+
+            applyMessage = $"Product type {product.ProductType} purchase effect is not implemented.";
+            return false;
+        }
+
+        /// <summary>상품 타입이 Dice 관련 상품인지 확인한다.</summary>
+        private static bool IsDiceProductType(ShopProductType productType)
+        {
+            return productType == ShopProductType.DiceSet
+                    || productType == ShopProductType.SingleDice
+                    || productType == ShopProductType.DiceTypeUpgrade
+                    || productType == ShopProductType.DiceFaceUpgrade;
+        }
+
+        /// <summary>구매 완료 메시지를 생성한다.</summary>
+        private static string BuildShopProductPurchaseMessage(
+            ShopProductDefinitionSO product,
+            ShopInventorySlot slot,
+            string applyMessage)
+        {
+            string costMessage = BuildShopProductCostMessage(slot);
+            string message = $"Purchased {product.DisplayName}. {costMessage}";
+
+            if (!string.IsNullOrWhiteSpace(applyMessage))
+                message += $" {applyMessage}";
+
+            return message;
+        }
+
+        /// <summary>구매 비용 표시 문자열을 생성한다.</summary>
+        private static string BuildShopProductCostMessage(ShopInventorySlot slot)
+        {
+            if (slot == null)
+                return string.Empty;
+
+            if (slot.MoneyPrice > 0 && slot.OverchargePrice > 0)
+                return $"Money -{slot.MoneyPrice}, Overcharge -{slot.OverchargePrice}.";
+
+            if (slot.MoneyPrice > 0)
+                return $"Money -{slot.MoneyPrice}.";
+
+            if (slot.OverchargePrice > 0)
+                return $"Overcharge -{slot.OverchargePrice}.";
+
+            return "No cost.";
         }
 
         /// <summary>Shop에서 장착된 Device 판매 요청을 처리한다.</summary>

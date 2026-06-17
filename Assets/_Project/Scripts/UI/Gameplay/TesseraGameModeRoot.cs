@@ -15,6 +15,9 @@ namespace Tessera.UI
         [SerializeField] private GameObject roundFailureDecisionRoot;
         [SerializeField] private GameObject resultRoot;
 
+        [Header("Gameplay Only Presentation Roots")]
+        [SerializeField] private GameObject[] gameplayOnlyPresentationRoots = new GameObject[0];
+
         [Header("Flow")]
         [SerializeField] private StageBountyFlowController stageBountyFlowController;
 
@@ -80,6 +83,8 @@ namespace Tessera.UI
             SetRootActive(roundFailureDecisionRoot, mode == GameModeType.RoundFailureDecision);
             SetRootActive(resultRoot, mode == GameModeType.Result);
 
+            SetGameplayOnlyPresentationRootsActive(mode == GameModeType.Gameplay);
+
             TesseraEventBus.Publish(new GameModeChangedEvent(currentMode));
         }
 
@@ -87,6 +92,16 @@ namespace Tessera.UI
         private void HandleGameModeChangeRequested(GameModeChangeRequestedEvent gameEvent)
         {
             SwitchMode(gameEvent.RequestedMode);
+        }
+
+        /// <summary>Gameplay 전용 3D 연출/전투 표시 오브젝트들의 활성 상태를 변경한다.</summary>
+        private void SetGameplayOnlyPresentationRootsActive(bool isActive)
+        {
+            if (gameplayOnlyPresentationRoots == null)
+                return;
+
+            for (int i = 0; i < gameplayOnlyPresentationRoots.Length; i++)
+                SetRootActive(gameplayOnlyPresentationRoots[i], isActive);
         }
 
         /// <summary>대상 Root 활성 상태를 변경한다.</summary>

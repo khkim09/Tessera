@@ -299,9 +299,12 @@ namespace Tessera.UI
             if (card == null)
                 return;
 
-            // ProductCard는 클릭 즉시 구매 확정만 전달한다.
+            // ProductCard는 구매 가능 여부를 자체 판단한 뒤 성공/실패 이벤트를 전달한다.
             card.PurchaseConfirmed -= HandleProductCardPurchaseConfirmed;
             card.PurchaseConfirmed += HandleProductCardPurchaseConfirmed;
+
+            card.PurchaseBlocked -= HandleProductCardPurchaseBlocked;
+            card.PurchaseBlocked += HandleProductCardPurchaseBlocked;
         }
 
         /// <summary>상품 카드 이벤트 연결을 해제한다.</summary>
@@ -315,25 +318,36 @@ namespace Tessera.UI
                 if (card == null) continue;
 
                 card.PurchaseConfirmed -= HandleProductCardPurchaseConfirmed;
+                card.PurchaseBlocked -= HandleProductCardPurchaseBlocked;
             }
         }
 
         /// <summary>상품 카드 클릭 시 구매 확정을 외부로 전달한다.</summary>
         private void HandleProductCardPurchaseConfirmed(int productSlotIndex)
         {
-            // 구매 가능 여부는 View 단에서 한 번 더 검증한다.
-            if (!CanConfirmProductPurchase(productSlotIndex))
+            if (!TryConfirmProductPurchase(productSlotIndex, out string failureMessage))
+            {
+                SetShopMessage(failureMessage);
+
+                ShopProductCardView card = FindProductCardBySlotIndex(productSlotIndex);
+
+                if (card != null)
+                    card.PlayPurchaseBlockedFeedback(failureMessage);
+
                 return;
+            }
 
             ProductBuyConfirmed?.Invoke(productSlotIndex);
         }
 
-        /// <summary>상품 구매 확정 가능 여부를 검사하고 실패 메시지를 표시한다.</summary>
-        private bool CanConfirmProductPurchase(int productSlotIndex)
+        /// <summary>상품 구매 확정 가능 여부를 검사하고 실패 메시지를 반환한다.</summary>
+        private bool TryConfirmProductPurchase(int productSlotIndex, out string failureMessage)
         {
+            failureMessage = string.Empty;
+
             if (currentRunSession == null)
             {
-                SetShopMessage("RunSession is missing.");
+                failureMessage = "RunSession is missing.";
                 return false;
             }
 
@@ -341,41 +355,64 @@ namespace Tessera.UI
 
             if (slot == null || slot.ProductDefinition == null)
             {
-                SetShopMessage("Invalid shop product.");
+                failureMessage = "Invalid shop product.";
                 return false;
             }
 
             if (slot.IsSoldOut)
             {
-                SetShopMessage("This product is already sold out.");
+                failureMessage = "This product is already sold out.";
                 return false;
             }
 
             if (!slot.ProductDefinition.IsPurchasableInCurrentBuild())
             {
-                SetShopMessage("This product type is not implemented yet.");
+                failureMessage = "This product type is not implemented yet.";
                 return false;
             }
 
             if (slot.ProductDefinition.ProductType == ShopProductType.Device && !currentRunSession.HasEmptyDeviceSlot())
             {
-                SetShopMessage("Device slots are full. Sell an equipped Device before buying a new one.");
+                failureMessage = "Device slots are full. Sell an equipped Device before buying a new one.";
                 return false;
             }
 
             if (currentRunSession.Money < slot.MoneyPrice)
             {
-                SetShopMessage("Not enough Money.");
+                failureMessage = "Not enough Money.";
                 return false;
             }
 
             if (currentRunSession.Overcharge < slot.OverchargePrice)
             {
-                SetShopMessage("Not enough Overcharge.");
+                failureMessage = "Not enough Overcharge.";
                 return false;
             }
 
             return true;
+        }
+
+        /// <summary>상품 카드 구매 불가 메시지를 Shop 메시지로 표시한다.</summary>
+        private void HandleProductCardPurchaseBlocked(string message)
+        {
+            SetShopMessage(message);
+        }
+
+        /// <summary>Shop 슬롯 인덱스에 해당하는 ProductCard View를 찾는다.</summary>
+        private ShopProductCardView FindProductCardBySlotIndex(int productSlotIndex)
+        {
+            for (int i = 0; i < productCards.Count; i++)
+            {
+                ShopProductCardView card = productCards[i];
+
+                if (card == null)
+                    continue;
+
+                if (card.BoundSlotIndex == productSlotIndex)
+                    return card;
+            }
+
+            return null;
         }
 
         /// <summary>현재 표시 중인 상품 슬롯을 찾는다.</summary>

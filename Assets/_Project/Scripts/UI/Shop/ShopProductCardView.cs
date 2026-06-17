@@ -5,6 +5,8 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 
 namespace Tessera.UI
 {
@@ -30,6 +32,13 @@ namespace Tessera.UI
         [SerializeField] private Color highlightColor = new Color(1f, 0.86f, 0.18f, 1f);
         [SerializeField] private Vector2 highlightDistance = new Vector2(4f, -4f);
 
+        [Header("Purchase Blocked Feedback")]
+        [SerializeField] private GameObject blockedOverlay; // 구매 불가 피드백 오버레이
+        [SerializeField] private RectTransform shakeRoot;
+        [SerializeField] private float blockedFeedbackSeconds = 0.38f;
+        [SerializeField] private float blockedShakeDistance = 10f;
+        [SerializeField] private float blockedShakeFrequency = 38f;
+
         private int boundSlotIndex = -1; // Shop 슬롯 인덱스
         private bool isPurchasable; // 클릭 가능 여부 (구매 가능 여부)
         private string boundDisplayName = string.Empty;
@@ -38,8 +47,16 @@ namespace Tessera.UI
         private Vector3 normalScale = Vector3.one;
         private Outline hoverOutline;
         private bool isHovering;
+        private ShopInventorySlot boundSlot;
+        private TesseraRunSession boundRunSession;
+        private Vector2 normalAnchoredPosition;
+        private bool hasNormalAnchoredPosition;
+        private int blockedFeedbackVersion;
 
         public event Action<int> PurchaseConfirmed;
+        public event Action<string> PurchaseBlocked;
+
+        public int BoundSlotIndex => boundSlotIndex;
 
         /// <summary>컴포넌트 추가 시 기본 참조와 raycast 설정을 보정한다.</summary>
         private void Reset()
@@ -47,9 +64,12 @@ namespace Tessera.UI
             // Prefab 편집 중 필드 연결 누락을 줄이기 위해 자동 참조를 보정한다.
             AssignReferencesIfMissing();
             AssignHoverReferencesIfMissing();
+            AssignBlockedFeedbackReferencesIfMissing();
             ConfigureRaycastTargets();
             CacheNormalScale();
+            CacheNormalAnchoredPosition();
             SetHoverFeedback(false);
+            SetBlockedOverlay(false);
         }
 
         /// <summary>초기화 시 참조, raycast, tooltip 표시 상태를 정리한다.</summary>
@@ -58,10 +78,13 @@ namespace Tessera.UI
             // TooltipRoot가 prefab에서 비활성화되어 있어도 참조 가능하도록 inactive 포함 검색을 사용한다.
             AssignReferencesIfMissing();
             AssignHoverReferencesIfMissing();
+            AssignBlockedFeedbackReferencesIfMissing();
             ConfigureRaycastTargets();
             CacheNormalScale();
+            CacheNormalAnchoredPosition();
             HideTooltip();
             SetHoverFeedback(false);
+            SetBlockedOverlay(false);
         }
 
         /// <summary>활성화 시 카드 버튼 이벤트를 연결한다.</summary>
@@ -82,8 +105,11 @@ namespace Tessera.UI
             if (cardButton != null)
                 cardButton.onClick.RemoveListener(HandleCardClicked);
 
+            blockedFeedbackVersion++;
+
             HideTooltip();
             SetHoverFeedback(false);
+            RestoreBlockedFeedbackState();
         }
 
         /// <summary>파괴 시 외부 이벤트 참조를 정리한다.</summary>
@@ -91,6 +117,7 @@ namespace Tessera.UI
         {
             // StageShopFlowView 쪽에 파괴된 카드 참조가 남지 않도록 이벤트를 정리한다.
             PurchaseConfirmed = null;
+            PurchaseBlocked = null;
         }
 
         /// <summary>상품 슬롯과 현재 RunSession 기준으로 카드 표시 정보를 갱신한다.</summary>
@@ -101,8 +128,13 @@ namespace Tessera.UI
             SetHoverFeedback(false);
 
             AssignReferencesIfMissing();
+            AssignBlockedFeedbackReferencesIfMissing();
             ConfigureRaycastTargets();
+            CacheNormalAnchoredPosition();
+            SetBlockedOverlay(false);
 
+            boundSlot = slot;
+            boundRunSession = runSession;
             boundSlotIndex = slot != null ? slot.SlotIndex : -1;
 
             ShopProductDefinitionSO product = slot != null ? slot.ProductDefinition : null;
@@ -132,6 +164,9 @@ namespace Tessera.UI
         /// <summary>카드 표시 상태를 변경한다.</summary>
         public void SetVisible(bool visible)
         {
+            if (!visible)
+                RestoreBlockedFeedbackState();
+
             // ProductCard 루트가 연결되어 있으면 루트 전체를 켜고 끈다.
             if (root != null)
                 root.SetActive(visible);
@@ -171,7 +206,7 @@ namespace Tessera.UI
             if (slot.ProductDefinition == null)
                 return false;
 
-            return slot.ProductDefinition.IsPurchasableInCurrentBuild();
+            return true;
         }
 
         /// <summary>상품 아이콘 이미지를 갱신한다.</summary>
@@ -210,12 +245,26 @@ namespace Tessera.UI
                 cardButton.interactable = interactable;
         }
 
-        /// <summary>카드 클릭 시 즉시 구매 확정 이벤트를 전달한다.</summary>
+        /// <summary>카드 클릭 시 구매 가능 여부를 검사하고 구매 또는 구매 불가 피드백을 전달한다.</summary>
         private void HandleCardClicked()
         {
-            // Unity UI Button은 같은 버튼 위에서 PointerUp이 끝났을 때 onClick을 호출한다.
-            if (boundSlotIndex < 0) return;
-            if (!isPurchasable) return;
+            if (boundSlotIndex < 0)
+                return;
+
+            if (!isPurchasable)
+            {
+                string invalidMessage = "Invalid shop product.";
+                PlayPurchaseBlockedFeedback(invalidMessage);
+                PurchaseBlocked?.Invoke(invalidMessage);
+                return;
+            }
+
+            if (!CanConfirmPurchase(out string failureMessage))
+            {
+                PlayPurchaseBlockedFeedback(failureMessage);
+                PurchaseBlocked?.Invoke(failureMessage);
+                return;
+            }
 
             PurchaseConfirmed?.Invoke(boundSlotIndex);
         }
@@ -241,6 +290,185 @@ namespace Tessera.UI
             // 카드 영역 밖으로 나가면 hover 상태와 tooltip을 닫는다.
             SetHoverFeedback(false);
             HideTooltip();
+        }
+
+        /// <summary>현재 카드 기준 구매 확정 가능 여부와 실패 사유를 반환한다.</summary>
+        public bool CanConfirmPurchase(out string failureMessage)
+        {
+            failureMessage = string.Empty;
+
+            if (boundRunSession == null)
+            {
+                failureMessage = "RunSession is missing.";
+                return false;
+            }
+
+            if (boundSlot == null || boundSlot.ProductDefinition == null)
+            {
+                failureMessage = "Invalid shop product.";
+                return false;
+            }
+
+            if (boundSlot.IsSoldOut)
+            {
+                failureMessage = "This product is already sold out.";
+                return false;
+            }
+
+            ShopProductDefinitionSO product = boundSlot.ProductDefinition;
+
+            if (!product.IsPurchasableInCurrentBuild())
+            {
+                failureMessage = "This product type is not implemented yet.";
+                return false;
+            }
+
+            if (product.ProductType == ShopProductType.Device && !boundRunSession.HasEmptyDeviceSlot())
+            {
+                failureMessage = "Device slots are full. Sell an equipped Device before buying a new one.";
+                return false;
+            }
+
+            if (boundRunSession.Money < boundSlot.MoneyPrice)
+            {
+                failureMessage = "Not enough Money.";
+                return false;
+            }
+
+            if (boundRunSession.Overcharge < boundSlot.OverchargePrice)
+            {
+                failureMessage = "Not enough Overcharge.";
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>구매 불가 Overlay와 Shake 피드백을 재생한다.</summary>
+        public void PlayPurchaseBlockedFeedback(string reason)
+        {
+            AssignBlockedFeedbackReferencesIfMissing();
+            CacheNormalAnchoredPosition();
+
+            PlayPurchaseBlockedFeedbackAsync(this.GetCancellationTokenOnDestroy()).Forget();
+        }
+
+        #region Helper
+
+        /// <summary>구매 불가 Overlay와 Shake 피드백을 비동기로 재생한다.</summary>
+        private async UniTaskVoid PlayPurchaseBlockedFeedbackAsync(CancellationToken cancellationToken)
+        {
+            int version = ++blockedFeedbackVersion;
+
+            SetBlockedOverlay(true);
+
+            RectTransform targetRoot = shakeRoot != null
+                ? shakeRoot
+                : transform as RectTransform;
+
+            Vector2 basePosition = targetRoot != null
+                ? targetRoot.anchoredPosition
+                : Vector2.zero;
+
+            float duration = Mathf.Max(0.01f, blockedFeedbackSeconds);
+            float elapsed = 0f;
+
+            try
+            {
+                while (elapsed < duration)
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                        return;
+
+                    elapsed += Time.unscaledDeltaTime;
+
+                    float normalized = Mathf.Clamp01(elapsed / duration);
+                    float damping = 1f - normalized;
+                    float offsetX = Mathf.Sin(elapsed * blockedShakeFrequency) * blockedShakeDistance * damping;
+
+                    if (targetRoot != null)
+                        targetRoot.anchoredPosition = basePosition + new Vector2(offsetX, 0f);
+
+                    await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            if (version != blockedFeedbackVersion)
+                return;
+
+            if (targetRoot != null)
+                targetRoot.anchoredPosition = basePosition;
+
+            SetBlockedOverlay(false);
+        }
+
+        /// <summary>구매 불가 피드백 상태를 초기값으로 복구한다.</summary>
+        private void RestoreBlockedFeedbackState()
+        {
+            SetBlockedOverlay(false);
+
+            if (shakeRoot != null && hasNormalAnchoredPosition)
+                shakeRoot.anchoredPosition = normalAnchoredPosition;
+        }
+
+        /// <summary>구매 불가 Overlay 표시 상태를 변경한다.</summary>
+        private void SetBlockedOverlay(bool active)
+        {
+            if (blockedOverlay != null)
+                blockedOverlay.SetActive(active);
+        }
+
+        /// <summary>구매 불가 피드백 참조를 자동 보정한다.</summary>
+        private void AssignBlockedFeedbackReferencesIfMissing()
+        {
+            if (shakeRoot == null && scaleRoot != null)
+                shakeRoot = scaleRoot;
+
+            if (shakeRoot == null)
+                shakeRoot = transform as RectTransform;
+
+            if (blockedOverlay != null)
+                return;
+
+            Transform searchRoot = root != null ? root.transform : transform;
+            Transform found = FindChildByName(searchRoot, "BlockedOverlay");
+
+            if (found != null)
+                blockedOverlay = found.gameObject;
+        }
+
+        /// <summary>Shake 기준 AnchoredPosition을 캐싱한다.</summary>
+        private void CacheNormalAnchoredPosition()
+        {
+            if (shakeRoot == null)
+                return;
+
+            normalAnchoredPosition = shakeRoot.anchoredPosition;
+            hasNormalAnchoredPosition = true;
+        }
+
+        /// <summary>지정 이름의 자식 Transform을 비활성 포함 재귀 검색한다.</summary>
+        private static Transform FindChildByName(Transform parent, string targetName)
+        {
+            if (parent == null)
+                return null;
+
+            if (parent.name == targetName)
+                return parent;
+
+            for (int i = 0; i < parent.childCount; i++)
+            {
+                Transform found = FindChildByName(parent.GetChild(i), targetName);
+
+                if (found != null)
+                    return found;
+            }
+
+            return null;
         }
 
         /// <summary>Tooltip을 숨긴다.</summary>
@@ -415,5 +643,7 @@ namespace Tessera.UI
 
             targetText.text = value ?? string.Empty;
         }
+
+        #endregion
     }
 }
