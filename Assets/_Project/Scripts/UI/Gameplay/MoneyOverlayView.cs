@@ -60,6 +60,8 @@ namespace Tessera.UI
             int money = runSession != null ? runSession.Money : 0;
             int chain = boardState != null ? boardState.ChainCount : 0;
 
+            moneyDeltaDisplayVersion++;
+
             RefreshChainText(chain);
             SetMoneyText(money);
 
@@ -83,20 +85,25 @@ namespace Tessera.UI
                 SetMoneyText(nextMoney);
                 displayedMoney = nextMoney;
                 hasDisplayedMoney = true;
+
+                if (moneyDeltaText != null)
+                    moneyDeltaText.gameObject.SetActive(false);
+
                 return;
             }
 
             int deltaMoney = nextMoney - displayedMoney;
 
+            SetMoneyText(nextMoney);
+            displayedMoney = nextMoney;
+
             if (deltaMoney != 0)
             {
-                ShowMoneyDeltaThenRefreshAsync(deltaMoney, nextMoney, this.GetCancellationTokenOnDestroy()).Forget();
+                ShowMoneyDeltaAsync(deltaMoney, this.GetCancellationTokenOnDestroy()).Forget();
                 return;
             }
 
             moneyDeltaDisplayVersion++;
-            SetMoneyText(nextMoney);
-            displayedMoney = nextMoney;
 
             if (moneyDeltaText != null)
                 moneyDeltaText.gameObject.SetActive(false);
@@ -118,10 +125,9 @@ namespace Tessera.UI
                 moneyText.text = $"{moneyPrefix}{money}";
         }
 
-        /// <summary>Money 증감량을 잠시 표시한 뒤 최종 Money를 반영한다.</summary>
-        private async UniTaskVoid ShowMoneyDeltaThenRefreshAsync(
+        /// <summary>Money 증감량 Floating Text를 잠시 표시한다.</summary>
+        private async UniTaskVoid ShowMoneyDeltaAsync(
             int deltaMoney,
-            int nextMoney,
             CancellationToken cancellationToken)
         {
             int version = ++moneyDeltaDisplayVersion;
@@ -145,9 +151,6 @@ namespace Tessera.UI
 
             if (version != moneyDeltaDisplayVersion)
                 return;
-
-            SetMoneyText(nextMoney);
-            displayedMoney = nextMoney;
 
             if (moneyDeltaText != null)
                 moneyDeltaText.gameObject.SetActive(false);

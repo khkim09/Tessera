@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-using Tessera.Data;
+﻿using Tessera.Data;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -61,36 +60,6 @@ namespace Tessera.UI
                 return;
 
             LayoutRebuilder.ForceRebuildLayoutImmediate(rectTransform);
-        }
-
-        /// <summary>장착 Device 정보를 현재 고정 위치의 툴팁에 표시한다.</summary>
-        public void ShowDeviceStatic(SlotPairDeviceDefinitionSO device)
-        {
-            // 빈 슬롯에는 툴팁을 표시하지 않는다.
-            if (device == null)
-            {
-                Hide();
-                return;
-            }
-
-            string description = ResolveReadableMemberValue(
-                device,
-                "Description",
-                "EffectDescription",
-                "DisplayDescription",
-                "TooltipDescription");
-
-            string tierValue = ResolveReadableMemberValue(
-                device,
-                "UpgradeTier",
-                "Tier",
-                "DeviceTier");
-
-            string tierLabel = string.IsNullOrWhiteSpace(tierValue)
-                ? string.Empty
-                : $"Tier {tierValue}";
-
-            Show(device.DisplayName, description, tierLabel);
         }
 
         /// <summary>툴팁을 숨긴다.</summary>
@@ -158,45 +127,6 @@ namespace Tessera.UI
 
                 graphics[i].raycastTarget = false;
             }
-        }
-
-        /// <summary>대상 객체에서 읽기 가능한 property 또는 field 값을 문자열로 반환한다.</summary>
-        private static string ResolveReadableMemberValue(object source, params string[] memberNames)
-        {
-            // SO 필드명 차이에 의한 컴파일 오류를 피하기 위해 Reflection으로 읽는다.
-            if (source == null || memberNames == null)
-                return string.Empty;
-
-            const BindingFlags flags =
-                BindingFlags.Instance |
-                BindingFlags.Public |
-                BindingFlags.NonPublic;
-
-            System.Type sourceType = source.GetType();
-
-            for (int i = 0; i < memberNames.Length; i++)
-            {
-                if (string.IsNullOrWhiteSpace(memberNames[i]))
-                    continue;
-
-                PropertyInfo propertyInfo = sourceType.GetProperty(memberNames[i], flags);
-
-                if (propertyInfo != null && propertyInfo.CanRead)
-                {
-                    object value = propertyInfo.GetValue(source);
-                    return value != null ? value.ToString() : string.Empty;
-                }
-
-                FieldInfo fieldInfo = sourceType.GetField(memberNames[i], flags);
-
-                if (fieldInfo != null)
-                {
-                    object value = fieldInfo.GetValue(source);
-                    return value != null ? value.ToString() : string.Empty;
-                }
-            }
-
-            return string.Empty;
         }
 
         /// <summary>TMP 텍스트를 안전하게 갱신한다.</summary>

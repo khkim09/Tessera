@@ -7,7 +7,7 @@ namespace Tessera.Data
     [CreateAssetMenu(
         fileName = "DiceFaceUpgrade_",
         menuName = "Tessera/Dice/Dice Face Upgrade Definition")]
-    public class DiceFaceUpgradeDefinitionSO : ScriptableObject
+    public class DiceFaceUpgradeDefinitionSO : ScriptableObject, IShopItemDefinition
     {
         [Header("Identity")]
         [SerializeField] private string upgradeId = "face.upgrade.none";
@@ -30,10 +30,14 @@ namespace Tessera.Data
         [SerializeField] private float floatValue;
 
         [Header("Shop")]
+        [SerializeField] private int tier = 1;
         [SerializeField] private int rarity = 1;
+        [SerializeField] private int unlockStage = 1;
         [SerializeField] private int baseMoneyPrice = 3;
+        [SerializeField] private int baseOverchargePrice;
 
         public string UpgradeId => upgradeId;
+        public string ItemId => UpgradeId;
         public string DisplayName => displayName;
         public string Description => description;
         public Sprite Icon => icon;
@@ -48,8 +52,11 @@ namespace Tessera.Data
         public int IntValue => intValue;
         public float FloatValue => floatValue;
 
+        public int Tier => Mathf.Max(1, tier);
         public int Rarity => Mathf.Max(1, rarity);
+        public int UnlockStage => Mathf.Max(1, unlockStage);
         public int BaseMoneyPrice => Mathf.Max(0, baseMoneyPrice);
+        public int BaseOverchargePrice => Mathf.Max(0, baseOverchargePrice);
 
         public DiceFace CreateReplacementFace()
         {

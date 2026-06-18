@@ -414,6 +414,8 @@ namespace Tessera.UI
 
             if (gameplayPresenter != null)
                 gameplayPresenter.RefreshEquippedDevicesFromRunSession(gameEvent.Reason);
+
+            RefreshDeviceHoverUIFromCurrentPointerAfterFrameAsync().Forget();
         }
 
         /// <summary>Shop 화면에서 Player DeviceRack3D를 RunSession 장착 상태와 동기화한다.</summary>
@@ -645,6 +647,7 @@ namespace Tessera.UI
             if (wasDeviceDropAccepted)
             {
                 ResetDeviceDragVisualState();
+                RefreshDeviceHoverUIFromCurrentPointerAfterFrameAsync().Forget();
                 return;
             }
 
@@ -786,6 +789,41 @@ namespace Tessera.UI
             hoverUI.ShowTooltip(device);
 
             LogShopDeviceInput($"[HoverUIShown] Mode=TooltipOnly, Slot={slotIndex}, Device={device.DisplayName}");
+        }
+
+        /// <summary>드래그/스왑 처리 이후 현재 포인터 Hover 슬롯 기준으로 Hover UI를 다시 표시한다.</summary>
+        private async UniTaskVoid RefreshDeviceHoverUIFromCurrentPointerAfterFrameAsync()
+        {
+            await UniTask.Yield(PlayerLoopTiming.LastPostLateUpdate);
+
+            RefreshDeviceHoverUIFromCurrentPointer();
+        }
+
+        /// <summary>현재 포인터 Hover 슬롯의 최신 Device 정보를 조회해 Tooltip 또는 Sell UI를 표시한다.</summary>
+        private void RefreshDeviceHoverUIFromCurrentPointer()
+        {
+            if (isShopDeviceDragging)
+                return;
+
+            if (playerDeviceRackForShop == null)
+                return;
+
+            if (!playerDeviceRackForShop.TryGetPointerHoveredSlotIndex(out int slotIndex))
+                return;
+
+            SlotPairDeviceDefinitionSO device = playerDeviceRackForShop.GetDevice(slotIndex);
+
+            if (device == null)
+            {
+                HideAllDeviceHoverUIs();
+                LogShopDeviceInput($"[HoverUIRefreshIgnored] Reason=EmptySlot, Slot={slotIndex}");
+                return;
+            }
+
+            hoveredDeviceSlotIndex = slotIndex;
+            ShowDeviceHoverUI(slotIndex, device);
+
+            LogShopDeviceInput($"[HoverUIRefresh] Slot={slotIndex}, Device={device.DisplayName}");
         }
 
         /// <summary>지정 슬롯 Hover UI 숨김 판단을 한 프레임 지연 요청한다.</summary>
@@ -945,6 +983,7 @@ namespace Tessera.UI
             }
 
             ResetDeviceDragVisualState();
+            RefreshDeviceHoverUIFromCurrentPointerAfterFrameAsync().Forget();
         }
 
         /// <summary>Device Drag View 상태를 초기화한다.</summary>

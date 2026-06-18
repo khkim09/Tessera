@@ -1009,6 +1009,29 @@ namespace Tessera.UI
             return slots[slotIndex].CurrentDevice;
         }
 
+        /// <summary>현재 포인터 Hover 상태인 슬롯 인덱스를 반환한다.</summary>
+        public bool TryGetPointerHoveredSlotIndex(out int slotIndex)
+        {
+            slotIndex = -1;
+
+            if (slots == null)
+                return false;
+
+            for (int i = 0; i < slots.Length; i++)
+            {
+                if (slots[i] == null)
+                    continue;
+
+                if (!slots[i].IsPointerHovering)
+                    continue;
+
+                slotIndex = i;
+                return true;
+            }
+
+            return false;
+        }
+
         #endregion
 
         #region Debug

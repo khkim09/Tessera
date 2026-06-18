@@ -40,6 +40,7 @@ namespace Tessera.UI
 
         public int SlotIndex => slotIndex;
         public SlotPairDeviceDefinitionSO CurrentDevice => currentDevice;
+        public bool IsPointerHovering => isPointerHovering;
 
         public event Action<int> Dropped;
 

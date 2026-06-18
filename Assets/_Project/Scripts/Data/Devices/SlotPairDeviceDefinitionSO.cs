@@ -7,15 +7,22 @@ namespace Tessera.Data
     [CreateAssetMenu(
         fileName = "SlotPairDevice_",
         menuName = "Tessera/Devices/Slot Pair Device Definition")]
-    public class SlotPairDeviceDefinitionSO : ScriptableObject
+    public class SlotPairDeviceDefinitionSO : ScriptableObject, IShopItemDefinition
     {
         [Header("Identity")]
         [SerializeField] private string deviceId = "device.none";
         [SerializeField] private string displayName = "None";
         [TextArea]
         [SerializeField] private string description = "No device effect.";
+        [SerializeField] private int tier = 1;
         [SerializeField] private Sprite icon;
         [SerializeField] private GameObject equippedViewPrefab;
+
+        [Header("Shop")]
+        [SerializeField] private int rarity = 1; // Shop 등장, 해금 판단에 사용하는 희귀도
+        [SerializeField] private int unlockStage = 1; // Shop 등장 가능 최소 Stage
+        [SerializeField] private int baseMoneyPrice = 4; // 기본 가격
+        [SerializeField] private int baseOverchargePrice; // 기본 Overcharge 가격
 
         [Header("Effect")]
         [SerializeField] private SlotPairDeviceType deviceType = SlotPairDeviceType.None;
@@ -45,8 +52,15 @@ namespace Tessera.Data
         public string DeviceId => deviceId;
         public string DisplayName => displayName;
         public string Description => description;
+        public int Tier => Mathf.Max(1, tier);
         public Sprite Icon => icon;
         public GameObject EquippedViewPrefab => equippedViewPrefab;
+
+        public string ItemId => DeviceId;
+        public int Rarity => Mathf.Max(1, rarity);
+        public int UnlockStage => Mathf.Max(1, unlockStage);
+        public int BaseMoneyPrice => Mathf.Max(0, baseMoneyPrice);
+        public int BaseOverchargePrice => Mathf.Max(0, baseOverchargePrice);
 
         public SlotPairDeviceType DeviceType => deviceType;
         public int IntValue => intValue;

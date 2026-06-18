@@ -6,7 +6,7 @@ namespace Tessera.Data
     [CreateAssetMenu(
         fileName = "DiceType_",
         menuName = "Tessera/Dice/Dice Type Definition")]
-    public class DiceTypeDefinitionSO : ScriptableObject
+    public class DiceTypeDefinitionSO : ScriptableObject, IShopItemDefinition
     {
         [Header("Identity")]
         [SerializeField] private string diceTypeId = "dice.standard";
@@ -28,11 +28,14 @@ namespace Tessera.Data
         [SerializeField] private float floatValue;
 
         [Header("Shop")]
+        [SerializeField] private int tier = 1;
         [SerializeField] private int rarity = 1;
         [SerializeField] private int unlockStage = 1;
         [SerializeField] private int baseMoneyPrice = 4;
+        [SerializeField] private int baseOverchargePrice;
 
         public string DiceTypeId => diceTypeId;
+        public string ItemId => DiceTypeId;
         public string DisplayName => displayName;
         public string Description => description;
         public Sprite Icon => icon;
@@ -45,8 +48,10 @@ namespace Tessera.Data
         public int IntValue => intValue;
         public float FloatValue => floatValue;
 
+        public int Tier => Mathf.Max(1, tier);
         public int Rarity => Mathf.Max(1, rarity);
         public int UnlockStage => Mathf.Max(1, unlockStage);
         public int BaseMoneyPrice => Mathf.Max(0, baseMoneyPrice);
+        public int BaseOverchargePrice => Mathf.Max(0, baseOverchargePrice);
     }
 }

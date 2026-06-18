@@ -93,7 +93,7 @@ namespace Tessera.UI
             AssignReferencesIfMissing();
 
             if (tooltipView != null)
-                tooltipView.ShowDeviceStatic(device);
+                tooltipView.Show(device.DisplayName, device.Description, BuildDeviceTierLabel(device));
 
             if (actionButtonView != null)
                 actionButtonView.Hide();
@@ -114,7 +114,7 @@ namespace Tessera.UI
             AssignReferencesIfMissing();
 
             if (tooltipView != null)
-                tooltipView.ShowDeviceStatic(device);
+                tooltipView.Show(device.DisplayName, device.Description, BuildDeviceTierLabel(device));
 
             if (actionButtonView != null)
                 actionButtonView.ShowSellStatic(slotIndex, device, refundMoney);
@@ -203,6 +203,15 @@ namespace Tessera.UI
                 return;
 
             relay.Unbind(this);
+        }
+
+        /// <summary>Device Tooltip에 표시할 Tier 문자열을 생성한다.</summary>
+        private static string BuildDeviceTierLabel(SlotPairDeviceDefinitionSO device)
+        {
+            if (device == null)
+                return string.Empty;
+
+            return $"Tier {device.Tier}";
         }
 
         /// <summary>Hover UI 디버그 로그를 출력한다.</summary>
