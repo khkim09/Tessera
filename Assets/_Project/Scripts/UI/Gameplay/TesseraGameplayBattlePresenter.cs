@@ -2147,6 +2147,7 @@ namespace Tessera.UI
             out Quaternion worldRotation)
         {
             return TryGetDeviceSlotPresentationPose(
+                DiceOwnerType.Player,
                 slotIndex,
                 lockedDiceDeviceSlotLocalOffset,
                 Quaternion.Euler(lockedDiceTiltEuler),
@@ -2394,6 +2395,60 @@ namespace Tessera.UI
                 this.GetCancellationTokenOnDestroy());
         }
 
+        /// <summary>상대가 Lock한 DiceView를 빈 Opponent DeviceSlot 순서대로 이동시킨다.</summary>
+        private void MoveLockedOpponentDiceToDeviceSlots(IReadOnlyList<int> enemyDiceValues, IReadOnlyList<bool> lockStates)
+        {
+            if (diceTray3DView == null)
+                return;
+
+            if (enemyDiceValues == null || lockStates == null)
+                return;
+
+            int slotIndex = 0;
+
+            for (int diceIndex = 0; diceIndex < enemyDiceValues.Count && diceIndex < lockStates.Count; diceIndex++)
+            {
+                if (!lockStates[diceIndex])
+                    continue;
+
+                while (slotIndex < SlotPairDamageCalculator.SlotPairCount && !IsOpponentDeviceSlotAvailableForLockedDice(slotIndex))
+                    slotIndex++;
+
+                if (slotIndex >= SlotPairDamageCalculator.SlotPairCount)
+                    return;
+
+                if (!TryGetDeviceSlotPresentationPose(
+                        DiceOwnerType.Opponent,
+                        slotIndex,
+                        lockedDiceDeviceSlotLocalOffset,
+                        Quaternion.Euler(lockedDiceTiltEuler),
+                        out Vector3 targetPosition,
+                        out Quaternion targetRotation))
+                {
+                    slotIndex++;
+                    continue;
+                }
+
+                if (!diceTray3DView.IsDiceNearPosition(DiceOwnerType.Opponent, diceIndex, targetPosition, 0.02f))
+                {
+                    diceTray3DView.MoveDiceToLockedDeviceSlot(
+                        DiceOwnerType.Opponent,
+                        diceIndex,
+                        targetPosition,
+                        targetRotation,
+                        lockedDiceMoveDuration);
+                }
+
+                slotIndex++;
+            }
+        }
+
+        /// <summary>상대 Lock Dice가 들어갈 Opponent DeviceSlot 사용 가능 여부를 반환한다.</summary>
+        private bool IsOpponentDeviceSlotAvailableForLockedDice(int slotIndex)
+        {
+            return slotIndex >= 0 && slotIndex < SlotPairDamageCalculator.SlotPairCount;
+        }
+
         /// <summary>지정 SlotPair 인덱스의 Player DeviceSlot을 강조한다.</summary>
         private void HighlightSlotPair(int slotIndex)
         {
@@ -2431,8 +2486,26 @@ namespace Tessera.UI
                 cancellationToken);
         }
 
-        /// <summary>DeviceSlot 기준 Presentation 위치와 회전을 계산한다.</summary>
+        /// <summary>Player DeviceSlot 기준 Presentation 위치와 회전을 계산한다.</summary>
         private bool TryGetDeviceSlotPresentationPose(
+            int slotIndex,
+            Vector3 localPresentationOffset,
+            Quaternion localRotationOffset,
+            out Vector3 worldPosition,
+            out Quaternion worldRotation)
+        {
+            return TryGetDeviceSlotPresentationPose(
+                DiceOwnerType.Player,
+                slotIndex,
+                localPresentationOffset,
+                localRotationOffset,
+                out worldPosition,
+                out worldRotation);
+        }
+
+        /// <summary>지정 소유자의 DeviceSlot 기준 Presentation 위치와 회전을 계산한다.</summary>
+        private bool TryGetDeviceSlotPresentationPose(
+            DiceOwnerType owner,
             int slotIndex,
             Vector3 localPresentationOffset,
             Quaternion localRotationOffset,
@@ -2442,12 +2515,16 @@ namespace Tessera.UI
             worldPosition = Vector3.zero;
             worldRotation = Quaternion.identity;
 
-            if (playerDeviceRack3DView == null)
+            DeviceRack3DView targetRack = owner == DiceOwnerType.Opponent
+                ? opponentDeviceRack3DView
+                : playerDeviceRack3DView;
+
+            if (targetRack == null)
                 return false;
 
             Camera targetCamera = battleCamera != null ? battleCamera : Camera.main;
 
-            if (!playerDeviceRack3DView.TryGetSlotPresentationBasis(
+            if (!targetRack.TryGetSlotPresentationBasis(
                     slotIndex,
                     targetCamera,
                     out Vector3 slotCenter,
@@ -2778,6 +2855,7 @@ namespace Tessera.UI
 
                 ApplyOpponentRollStrategyLocks(enemyDiceValues, candidateResult, lockStates, rollStrategy);
                 ApplyLockStatesToOpponentDiceInstances(opponentDiceInstances, lockStates);
+                MoveLockedOpponentDiceToDeviceSlots(enemyDiceValues, lockStates);
 
                 LogOpponentRollAILockDecision(
                     phaseName,

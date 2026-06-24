@@ -240,6 +240,10 @@ namespace Tessera.UI
 
                 bool isLocked = IsDiceLocked(lockStates, diceIndex);
                 diceView.SetDice(diceIndex, diceValues[diceIndex], isLocked);
+
+                if (isLocked)
+                    continue;
+
                 tasks.Add(diceView.PlayArcMoveRollAsync(
                     trayPosition,
                     trayRotation,
@@ -260,7 +264,18 @@ namespace Tessera.UI
             Quaternion targetRotation,
             float duration)
         {
-            if (!TryGetDiceView(DiceOwnerType.Player, diceIndex, out Dice3DView diceView))
+            MoveDiceToLockedDeviceSlot(DiceOwnerType.Player, diceIndex, targetPosition, targetRotation, duration);
+        }
+
+        /// <summary>지정 소유자의 DiceView를 DeviceSlot 하단 Lock 표시 위치로 이동시킨다.</summary>
+        public void MoveDiceToLockedDeviceSlot(
+            DiceOwnerType owner,
+            int diceIndex,
+            Vector3 targetPosition,
+            Quaternion targetRotation,
+            float duration)
+        {
+            if (!TryGetDiceView(owner, diceIndex, out Dice3DView diceView))
                 return;
 
             diceView.MoveTo(targetPosition, targetRotation, duration);
@@ -316,7 +331,13 @@ namespace Tessera.UI
         /// <summary>Player DiceView가 목표 위치 근처에 있는지 확인한다.</summary>
         public bool IsDiceNearPosition(int diceIndex, Vector3 targetPosition, float threshold)
         {
-            if (!TryGetDiceView(DiceOwnerType.Player, diceIndex, out Dice3DView diceView))
+            return IsDiceNearPosition(DiceOwnerType.Player, diceIndex, targetPosition, threshold);
+        }
+
+        /// <summary>지정 소유자의 DiceView가 목표 위치 근처에 있는지 확인한다.</summary>
+        public bool IsDiceNearPosition(DiceOwnerType owner, int diceIndex, Vector3 targetPosition, float threshold)
+        {
+            if (!TryGetDiceView(owner, diceIndex, out Dice3DView diceView))
                 return false;
 
             float sqrDistance = (diceView.transform.position - targetPosition).sqrMagnitude;
