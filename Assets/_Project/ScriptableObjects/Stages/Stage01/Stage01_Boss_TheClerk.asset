@@ -27,16 +27,17 @@ MonoBehaviour:
   rewardDescription: Stage clear reward.
   playerMaxHP: 100
   diceCount: 5
-  maxAttempts: 3
+  maxAttempts: 4
   roundRollPool: 8
+  impactCap: 20
   maxUsesPerCastPerRound: 1
   maxBrokenCastUsesPerRound: 3
   brokenCastGrantsOvercharge: 1
   brokenCastOverchargeAmount: 1
   brokenCastGrantsNextAttemptFreeReroll: 1
   brokenCastFreeRerollTokenAmount: 1
-  applyNonAcesDamagePenalty: 1
-  nonAcesDamagePercent: 50
+  applyNonAcesCastPowerPenalty: 1
+  nonAcesCastPowerPercent: 50
   disableChance: 0
   disableBrokenCastReward: 0
   opponentDevicePool:
@@ -48,7 +49,7 @@ MonoBehaviour:
   minOpponentDeviceCount: 3
   maxOpponentDeviceCount: 5
   allowDuplicateOpponentDevices: 0
-  opponentMaxHP: 100
+  opponentMaxHP: 48
   enemyStrikeDamage: 4
   opponentDiceLoadout: {fileID: 11400000, guid: 04ede4506b708f64fb42aab4f8e9efc1, type: 2}
   useOpeningIntentInitiativeAsRoundInitiative: 1

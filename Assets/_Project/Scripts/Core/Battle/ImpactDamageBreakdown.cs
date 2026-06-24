@@ -26,7 +26,7 @@ namespace Tessera.Core
         /// <summary>ImpactCap 적용 전 실제 피해 후보값이다.</summary>
         public int RawImpactDamage { get; }
 
-        /// <summary>Attempt당 최대 HP 피해량이다.</summary>
+        /// <summary>0보다 크면 RawImpactDamage에 적용되는 선택적 Impact 상한이다.</summary>
         public int ImpactCap { get; }
 
         /// <summary>ImpactCap만 적용한 중간 Impact 값이다.</summary>
@@ -65,7 +65,7 @@ namespace Tessera.Core
                 DeviceImpactBonus +
                 TrueImpactDamage;
 
-            CappedImpactDamage = Math.Min(RawImpactDamage, ImpactCap);
+            CappedImpactDamage = ImpactCap > 0 ? Math.Min(RawImpactDamage, ImpactCap) : RawImpactDamage;
             AppliedImpactDamage = Math.Max(0, CappedImpactDamage * FinalModifierPercent / 100) + PiercingImpactDamage;
         }
 

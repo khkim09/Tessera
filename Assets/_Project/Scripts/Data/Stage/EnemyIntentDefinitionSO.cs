@@ -23,10 +23,11 @@ namespace Tessera.Data
 
         [Header("Opponent Cast")]
         [SerializeField] private bool useOpponentDevices = true;
-        [SerializeField] private bool chooseBestAvailableCast = true;
+        [SerializeField] private OpponentCastSelectionPolicy castSelectionPolicy = OpponentCastSelectionPolicy.UtilityBest;
 
         [Header("Opponent Roll AI")]
         [SerializeField, Min(1)] private int opponentRollCount = 1;
+        [SerializeField, Min(0)] private int targetPowerToStop;
         [SerializeField, Min(0)] private int targetImpactToStop;
         [SerializeField] private bool stopIfBeatsPlayerPower = true;
         [SerializeField] private OpponentRollStrategyType rollStrategy = OpponentRollStrategyType.Balanced;
@@ -52,11 +53,17 @@ namespace Tessera.Data
         /// <summary>상대 Device를 계산에 사용할지 여부다.</summary>
         public bool UseOpponentDevices => useOpponentDevices;
 
-        /// <summary>상대가 가능한 Cast 중 최적 Cast를 고를지 여부다.</summary>
-        public bool ChooseBestAvailableCast => chooseBestAvailableCast;
+        /// <summary>상대가 가능한 Cast 중 최종 제출 Cast를 고르는 정책이다.</summary>
+        public OpponentCastSelectionPolicy CastSelectionPolicy => castSelectionPolicy;
 
-        /// <summary>상대가 Cast 확정 전 수행할 최대 Roll 횟수다.</summary>
+        /// <summary>구버전 bool 설정을 신규 정책으로 해석한 호환 값이다.</summary>
+        public bool ChooseBestAvailableCast => castSelectionPolicy != OpponentCastSelectionPolicy.DebugFirstValid;
+
+        /// <summary>레거시 호환용 상대 Roll 횟수이며 현재 전투 플로우는 Attempt당 기본 3 Roll을 사용한다.</summary>
         public int OpponentRollCount => Mathf.Max(1, opponentRollCount);
+
+        /// <summary>이 CastPower 이상이면 남은 Roll이 있어도 즉시 Cast를 확정한다.</summary>
+        public int TargetPowerToStop => Mathf.Max(0, targetPowerToStop);
 
         /// <summary>이 예상 Impact 이상이면 남은 Roll이 있어도 즉시 Cast를 확정한다.</summary>
         public int TargetImpactToStop => Mathf.Max(0, targetImpactToStop);
