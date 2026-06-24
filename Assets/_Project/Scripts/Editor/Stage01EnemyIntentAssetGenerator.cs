@@ -42,8 +42,9 @@ namespace Tessera.Editor
                 EnemyIntentCategoryType.Aggression,
                 InitiativeOwnerType.Opponent,
                 useOpponentDevices: true,
-                chooseBestAvailableCast: true,
+                castSelectionPolicy: OpponentCastSelectionPolicy.UtilityBest,
                 opponentRollCount: 3,
+                targetPowerToStop: 45,
                 targetImpactToStop: 7,
                 stopIfBeatsPlayerPower: true,
                 rollStrategy: OpponentRollStrategyType.Balanced);
@@ -57,8 +58,9 @@ namespace Tessera.Editor
                 EnemyIntentCategoryType.Tactics,
                 InitiativeOwnerType.Player,
                 useOpponentDevices: true,
-                chooseBestAvailableCast: true,
+                castSelectionPolicy: OpponentCastSelectionPolicy.UtilityBest,
                 opponentRollCount: 3,
+                targetPowerToStop: 40,
                 targetImpactToStop: 6,
                 stopIfBeatsPlayerPower: true,
                 rollStrategy: OpponentRollStrategyType.Balanced);
@@ -72,8 +74,9 @@ namespace Tessera.Editor
                 EnemyIntentCategoryType.Aggression,
                 InitiativeOwnerType.Opponent,
                 useOpponentDevices: false,
-                chooseBestAvailableCast: true,
+                castSelectionPolicy: OpponentCastSelectionPolicy.UtilityBest,
                 opponentRollCount: 2,
+                targetPowerToStop: 25,
                 targetImpactToStop: 5,
                 stopIfBeatsPlayerPower: true,
                 rollStrategy: OpponentRollStrategyType.Balanced);
@@ -121,8 +124,9 @@ namespace Tessera.Editor
             EnemyIntentCategoryType categoryType,
             InitiativeOwnerType initiativeOwner,
             bool useOpponentDevices,
-            bool chooseBestAvailableCast,
+            OpponentCastSelectionPolicy castSelectionPolicy,
             int opponentRollCount,
+            int targetPowerToStop,
             int targetImpactToStop,
             bool stopIfBeatsPlayerPower,
             OpponentRollStrategyType rollStrategy)
@@ -149,10 +153,9 @@ namespace Tessera.Editor
             SetSerializedFieldEnum(so, "categoryType", (int)categoryType);
             SetSerializedFieldEnum(so, "initiativeOwner", (int)initiativeOwner);
             SetSerializedFieldBool(so, "useOpponentDevices", useOpponentDevices);
-            SetSerializedFieldEnum(so, "castSelectionPolicy", chooseBestAvailableCast
-                ? (int)OpponentCastSelectionPolicy.UtilityBest
-                : (int)OpponentCastSelectionPolicy.DebugFirstValid);
+            SetSerializedFieldEnum(so, "castSelectionPolicy", (int)castSelectionPolicy);
             SetSerializedFieldInt(so, "opponentRollCount", opponentRollCount);
+            SetSerializedFieldInt(so, "targetPowerToStop", targetPowerToStop);
             SetSerializedFieldInt(so, "targetImpactToStop", targetImpactToStop);
             SetSerializedFieldBool(so, "stopIfBeatsPlayerPower", stopIfBeatsPlayerPower);
             SetSerializedFieldEnum(so, "rollStrategy", (int)rollStrategy);

@@ -36,7 +36,7 @@ namespace Tessera.Data
         [SerializeField] private int diceCount = 5;
         [SerializeField] private int maxAttempts = 3;
         [SerializeField] private int roundRollPool = 8;
-        [SerializeField] private int impactCap = 8;
+        [SerializeField] private int impactCap;
         [SerializeField] private int maxUsesPerCastPerRound = 1;
         [SerializeField] private int maxBrokenCastUsesPerRound = 3;
 
@@ -143,7 +143,7 @@ namespace Tessera.Data
         /// <summary>OpeningIntent의 Initiative를 Round 고정 Initiative로 사용할지 여부.</summary>
         public bool UseOpeningIntentInitiativeAsRoundInitiative => useOpeningIntentInitiativeAsRoundInitiative;
 
-        /// <summary>Attempt당 적용 가능한 최대 ImpactDamage 값이다.</summary>
+        /// <summary>0보다 크면 적용되는 선택적 Impact 상한이며 0 이하면 비활성화된다.</summary>
         public int ImpactCap => Mathf.Max(0, impactCap);
 
         /// <summary>Round 전체에서 고정 사용할 선공권을 반환한다.</summary>
