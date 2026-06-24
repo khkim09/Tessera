@@ -107,10 +107,6 @@ namespace Tessera.UI
         [SerializeField] private Transform[] playerLockedDiceSlotAnchors = new Transform[5];
         /// <summary>Opponent Lock Dice가 이동할 Slot별 Anchor 배열이다.</summary>
         [SerializeField] private Transform[] opponentLockedDiceSlotAnchors = new Transform[5];
-        /// <summary>Anchor 위치에서 추가로 올릴 월드 Y 오프셋이며 기존 방식의 Y 상승값은 0이다.</summary>
-        [SerializeField] private float lockedDiceAnchorWorldYOffset; // Anchor 기준 위로 띄울 값이며 기존 계산식의 Y 상승값은 0이다.
-        /// <summary>Lock Dice가 Slot Anchor에 배치될 때 추가로 적용할 회전값이다.</summary>
-        [SerializeField] private Vector3 lockedDiceTiltEuler = Vector3.zero; // Anchor 자체 회전을 그대로 쓰려면 0,0,0으로 둔다.
         /// <summary>Lock Dice가 Slot Anchor로 이동하는 연출 시간이다.</summary>
         [SerializeField] private float lockedDiceMoveDuration = 0.16f; // Dice가 Slot Anchor로 이동하는 Tween 시간이다.
         /// <summary>SlotPair 판정 후 Dice를 Tray로 복귀시킬지 여부이다.</summary>
@@ -2205,8 +2201,8 @@ namespace Tessera.UI
             if (anchors[slotIndex] == null)
                 return false;
 
-            worldPosition = anchors[slotIndex].position + Vector3.up * lockedDiceAnchorWorldYOffset;
-            worldRotation = anchors[slotIndex].rotation * Quaternion.Euler(lockedDiceTiltEuler);
+            worldPosition = anchors[slotIndex].position;
+            worldRotation = anchors[slotIndex].rotation;
             return true;
         }
 
