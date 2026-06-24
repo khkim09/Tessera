@@ -2817,13 +2817,10 @@ namespace Tessera.UI
             return true;
         }
 
-        /// <summary>현재 Intent 기준 상대 최대 Roll 횟수를 반환한다.</summary>
+        /// <summary>상대가 현재 Attempt에서 사용할 수 있는 기본 Roll 횟수를 반환한다.</summary>
         private int ResolveOpponentRollCount()
         {
-            if (currentEnemyIntentDefinition == null)
-                return 1;
-
-            return Mathf.Max(1, currentEnemyIntentDefinition.OpponentRollCount);
+            return RoundState.BaseRollsPerAttempt;
         }
 
         /// <summary>현재 Intent 기준 상대 Cast 선택 방식을 반환한다.</summary>
