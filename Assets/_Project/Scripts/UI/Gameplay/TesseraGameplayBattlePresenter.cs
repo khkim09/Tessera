@@ -35,9 +35,12 @@ namespace Tessera.UI
         #region Serialized Fields
 
         [Header("Round Simulator")]
-        [SerializeField] private bool useDeterministicCombatSeed = false;
-        [SerializeField] private int debugCombatSeed = 12345;
-        [SerializeField] private bool logCombatSeed;
+        /// <summary>전투 난수를 디버그 고정 Seed로 실행할지 여부이다.</summary>
+        [SerializeField] private bool useDeterministicCombatSeed = false; // true면 출시용 난수 대신 debugCombatSeed를 사용한다.
+        /// <summary>디버그 고정 전투 난수 Seed 값이다.</summary>
+        [SerializeField] private int debugCombatSeed = 12345; // useDeterministicCombatSeed가 켜졌을 때 재현용으로 쓰는 Seed다.
+        /// <summary>전투 시작 시 실제 적용된 Seed를 로그로 남길지 여부이다.</summary>
+        [SerializeField] private bool logCombatSeed; // true면 전투마다 activeCombatSeed를 Console에 출력한다.
         [SerializeField] private bool useFixedSeed = true;
         [SerializeField] private int seed = 12345;
 
@@ -105,13 +108,13 @@ namespace Tessera.UI
         /// <summary>Opponent Lock Dice가 이동할 Slot별 Anchor 배열이다.</summary>
         [SerializeField] private Transform[] opponentLockedDiceSlotAnchors = new Transform[5];
         /// <summary>Anchor 위치에서 추가로 올릴 월드 Y 오프셋이며 기존 방식의 Y 상승값은 0이다.</summary>
-        [SerializeField] private float lockedDiceAnchorWorldYOffset;
+        [SerializeField] private float lockedDiceAnchorWorldYOffset; // Anchor 기준 위로 띄울 값이며 기존 계산식의 Y 상승값은 0이다.
         /// <summary>Lock Dice가 Slot Anchor에 배치될 때 추가로 적용할 회전값이다.</summary>
-        [SerializeField] private Vector3 lockedDiceTiltEuler = new Vector3(0f, 45f, 0f);
+        [SerializeField] private Vector3 lockedDiceTiltEuler = Vector3.zero; // Anchor 자체 회전을 그대로 쓰려면 0,0,0으로 둔다.
         /// <summary>Lock Dice가 Slot Anchor로 이동하는 연출 시간이다.</summary>
-        [SerializeField] private float lockedDiceMoveDuration = 0.16f;
+        [SerializeField] private float lockedDiceMoveDuration = 0.16f; // Dice가 Slot Anchor로 이동하는 Tween 시간이다.
         /// <summary>SlotPair 판정 후 Dice를 Tray로 복귀시킬지 여부이다.</summary>
-        [SerializeField] private bool restoreDiceToTrayAfterEvaluation = true;
+        [SerializeField] private bool restoreDiceToTrayAfterEvaluation = true; // 판정 연출 종료 후 Dice를 Tray 위치로 되돌릴지 결정한다.
 
         [Header("SlotPair Dice Jump Roll")]
         [SerializeField] private bool playDiceJumpRollDuringEvaluation = true;
@@ -2544,26 +2547,8 @@ namespace Tessera.UI
                 cancellationToken);
         }
 
-        /// <summary>Player DeviceSlot 기준 Presentation 위치와 회전을 계산한다.</summary>
-        private bool TryGetDeviceSlotPresentationPose(
-            int slotIndex,
-            Vector3 localPresentationOffset,
-            Quaternion localRotationOffset,
-            out Vector3 worldPosition,
-            out Quaternion worldRotation)
-        {
-            return TryGetDeviceSlotPresentationPose(
-                DiceOwnerType.Player,
-                slotIndex,
-                localPresentationOffset,
-                localRotationOffset,
-                out worldPosition,
-                out worldRotation);
-        }
-
-        /// <summary>지정 소유자의 DeviceSlot 기준 Presentation 위치와 회전을 계산한다.</summary>
-        private bool TryGetDeviceSlotPresentationPose(
-            DiceOwnerType owner,
+        /// <summary>SlotPair Floating Text를 띄울 Player DeviceSlot 기준 월드 위치와 회전을 계산한다.</summary>
+        private bool TryGetSlotPairFloatingWorldPose(
             int slotIndex,
             Vector3 localPresentationOffset,
             Quaternion localRotationOffset,
@@ -2573,16 +2558,12 @@ namespace Tessera.UI
             worldPosition = Vector3.zero;
             worldRotation = Quaternion.identity;
 
-            DeviceRack3DView targetRack = owner == DiceOwnerType.Opponent
-                ? opponentDeviceRack3DView
-                : playerDeviceRack3DView;
-
-            if (targetRack == null)
+            if (playerDeviceRack3DView == null)
                 return false;
 
             Camera targetCamera = battleCamera != null ? battleCamera : Camera.main;
 
-            if (!targetRack.TryGetSlotPresentationBasis(
+            if (!playerDeviceRack3DView.TryGetSlotPresentationBasis(
                     slotIndex,
                     targetCamera,
                     out Vector3 slotCenter,
@@ -2591,7 +2572,7 @@ namespace Tessera.UI
                     out Vector3 towardPlayer))
                 return false;
 
-            // 기존 WorldOffset 필드명을 유지하되 x=slotRight, y=slotUp, z=towardPlayer 로컬 offset으로 해석한다.
+            // Floating Text 전용으로 x=slotRight, y=slotUp, z=towardPlayer 로컬 offset을 적용한다.
             worldPosition = slotCenter
                             + slotRight * localPresentationOffset.x
                             + slotUp * localPresentationOffset.y
@@ -2772,7 +2753,7 @@ namespace Tessera.UI
             if (targetCamera == null)
                 return false;
 
-            if (!TryGetDeviceSlotPresentationPose(
+            if (!TryGetSlotPairFloatingWorldPose(
                     slotIndex,
                     slotPairFloatingWorldOffset,
                     Quaternion.identity,
