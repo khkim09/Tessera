@@ -130,10 +130,15 @@ namespace Tessera.Core
         {
             ValidatePlayableRound(roundState);
 
+            bool shouldRollAllDice = roundState.IsFirstRollThisAttempt;
+
             if (!roundState.TrySpendAttemptRoll())
                 return false;
 
-            diceRoller.RollUnlocked(roundState.Dice);
+            if (shouldRollAllDice)
+                diceRoller.RollAll(roundState.Dice);
+            else
+                diceRoller.RollUnlocked(roundState.Dice);
             roundState.MarkCurrentAttemptCastReady(CastReadinessSource.RollPerformed);
             return true;
         }

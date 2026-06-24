@@ -394,8 +394,8 @@ namespace Tessera.UI
                 tableHologramView.RefreshBattleMeta(
                     remainingAttempts,
                     roundState.RuleContext.MaxAttempts,
-                    roundState.RemainingRoundRolls,
-                    RoundState.BaseRollsPerAttempt + RoundState.MaxExtraRollsPerAttempt,
+                    roundState.RemainingRollsThisAttempt,
+                    roundState.MaxRollsThisAttempt,
                     currentOvercharge);
             }
 
@@ -1222,7 +1222,7 @@ namespace Tessera.UI
                 return false;
             }
 
-            if (!HasUnlockedDice())
+            if (!roundState.IsFirstRollThisAttempt && !HasUnlockedDice())
             {
                 failureMessage = "No unlocked dice.";
                 return false;
@@ -1307,7 +1307,7 @@ namespace Tessera.UI
             if (roundState.RemainingBaseRollsThisAttempt <= 0 && !roundState.CanUseExtraRollThisAttempt)
                 return false;
 
-            return HasUnlockedDice();
+            return roundState.IsFirstRollThisAttempt || HasUnlockedDice();
         }
 
         /// <summary>Cast 후보 Popup 토글 가능 여부를 반환한다.</summary>
@@ -2014,8 +2014,8 @@ namespace Tessera.UI
             tableHologramView.RefreshBattleMeta(
                 remainingAttempts,
                 roundState.RuleContext.MaxAttempts,
-                roundState.RemainingRoundRolls,
-                RoundState.BaseRollsPerAttempt + RoundState.MaxExtraRollsPerAttempt,
+                roundState.RemainingRollsThisAttempt,
+                roundState.MaxRollsThisAttempt,
                 roundState.Overcharge.CurrentOvercharge);
         }
 
