@@ -36,6 +36,7 @@ namespace Tessera.Data
         [SerializeField] private int diceCount = 5;
         [SerializeField] private int maxAttempts = 3;
         [SerializeField] private int roundRollPool = 8;
+        [SerializeField] private int impactCap = 8;
         [SerializeField] private int maxUsesPerCastPerRound = 1;
         [SerializeField] private int maxBrokenCastUsesPerRound = 3;
 
@@ -46,8 +47,8 @@ namespace Tessera.Data
         [SerializeField] private int brokenCastFreeRerollTokenAmount = 1;
 
         [Header("Table Rule Presets")]
-        [SerializeField] private bool applyNonAcesDamagePenalty;
-        [SerializeField] private int nonAcesDamagePercent = 50;
+        [SerializeField] private bool applyNonAcesCastPowerPenalty;
+        [SerializeField] private int nonAcesCastPowerPercent = 50;
         [SerializeField] private bool disableChance;
         [SerializeField] private bool disableBrokenCastReward;
 
@@ -138,6 +139,9 @@ namespace Tessera.Data
         /// <summary>OpeningIntent의 Initiative를 Round 고정 Initiative로 사용할지 여부.</summary>
         public bool UseOpeningIntentInitiativeAsRoundInitiative => useOpeningIntentInitiativeAsRoundInitiative;
 
+        /// <summary>Attempt당 적용 가능한 최대 ImpactDamage 값이다.</summary>
+        public int ImpactCap => Mathf.Max(0, impactCap);
+
         /// <summary>Round 전체에서 고정 사용할 선공권을 반환한다.</summary>
         public InitiativeOwnerType ResolveRoundInitiativeOwner()
         {
@@ -161,8 +165,8 @@ namespace Tessera.Data
         {
             List<TableRule> tableRules = new List<TableRule>();
 
-            if (applyNonAcesDamagePenalty)
-                tableRules.Add(TableRule.NonAcesDamagePercent(Mathf.Clamp(nonAcesDamagePercent, 0, 100)));
+            if (applyNonAcesCastPowerPenalty)
+                tableRules.Add(TableRule.NonAcesCastPowerPercent(Mathf.Clamp(nonAcesCastPowerPercent, 0, 100)));
 
             if (disableChance)
                 tableRules.Add(TableRule.DisableChance());
@@ -199,7 +203,8 @@ namespace Tessera.Data
                 brokenCastGrantsNextAttemptFreeReroll: brokenCastGrantsNextAttemptFreeReroll,
                 brokenCastFreeRerollTokenAmount: Mathf.Max(0, brokenCastFreeRerollTokenAmount),
                 tableRules: tableRules,
-                stageThreatLevel: resolvedStageThreatLevel);
+                stageThreatLevel: resolvedStageThreatLevel,
+                impactCap: ImpactCap);
         }
 
         /// <summary>이 Round에서 사용할 상대 SlotPair Device 장착 배열을 생성한다.</summary>

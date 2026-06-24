@@ -299,7 +299,7 @@ namespace Tessera.UI
             pendingOpponentClashResult = null;
             lastClashResolveResult = null;
 
-            RefreshClashDamageTexts();
+            RefreshClashPowerTexts();
             EnemyIntent lockedOpeningIntent = BuildOpeningEnemyIntentWithLockedInitiative(openingIntent);
             ApplyOpeningIntentToCurrentAttempt(lockedOpeningIntent);
 
@@ -462,7 +462,7 @@ namespace Tessera.UI
             currentSlotPairPreview = playerResult.SlotPairDamagePreview;
             currentPreviewTableRuleResult = playerResult.TableRuleEvaluationResult;
 
-            RefreshClashDamageTexts();
+            RefreshClashPowerTexts();
             RefreshAll(BuildClashCastMessage(playerResult));
             PlaySubmittedClashFlowAsync(playerResult).Forget();
         }
@@ -515,7 +515,7 @@ namespace Tessera.UI
             currentSlotPairPreview = playerResult.SlotPairDamagePreview;
             currentPreviewTableRuleResult = playerResult.TableRuleEvaluationResult;
 
-            RefreshClashDamageTexts();
+            RefreshClashPowerTexts();
             RefreshAll(BuildClashCastMessage(playerResult));
             PlaySubmittedClashFlowAsync(playerResult).Forget();
         }
@@ -557,7 +557,7 @@ namespace Tessera.UI
             pendingOpponentClashResult = null;
             lastClashResolveResult = null;
 
-            ClearClashDamageTexts();
+            ClearClashPowerTexts();
             ApplyOpeningIntentToCurrentAttempt(roundState.CurrentEnemyIntent);
             ClearLockSlotMapping();
 
@@ -704,7 +704,7 @@ namespace Tessera.UI
             LogOpponentClashCastResult("OpponentFirst", pendingOpponentClashResult);
 
             SetMessage(BuildOpponentTargetMessage(pendingOpponentClashResult));
-            RefreshClashDamageTexts();
+            RefreshClashPowerTexts();
 
             if (enemyClashResultRevealDelay > 0f)
             {
@@ -728,7 +728,7 @@ namespace Tessera.UI
             // 위에서 상대 Dice를 이미 회수했으므로 Prepare 단계에서는 Opponent 회수를 생략한다.
             await PreparePlayerFirstRoundDicePresentationAsync(false);
 
-            RefreshAll($"Beat Damage {pendingOpponentClashResult.FinalDamage}, or use Broken Cast to reduce incoming damage.");
+            RefreshAll($"Beat Power {pendingOpponentClashResult.CastPower}, or use Broken Cast to reduce incoming Impact.");
         }
 
         /// <summary>상대 선공 Clash 결과를 플레이어에게 보여줄 메시지로 변환한다.</summary>
@@ -747,13 +747,7 @@ namespace Tessera.UI
                 ? opponentResult.SlotPairDamagePreview.FormatFinalForce()
                 : "-";
 
-            int rawDamage = opponentResult.SlotPairDamagePreview != null
-                ? opponentResult.SlotPairDamagePreview.DamageBeforeTableRules
-                : opponentResult.FinalDamage;
-
-            return rawDamage == opponentResult.FinalDamage
-                ? $"Opponent set target: {castName} / Score {score} x Force {force} = Damage {opponentResult.FinalDamage}."
-                : $"Opponent set target: {castName} / Score {score} x Force {force} = Raw {rawDamage} → Damage {opponentResult.FinalDamage}.";
+            return $"Opponent set target: {castName} / Score {score} x Force {force} = Power {opponentResult.CastPower} / Expected Impact {opponentResult.ExpectedImpactDamage}.";
         }
 
         /// <summary>플레이어 Cast 제출 이후 SlotPair 연출, 상대 후공 계산, Clash 판정을 순서대로 처리한다.</summary>
@@ -779,7 +773,7 @@ namespace Tessera.UI
                 playerResult,
                 pendingOpponentClashResult);
 
-            RefreshClashDamageTexts();
+            RefreshClashPowerTexts();
             LogClashResolveResult(lastClashResolveResult);
             RefreshLeftInfoTexts();
             SetMessage(lastClashResolveResult.Message);
@@ -792,7 +786,7 @@ namespace Tessera.UI
             }
 
             // 피해 적용과 결과 메시지 출력이 끝난 뒤 다음 Roll 전까지 이전 DamageText를 남기지 않는다.
-            ClearClashDamageTexts();
+            ClearClashPowerTexts();
 
             if (roundState.IsRoundEnded)
             {
@@ -826,7 +820,7 @@ namespace Tessera.UI
                 LogOpponentClashCastResult("OpponentSecond", pendingOpponentClashResult);
 
                 SetMessage(BuildOpponentTargetMessage(pendingOpponentClashResult));
-                RefreshClashDamageTexts();
+                RefreshClashPowerTexts();
 
                 if (enemyClashResultRevealDelay > 0f)
                 {
@@ -929,11 +923,11 @@ namespace Tessera.UI
                 $"[Tessera][RoundEnd] {message} " +
                 $"OpponentHP={roundState.Encounter.OpponentCurrentHP}/{roundState.Encounter.OpponentMaxHP} | " +
                 $"PlayerHP={roundState.Encounter.PlayerCurrentHP}/{roundState.Encounter.PlayerMaxHP} | " +
-                $"DamageToOpponent={(result != null ? result.DamageToOpponent.ToString() : "0")} | " +
-                $"DamageToPlayer={(result != null ? result.DamageToPlayer.ToString() : "0")}");
+                $"AppliedImpactDamageToOpponent={(result != null ? result.AppliedImpactDamageToOpponent.ToString() : "0")} | " +
+                $"AppliedImpactDamageToPlayer={(result != null ? result.AppliedImpactDamageToPlayer.ToString() : "0")}");
 
             RefreshAll(message);
-            ClearClashDamageTexts();
+            ClearClashPowerTexts();
         }
 
         /// <summary>지정 Attempt 번호에서 사용할 EnemyIntent를 생성한다. Round Initiative는 Round 시작 시점 값으로 고정한다.</summary>
@@ -1921,7 +1915,7 @@ namespace Tessera.UI
 
             RefreshTableHologramBattleMeta();
             RefreshSelectedCastTexts();
-            RefreshClashDamageTexts();
+            RefreshClashPowerTexts();
         }
 
         private void RefreshMoneyOverlay()
@@ -1948,41 +1942,41 @@ namespace Tessera.UI
         }
 
         /// <summary>현재 Clash에서 비교할 플레이어/상대 피해 수치를 Hologram에 갱신한다.</summary>
-        private void RefreshClashDamageTexts()
+        private void RefreshClashPowerTexts()
         {
-            int playerDamage = 0;
-            int opponentDamage = 0;
+            int playerCastPower = 0;
+            int opponentCastPower = 0;
 
             if (lastClashResolveResult != null)
             {
-                playerDamage = lastClashResolveResult.PlayerResult != null
-                    ? lastClashResolveResult.PlayerResult.FinalDamage
+                playerCastPower = lastClashResolveResult.PlayerResult != null
+                    ? lastClashResolveResult.PlayerResult.CastPower
                     : 0;
 
-                opponentDamage = lastClashResolveResult.OpponentResult != null
-                    ? lastClashResolveResult.OpponentResult.FinalDamage
+                opponentCastPower = lastClashResolveResult.OpponentResult != null
+                    ? lastClashResolveResult.OpponentResult.CastPower
                     : 0;
             }
             else
             {
-                playerDamage = currentSlotPairPreview != null && currentPreviewTableRuleResult != null
-                    ? Mathf.Max(0, currentPreviewTableRuleResult.ModifiedDamage)
+                playerCastPower = currentPreviewTableRuleResult != null
+                    ? Mathf.Max(0, currentPreviewTableRuleResult.ModifiedCastPower)
                     : 0;
 
-                opponentDamage = pendingOpponentClashResult != null
-                    ? pendingOpponentClashResult.FinalDamage
+                opponentCastPower = pendingOpponentClashResult != null
+                    ? pendingOpponentClashResult.CastPower
                     : 0;
             }
 
             if (useTableHologramView && tableHologramView != null)
-                tableHologramView.RefreshClashDamage(playerDamage, opponentDamage);
+                tableHologramView.RefreshClashPower(playerCastPower, opponentCastPower);
         }
 
         /// <summary>Clash 피해 비교 표시를 기본값으로 초기화한다.</summary>
-        private void ClearClashDamageTexts()
+        private void ClearClashPowerTexts()
         {
             if (useTableHologramView && tableHologramView != null)
-                tableHologramView.ClearClashDamage();
+                tableHologramView.ClearClashPower();
         }
 
         /// <summary>테이블 홀로그램의 제한 자원 정보를 갱신한다.</summary>
@@ -2840,16 +2834,16 @@ namespace Tessera.UI
                 return true;
 
             if (currentEnemyIntentDefinition != null &&
-                currentEnemyIntentDefinition.TargetDamageToStop > 0 &&
-                candidateResult.FinalDamage >= currentEnemyIntentDefinition.TargetDamageToStop)
+                currentEnemyIntentDefinition.TargetImpactToStop > 0 &&
+                candidateResult.ExpectedImpactDamage >= currentEnemyIntentDefinition.TargetImpactToStop)
             {
                 return true;
             }
 
             if (currentEnemyIntentDefinition != null &&
-                currentEnemyIntentDefinition.StopIfBeatsPlayerDamage &&
+                currentEnemyIntentDefinition.StopIfBeatsPlayerPower &&
                 playerResult != null &&
-                candidateResult.FinalDamage > playerResult.FinalDamage)
+                candidateResult.CastPower > playerResult.CastPower)
             {
                 return true;
             }
@@ -3405,10 +3399,10 @@ namespace Tessera.UI
                     $"{result.PatternResult.PatternType}: " +
                     $"Score {result.SlotPairDamagePreview.FinalScore} x " +
                     $"Force {result.SlotPairDamagePreview.FormatFinalForce()} = " +
-                    $"Damage {result.FinalDamage}.";
+                    $"Power {result.CastPower} / Expected Impact {result.ExpectedImpactDamage}.";
             }
 
-            return $"{result.PatternResult.PatternType}: Damage {result.FinalDamage}.";
+            return $"{result.PatternResult.PatternType}: Power {result.CastPower} / Expected Impact {result.ExpectedImpactDamage}.";
         }
 
         /// <summary>Clash 판정 결과를 디버그 로그로 출력한다.</summary>
@@ -3426,12 +3420,14 @@ namespace Tessera.UI
                 $"Winner={winnerText} | " +
                 $"PlayerDice=[{FormatDiceValuesForLog(result.PlayerResult != null ? result.PlayerResult.DiceValues : null)}] | " +
                 $"PlayerCast={(result.PlayerResult != null ? result.PlayerResult.PatternType.ToString() : "None")} | " +
-                $"PlayerDamage={(result.PlayerResult != null ? result.PlayerResult.FinalDamage.ToString() : "0")} | " +
+                $"PlayerPower={(result.PlayerResult != null ? result.PlayerResult.CastPower.ToString() : "0")} | " +
+                $"PlayerExpectedImpact={(result.PlayerResult != null ? result.PlayerResult.ExpectedImpactDamage.ToString() : "0")} | " +
                 $"OpponentDice=[{FormatDiceValuesForLog(result.OpponentResult != null ? result.OpponentResult.DiceValues : null)}] | " +
                 $"OpponentCast={(result.OpponentResult != null ? result.OpponentResult.PatternType.ToString() : "None")} | " +
-                $"OpponentDamage={(result.OpponentResult != null ? result.OpponentResult.FinalDamage.ToString() : "0")} | " +
-                $"DamageToPlayer={result.DamageToPlayer} | " +
-                $"DamageToOpponent={result.DamageToOpponent} | " +
+                $"OpponentPower={(result.OpponentResult != null ? result.OpponentResult.CastPower.ToString() : "0")} | " +
+                $"OpponentExpectedImpact={(result.OpponentResult != null ? result.OpponentResult.ExpectedImpactDamage.ToString() : "0")} | " +
+                $"AppliedImpactToPlayer={result.AppliedImpactDamageToPlayer} | " +
+                $"AppliedImpactToOpponent={result.AppliedImpactDamageToOpponent} | " +
                 $"BrokenDefense={result.PlayerUsedBrokenCastDefense} | " +
                 $"Overcharge+={result.GrantedOverchargeAmount} | " +
                 $"Outcome={result.OutcomeType}");
@@ -3449,8 +3445,8 @@ namespace Tessera.UI
                 return;
 
             int rawDamage = result.SlotPairDamagePreview != null
-                ? result.SlotPairDamagePreview.DamageBeforeTableRules
-                : result.FinalDamage;
+                ? result.SlotPairDamagePreview.CastPowerBeforeTableRules
+                : result.CastPower;
 
             int finalScore = result.SlotPairDamagePreview != null
                 ? result.SlotPairDamagePreview.FinalScore
@@ -3492,7 +3488,7 @@ namespace Tessera.UI
                 $"Score={finalScore} | " +
                 $"Force={finalForce} | " +
                 $"RawDamage={rawDamage} | " +
-                $"FinalDamage={result.FinalDamage} | " +
+                $"CastPower={result.CastPower} | " +
                 $"DiceLoadout={FormatOpponentDiceLoadoutDefinitionForLog()} | " +
                 $"DeviceLoadout={FormatOpponentDeviceLoadoutForLog()}"); ;
         }
@@ -3513,11 +3509,11 @@ namespace Tessera.UI
                 return;
 
             string candidateText = candidateResult != null
-                ? $"{candidateResult.PatternType} / Damage {candidateResult.FinalDamage}"
+                ? $"{candidateResult.PatternType} / Damage {candidateResult.CastPower}"
                 : "None";
 
             string playerDamageText = playerResult != null
-                ? playerResult.FinalDamage.ToString()
+                ? playerResult.CastPower.ToString()
                 : "-";
 
             Debug.Log(
@@ -3529,8 +3525,8 @@ namespace Tessera.UI
                 $"Locks=[{FormatBoolListForLog(lockStates)}] | " +
                 $"Candidate={candidateText} | " +
                 $"PlayerDamage={playerDamageText} | " +
-                $"TargetStop={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.TargetDamageToStop.ToString() : "0")} | " +
-                $"StopIfBeatsPlayer={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.StopIfBeatsPlayerDamage.ToString() : "False")}");
+                $"TargetStop={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.TargetImpactToStop.ToString() : "0")} | " +
+                $"StopIfBeatsPlayer={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.StopIfBeatsPlayerPower.ToString() : "False")}");
         }
 
         /// <summary>상대 Roll AI의 주사위 유지 결정을 로그로 출력한다.</summary>
@@ -3552,7 +3548,7 @@ namespace Tessera.UI
                 $"AfterRoll={rollIndex} | " +
                 $"Strategy={rollStrategy} | " +
                 $"Candidate={(candidateResult != null ? candidateResult.PatternType.ToString() : "None")} | " +
-                $"Damage={(candidateResult != null ? candidateResult.FinalDamage.ToString() : "0")} | " +
+                $"Damage={(candidateResult != null ? candidateResult.CastPower.ToString() : "0")} | " +
                 $"Dice=[{FormatDiceValuesForLog(diceValues)}] | " +
                 $"NextLocks=[{FormatBoolListForLog(lockStates)}]");
         }
@@ -3576,8 +3572,9 @@ namespace Tessera.UI
                 $"[Tessera][SlotPair] Sequence Start | Cast={result.PatternResult.PatternType} | " +
                 $"FinalScore={result.SlotPairDamagePreview.FinalScore} | " +
                 $"FinalForce={result.SlotPairDamagePreview.FormatFinalForce()} | " +
-                $"DamageBeforeRules={result.SlotPairDamagePreview.DamageBeforeTableRules} | " +
-                $"DamageApplied={result.FinalDamage}");
+                $"CastPowerBeforeRules={result.SlotPairDamagePreview.CastPowerBeforeTableRules} | " +
+                $"CastPowerApplied={result.CastPower} | " +
+                $"ExpectedImpact={result.ExpectedImpactDamage}");
         }
 
         /// <summary>SlotPair 계산 Step 로그를 출력한다.</summary>
@@ -3615,7 +3612,7 @@ namespace Tessera.UI
                 $"[Tessera][SlotPair] Sequence Complete | Cast={result.PatternResult.PatternType} | " +
                 $"FinalScore={result.SlotPairDamagePreview.FinalScore} | " +
                 $"FinalForce={result.SlotPairDamagePreview.FormatFinalForce()} | " +
-                $"DamageApplied={result.FinalDamage}");
+                $"DamageApplied={result.CastPower}");
         }
 
         /// <summary>SlotPair 계산 취소 로그를 출력한다.</summary>

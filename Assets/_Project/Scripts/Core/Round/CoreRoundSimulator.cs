@@ -9,6 +9,7 @@ namespace Tessera.Core
         private readonly DiceRoller diceRoller;
         private readonly PatternEvaluator patternEvaluator;
         private readonly SlotPairDamageCalculator slotPairDamageCalculator;
+        private readonly ImpactDamageCalculator impactDamageCalculator;
 
         /// <summary>시드 없는 랜덤 굴림 기반 Round 시뮬레이터를 생성한다.</summary>
         public CoreRoundSimulator()
@@ -16,6 +17,7 @@ namespace Tessera.Core
             diceRoller = new DiceRoller();
             patternEvaluator = PatternEvaluator.CreateDefault();
             slotPairDamageCalculator = new SlotPairDamageCalculator();
+            impactDamageCalculator = new ImpactDamageCalculator();
         }
 
         /// <summary>고정 시드 기반 Round 시뮬레이터를 생성한다.</summary>
@@ -24,6 +26,7 @@ namespace Tessera.Core
             diceRoller = new DiceRoller(seed);
             patternEvaluator = PatternEvaluator.CreateDefault();
             slotPairDamageCalculator = new SlotPairDamageCalculator();
+            impactDamageCalculator = new ImpactDamageCalculator();
         }
 
         /// <summary>지정한 HP와 Stage Overcharge 상태를 유지한 채 새 Round를 시작한다.</summary>
@@ -214,7 +217,9 @@ namespace Tessera.Core
                 preview,
                 tableRuleResult,
                 diceValues,
-                lockSlotDiceIndexes);
+                lockSlotDiceIndexes,
+                roundState.RuleContext,
+                impactDamageCalculator);
 
             if (owner == ClashParticipantType.Player)
                 roundState.CurrentAttempt.SetPlayerClashResult(clashCastResult);
@@ -352,19 +357,22 @@ namespace Tessera.Core
             if (currentBest == null)
                 return true;
 
-            if (candidate.FinalDamage != currentBest.FinalDamage)
-                return candidate.FinalDamage > currentBest.FinalDamage;
+            if (candidate.CastPower != currentBest.CastPower)
+                return candidate.CastPower > currentBest.CastPower;
 
-            int candidateRawDamage = candidate.SlotPairDamagePreview != null
-                ? candidate.SlotPairDamagePreview.DamageBeforeTableRules
-                : candidate.FinalDamage;
+            if (candidate.ExpectedImpactDamage != currentBest.ExpectedImpactDamage)
+                return candidate.ExpectedImpactDamage > currentBest.ExpectedImpactDamage;
 
-            int currentRawDamage = currentBest.SlotPairDamagePreview != null
-                ? currentBest.SlotPairDamagePreview.DamageBeforeTableRules
-                : currentBest.FinalDamage;
+            int candidateRawCastPower = candidate.SlotPairDamagePreview != null
+                ? candidate.SlotPairDamagePreview.CastPowerBeforeTableRules
+                : candidate.CastPower;
 
-            if (candidateRawDamage != currentRawDamage)
-                return candidateRawDamage > currentRawDamage;
+            int currentRawCastPower = currentBest.SlotPairDamagePreview != null
+                ? currentBest.SlotPairDamagePreview.CastPowerBeforeTableRules
+                : currentBest.CastPower;
+
+            if (candidateRawCastPower != currentRawCastPower)
+                return candidateRawCastPower > currentRawCastPower;
 
             return candidate.PatternType > currentBest.PatternType;
         }
@@ -383,42 +391,63 @@ namespace Tessera.Core
             if (opponentResult == null)
                 throw new ArgumentNullException(nameof(opponentResult));
 
-            int playerDamage = Math.Max(0, playerResult.FinalDamage);
-            int opponentDamage = Math.Max(0, opponentResult.FinalDamage);
+            int playerCastPower = Math.Max(0, playerResult.CastPower);
+            int opponentCastPower = Math.Max(0, opponentResult.CastPower);
 
             ClashParticipantType? winner = null;
-            int damageToPlayer = 0;
-            int damageToOpponent = 0;
+            ImpactDamageBreakdown playerImpactDamage = ImpactDamageBreakdown.Zero(roundState.RuleContext.ImpactCap);
+            ImpactDamageBreakdown opponentImpactDamage = ImpactDamageBreakdown.Zero(roundState.RuleContext.ImpactCap);
+
+            int appliedImpactDamageToPlayer = 0;
+            int appliedImpactDamageToOpponent = 0;
             bool playerUsedBrokenCastDefense = false;
 
-            if (playerDamage > opponentDamage)
+            if (playerCastPower > opponentCastPower)
             {
                 winner = ClashParticipantType.Player;
-                damageToOpponent = playerDamage;
+
+                playerImpactDamage = impactDamageCalculator.Calculate(
+                    roundState.RuleContext,
+                    playerResult,
+                    opponentResult,
+                    100);
+
+                appliedImpactDamageToOpponent = playerImpactDamage.AppliedImpactDamage;
             }
-            else if (opponentDamage > playerDamage)
+            else if (opponentCastPower > playerCastPower)
             {
                 winner = ClashParticipantType.Opponent;
-                damageToPlayer = opponentDamage;
+
+                int finalModifierPercent = 100;
 
                 if (playerResult.IsBrokenCast)
                 {
-                    damageToPlayer = damageToPlayer / 2;
+                    finalModifierPercent = 50;
                     playerUsedBrokenCastDefense = true;
                 }
+
+                opponentImpactDamage = impactDamageCalculator.Calculate(
+                    roundState.RuleContext,
+                    opponentResult,
+                    playerResult,
+                    finalModifierPercent);
+
+                appliedImpactDamageToPlayer = opponentImpactDamage.AppliedImpactDamage;
             }
 
-            if (damageToOpponent > 0)
-                roundState.Encounter.ApplyDamageToOpponent(damageToOpponent);
+            if (appliedImpactDamageToOpponent > 0)
+                roundState.Encounter.ApplyDamageToOpponent(appliedImpactDamageToOpponent);
 
-            if (damageToPlayer > 0)
-                roundState.Encounter.ApplyDamageToPlayer(damageToPlayer);
+            if (appliedImpactDamageToPlayer > 0)
+                roundState.Encounter.ApplyDamageToPlayer(appliedImpactDamageToPlayer);
 
             bool didGrantOvercharge = false;
             int grantedOvercharge = 0;
             int grantedFreeRerollTokens = 0;
 
-            if (playerResult.IsBrokenCast && !playerResult.TableRuleEvaluationResult.IsBrokenCastRewardSuppressed)
+            if (playerResult.IsBrokenCast &&
+                winner == ClashParticipantType.Opponent &&
+                !playerResult.TableRuleEvaluationResult.IsBrokenCastRewardSuppressed)
             {
                 ApplyBrokenCastReward(
                     roundState,
@@ -440,8 +469,8 @@ namespace Tessera.Core
             string message = BuildClashMessage(
                 roundState,
                 winner,
-                damageToPlayer,
-                damageToOpponent,
+                appliedImpactDamageToPlayer,
+                appliedImpactDamageToOpponent,
                 playerUsedBrokenCastDefense,
                 outcomeType);
 
@@ -450,8 +479,10 @@ namespace Tessera.Core
                 playerResult,
                 opponentResult,
                 winner,
-                damageToPlayer,
-                damageToOpponent,
+                playerImpactDamage,
+                opponentImpactDamage,
+                appliedImpactDamageToPlayer,
+                appliedImpactDamageToOpponent,
                 playerUsedBrokenCastDefense,
                 didGrantOvercharge,
                 grantedOvercharge,
@@ -591,7 +622,7 @@ namespace Tessera.Core
             tableRuleResult = TableRuleEvaluator.Evaluate(
                 roundState.RuleContext,
                 patternResult.PatternType,
-                preview.DamageBeforeTableRules);
+                preview.CastPowerBeforeTableRules);
 
             if (tableRuleResult.IsCastBlocked)
                 return false;
@@ -645,7 +676,9 @@ namespace Tessera.Core
                 preview,
                 tableRuleResult,
                 diceValues,
-                lockSlotDiceIndexes);
+                lockSlotDiceIndexes,
+                roundState.RuleContext,
+                impactDamageCalculator);
 
             return true;
         }
@@ -742,18 +775,18 @@ namespace Tessera.Core
         private static string BuildClashMessage(
             RoundState roundState,
             ClashParticipantType? winner,
-            int damageToPlayer,
-            int damageToOpponent,
+            int appliedImpactDamageToPlayer,
+            int appliedImpactDamageToOpponent,
             bool playerUsedBrokenCastDefense,
             RoundOutcomeType outcomeType)
         {
             if (outcomeType == RoundOutcomeType.Won)
-                return $"Clash won. Opponent took {damageToOpponent} damage.";
+                return $"Clash won. Opponent took {appliedImpactDamageToOpponent} Impact.";
 
             if (outcomeType == RoundOutcomeType.Lost)
             {
                 if (roundState != null && roundState.Encounter.IsPlayerDefeated)
-                    return $"Round lost. Player HP reached 0 after taking {damageToPlayer} damage.";
+                    return $"Round lost. Player HP reached 0 after taking {appliedImpactDamageToPlayer} Impact.";
 
                 if (roundState != null && roundState.CurrentAttempt != null &&
                     roundState.CurrentAttempt.AttemptNumber >= roundState.RuleContext.MaxAttempts)
@@ -762,21 +795,21 @@ namespace Tessera.Core
                 if (roundState != null && roundState.RemainingRoundRolls <= 0)
                     return "Round lost. No round rolls remain.";
 
-                return $"Round lost. Player took {damageToPlayer} damage.";
+                return $"Round lost. Player took {appliedImpactDamageToPlayer} Impact.";
             }
 
             if (winner == ClashParticipantType.Player)
-                return $"Player wins clash. Opponent took {damageToOpponent} damage.";
+                return $"Player wins clash. Opponent took {appliedImpactDamageToOpponent} Impact.";
 
             if (winner == ClashParticipantType.Opponent)
             {
                 if (playerUsedBrokenCastDefense)
-                    return $"Opponent wins clash. Broken Cast reduced damage to {damageToPlayer}.";
+                    return $"Opponent wins clash. Broken Cast reduced Impact to {appliedImpactDamageToPlayer}.";
 
-                return $"Opponent wins clash. Player took {damageToPlayer} damage.";
+                return $"Opponent wins clash. Player took {appliedImpactDamageToPlayer} Impact.";
             }
 
-            return "Clash tied. No damage.";
+            return "Clash tied. No Impact.";
         }
     }
 }

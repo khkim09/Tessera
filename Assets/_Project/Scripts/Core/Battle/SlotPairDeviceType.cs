@@ -22,7 +22,7 @@
         MultiplyForceIfDiceValueAtLeast = 24,
 
         AddScoreIfSlotIndex = 30,
-        AddTrueDamageIfSlotIndex = 31,
+        AddTruePowerIfSlotIndex = 31,
 
         AddForceIfGreaterThanPrevious = 40,
         MultiplyForceIfGreaterThanPrevious = 41,
@@ -33,7 +33,7 @@
         AddForceIfCastTypeEither = 51,
         MultiplyForceIfCastType = 52,
 
-        AddTrueDamageIfPreviousSlotsSumAtLeast = 60,
+        AddTruePowerIfPreviousSlotsSumAtLeast = 60,
 
         AddScoreIfStageThreatAtLeast = 70,
         AddForceIfStageThreatAtLeast = 71,

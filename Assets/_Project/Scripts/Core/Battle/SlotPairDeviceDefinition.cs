@@ -21,7 +21,9 @@ namespace Tessera.Core
         public int RequiredSlotIndex { get; }
 
         public int RequiredStageThreatLevel { get; }
-        public int TrueDamageValue { get; }
+
+        /// <summary>Device가 제공하는 고정 CastPower 값이다.</summary>
+        public int TruePowerValue { get; }
 
         public string Description { get; }
 
@@ -37,7 +39,7 @@ namespace Tessera.Core
             int requiredMaxDiceValue,
             int requiredSlotIndex,
             int requiredStageThreatLevel,
-            int trueDamageValue,
+            int truePowerValue,
             string description)
         {
             DeviceType = deviceType;
@@ -51,7 +53,7 @@ namespace Tessera.Core
             RequiredMaxDiceValue = requiredMaxDiceValue;
             RequiredSlotIndex = requiredSlotIndex;
             RequiredStageThreatLevel = requiredStageThreatLevel;
-            TrueDamageValue = trueDamageValue;
+            TruePowerValue = truePowerValue;
             Description = description ?? string.Empty;
         }
 
@@ -85,7 +87,7 @@ namespace Tessera.Core
             int requiredMaxDiceValue,
             int requiredSlotIndex,
             int requiredStageThreatLevel,
-            int trueDamageValue,
+            int truePowerValue,
             string description)
         {
             return new SlotPairDeviceDefinition(
@@ -100,7 +102,7 @@ namespace Tessera.Core
                 ClampDiceValue(requiredMaxDiceValue),
                 requiredSlotIndex,
                 Math.Max(0, requiredStageThreatLevel),
-                Math.Max(0, trueDamageValue),
+                Math.Max(0, truePowerValue),
                 description);
         }
 

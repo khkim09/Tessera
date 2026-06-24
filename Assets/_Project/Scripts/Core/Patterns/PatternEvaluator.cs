@@ -8,20 +8,20 @@ namespace Tessera.Core
     {
         private const int RequiredDiceCount = 5;
 
-        private readonly DamageCalculator _damageCalculator;
+        private readonly CastPowerCalculator _castPowerCalculator;
 
         /// <summary>피해 계산기를 사용하는 Cast 판정기를 생성한다.</summary>
-        public PatternEvaluator(DamageCalculator damageCalculator)
+        public PatternEvaluator(CastPowerCalculator castPowerCalculator)
         {
-            _damageCalculator = damageCalculator ?? throw new ArgumentNullException(nameof(damageCalculator));
+            _castPowerCalculator = castPowerCalculator ?? throw new ArgumentNullException(nameof(castPowerCalculator));
         }
 
         /// <summary>초기 기본 보정표를 사용하는 Cast 판정기를 생성한다.</summary>
         public static PatternEvaluator CreateDefault()
         {
             IReadOnlyDictionary<RollPatternType, PatternDefinition> definitions = PatternDefinition.CreateDefaultDefinitions();
-            DamageCalculator damageCalculator = new DamageCalculator(definitions);
-            return new PatternEvaluator(damageCalculator);
+            CastPowerCalculator castPowerCalculator = new CastPowerCalculator(definitions);
+            return new PatternEvaluator(castPowerCalculator);
         }
 
         /// <summary>주사위 인스턴스 목록에서 선택 가능한 모든 Cast 카테고리를 판정한다.</summary>
@@ -64,7 +64,7 @@ namespace Tessera.Core
             TryAddTessera(results, counts, diceValues);
             AddBrokenCast(results);
 
-            SortByDamageDescending(results);
+            SortByCastPowerDescending(results);
             return results;
         }
 
@@ -116,7 +116,7 @@ namespace Tessera.Core
             for (int i = 0; i < counts[targetNumber]; i++)
                 includedValues.Add(targetNumber);
 
-            results.Add(_damageCalculator.CreateResult(patternType, includedValues, rawScore));
+            results.Add(_castPowerCalculator.CreateResult(patternType, includedValues, rawScore));
         }
 
         private void TryAddThreeOfAKind(List<PatternResult> results, int[] counts, IReadOnlyList<int> diceValues, int totalSum)
@@ -126,7 +126,7 @@ namespace Tessera.Core
                 if (counts[value] < 3)
                     continue;
 
-                results.Add(_damageCalculator.CreateResult(RollPatternType.ThreeOfAKind, diceValues, totalSum));
+                results.Add(_castPowerCalculator.CreateResult(RollPatternType.ThreeOfAKind, diceValues, totalSum));
                 return;
             }
         }
@@ -138,7 +138,7 @@ namespace Tessera.Core
                 if (counts[value] < 4)
                     continue;
 
-                results.Add(_damageCalculator.CreateResult(RollPatternType.FourOfAKind, diceValues, totalSum));
+                results.Add(_castPowerCalculator.CreateResult(RollPatternType.FourOfAKind, diceValues, totalSum));
                 return;
             }
         }
@@ -160,7 +160,7 @@ namespace Tessera.Core
             if (!hasTriple || !hasPair)
                 return;
 
-            results.Add(_damageCalculator.CreateResult(RollPatternType.FullHouse, diceValues, 25));
+            results.Add(_castPowerCalculator.CreateResult(RollPatternType.FullHouse, diceValues, 25));
         }
 
         private void TryAddSmallStraight(List<PatternResult> results, bool[] exists)
@@ -172,7 +172,7 @@ namespace Tessera.Core
             if (!hasLow && !hasMiddle && !hasHigh)
                 return;
 
-            results.Add(_damageCalculator.CreateResult(RollPatternType.SmallStraight, new List<int>(), 30));
+            results.Add(_castPowerCalculator.CreateResult(RollPatternType.SmallStraight, new List<int>(), 30));
         }
 
         private void TryAddLargeStraight(List<PatternResult> results, bool[] exists, IReadOnlyList<int> diceValues)
@@ -183,12 +183,12 @@ namespace Tessera.Core
             if (!hasLow && !hasHigh)
                 return;
 
-            results.Add(_damageCalculator.CreateResult(RollPatternType.LargeStraight, diceValues, 40));
+            results.Add(_castPowerCalculator.CreateResult(RollPatternType.LargeStraight, diceValues, 40));
         }
 
         private void AddChance(List<PatternResult> results, IReadOnlyList<int> diceValues, int totalSum)
         {
-            results.Add(_damageCalculator.CreateResult(RollPatternType.Chance, diceValues, totalSum));
+            results.Add(_castPowerCalculator.CreateResult(RollPatternType.Chance, diceValues, totalSum));
         }
 
         private void TryAddTessera(List<PatternResult> results, int[] counts, IReadOnlyList<int> diceValues)
@@ -198,14 +198,14 @@ namespace Tessera.Core
                 if (counts[value] < 5)
                     continue;
 
-                results.Add(_damageCalculator.CreateResult(RollPatternType.Tessera, diceValues, 50));
+                results.Add(_castPowerCalculator.CreateResult(RollPatternType.Tessera, diceValues, 50));
                 return;
             }
         }
 
         private void AddBrokenCast(List<PatternResult> results)
         {
-            results.Add(_damageCalculator.CreateResult(RollPatternType.BrokenCast, Array.Empty<int>(), 0));
+            results.Add(_castPowerCalculator.CreateResult(RollPatternType.BrokenCast, Array.Empty<int>(), 0));
         }
 
         private static PatternResult FindBestNonBrokenResult(IReadOnlyList<PatternResult> results)
@@ -239,14 +239,14 @@ namespace Tessera.Core
             return exists;
         }
 
-        private static void SortByDamageDescending(List<PatternResult> results)
+        private static void SortByCastPowerDescending(List<PatternResult> results)
         {
             results.Sort((a, b) =>
             {
-                int damageComparison = b.FinalDamage.CompareTo(a.FinalDamage);
+                int castPowerComparison = b.CastPower.CompareTo(a.CastPower);
 
-                if (damageComparison != 0)
-                    return damageComparison;
+                if (castPowerComparison != 0)
+                    return castPowerComparison;
 
                 return ((int)b.PatternType).CompareTo((int)a.PatternType);
             });

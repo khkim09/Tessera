@@ -12,20 +12,27 @@ namespace Tessera.Core
             if (patternResult == null)
                 return new TableRuleEvaluationResult(false, 0, 0, false, "No pattern result.");
 
-            return Evaluate(ruleContext, patternResult.PatternType, patternResult.FinalDamage);
+            return Evaluate(ruleContext, patternResult.PatternType, patternResult.CastPower);
         }
 
-        /// <summary>Round 규칙과 별도 피해값을 이용해 테이블 규칙 적용 결과를 계산한다.</summary>
+        /// <summary>Round 규칙과 별도 CastPower 값을 이용해 테이블 규칙 적용 결과를 계산한다.</summary>
         public static TableRuleEvaluationResult Evaluate(
             RoundRuleContext ruleContext,
             RollPatternType patternType,
-            int damageBeforeTableRules)
+            int castPowerBeforeTableRules)
         {
             if (ruleContext == null)
-                return new TableRuleEvaluationResult(false, damageBeforeTableRules, damageBeforeTableRules, false, "No round rule context.");
+            {
+                return new TableRuleEvaluationResult(
+                    false,
+                    castPowerBeforeTableRules,
+                    castPowerBeforeTableRules,
+                    false,
+                    "No round rule context.");
+            }
 
             IReadOnlyList<TableRule> tableRules = ruleContext.TableRules;
-            int modifiedDamage = damageBeforeTableRules;
+            int modifiedCastPower = castPowerBeforeTableRules;
             bool isBlocked = false;
             bool suppressBrokenReward = false;
             StringBuilder messageBuilder = new StringBuilder();
@@ -34,11 +41,11 @@ namespace Tessera.Core
             {
                 TableRule rule = tableRules[i];
 
-                if (rule.RuleType == TableRuleType.NonAcesDamagePercent)
+                if (rule.RuleType == TableRuleType.NonAcesCastPowerPercent)
                 {
                     if (patternType != RollPatternType.Aces && patternType != RollPatternType.BrokenCast)
                     {
-                        modifiedDamage = modifiedDamage * rule.Value / 100;
+                        modifiedCastPower = modifiedCastPower * rule.Value / 100;
                         AppendRuleMessage(messageBuilder, rule.Description);
                     }
                 }
@@ -68,8 +75,8 @@ namespace Tessera.Core
 
             return new TableRuleEvaluationResult(
                 isBlocked,
-                damageBeforeTableRules,
-                modifiedDamage,
+                castPowerBeforeTableRules,
+                modifiedCastPower,
                 suppressBrokenReward,
                 message);
         }

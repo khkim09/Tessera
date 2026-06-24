@@ -30,8 +30,14 @@ namespace Tessera.Core
         /// <summary>SlotPair 슬롯별 DiceIndex 매핑.</summary>
         public IReadOnlyList<int> LockSlotDiceIndexes => lockSlotDiceIndexes;
 
-        /// <summary>Clash 비교에 사용할 최종 피해값.</summary>
-        public int FinalDamage { get; }
+        /// <summary>Clash 승패 비교에 사용할 CastPower 값이다.</summary>
+        public int CastPower { get; }
+
+        /// <summary>UI/AI 후보 평가용 예상 ImpactDamage 값이다.</summary>
+        public int ExpectedImpactDamage { get; }
+
+        /// <summary>UI/AI 후보 평가용 예상 ImpactDamage 계산 내역이다.</summary>
+        public ImpactDamageBreakdown ExpectedImpactBreakdown { get; }
 
         /// <summary>Broken Cast 여부.</summary>
         public bool IsBrokenCast { get; }
@@ -43,7 +49,9 @@ namespace Tessera.Core
             SlotPairDamagePreview slotPairDamagePreview,
             TableRuleEvaluationResult tableRuleEvaluationResult,
             IReadOnlyList<int> diceValues,
-            IReadOnlyList<int> lockSlotDiceIndexes)
+            IReadOnlyList<int> lockSlotDiceIndexes,
+            RoundRuleContext ruleContext,
+            ImpactDamageCalculator impactDamageCalculator)
         {
             Owner = owner;
             PatternResult = patternResult ?? throw new ArgumentNullException(nameof(patternResult));
@@ -59,8 +67,14 @@ namespace Tessera.Core
                 : new List<int>();
 
             PatternType = patternResult.PatternType;
-            FinalDamage = Math.Max(0, tableRuleEvaluationResult.ModifiedDamage);
+            CastPower = Math.Max(0, tableRuleEvaluationResult.ModifiedCastPower);
             IsBrokenCast = PatternType == RollPatternType.BrokenCast;
+
+            ExpectedImpactBreakdown = impactDamageCalculator != null && ruleContext != null
+                ? impactDamageCalculator.CalculateExpected(ruleContext, this, 0)
+                : ImpactDamageBreakdown.Zero(ruleContext != null ? ruleContext.ImpactCap : 0);
+
+            ExpectedImpactDamage = ExpectedImpactBreakdown.AppliedImpactDamage;
         }
     }
 }

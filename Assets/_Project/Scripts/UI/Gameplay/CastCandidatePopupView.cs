@@ -144,7 +144,7 @@ namespace Tessera.UI
             if (scoreCompare != 0)
                 return scoreCompare;
 
-            int damageCompare = right.DamageAfterTableRules.CompareTo(left.DamageAfterTableRules);
+            int damageCompare = right.CastPowerAfterTableRules.CompareTo(left.CastPowerAfterTableRules);
 
             if (damageCompare != 0)
                 return damageCompare;

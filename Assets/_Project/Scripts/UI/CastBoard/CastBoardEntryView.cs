@@ -1,4 +1,4 @@
-using Tessera.Core;
+﻿using Tessera.Core;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -54,10 +54,10 @@ namespace Tessera.UI
 
         private static string BuildDamageText(CastBoardEntryModel model)
         {
-            if (model.DamageBeforeTableRules != model.DamageAfterTableRules)
-                return $"{model.DamageBeforeTableRules} → {model.DamageAfterTableRules}";
+            if (model.CastPowerBeforeTableRules != model.CastPowerAfterTableRules)
+                return $"{model.CastPowerBeforeTableRules} → {model.CastPowerAfterTableRules}";
 
-            return model.DamageAfterTableRules.ToString();
+            return model.CastPowerAfterTableRules.ToString();
         }
 
         private void ApplyBackgroundColor(CastBoardEntryModel model)

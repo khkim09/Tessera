@@ -6,11 +6,11 @@
         /// <summary>Cast 사용이 테이블 규칙에 의해 막혔는지 확인한다.</summary>
         public bool IsCastBlocked { get; }
 
-        /// <summary>규칙 적용 전 피해량.</summary>
-        public int OriginalDamage { get; }
+        /// <summary>규칙 적용 전 CastPower 값이다.</summary>
+        public int OriginalCastPower { get; }
 
-        /// <summary>규칙 적용 후 피해량.</summary>
-        public int ModifiedDamage { get; }
+        /// <summary>규칙 적용 후 CastPower 값이다.</summary>
+        public int ModifiedCastPower { get; }
 
         /// <summary>Broken Cast 보상이 막혔는지 확인한다.</summary>
         public bool IsBrokenCastRewardSuppressed { get; }
@@ -21,14 +21,14 @@
         /// <summary>테이블 규칙 적용 결과를 생성한다.</summary>
         public TableRuleEvaluationResult(
             bool isCastBlocked,
-            int originalDamage,
-            int modifiedDamage,
+            int originalCastPower,
+            int modifiedCastPower,
             bool isBrokenCastRewardSuppressed,
             string message)
         {
             IsCastBlocked = isCastBlocked;
-            OriginalDamage = originalDamage;
-            ModifiedDamage = modifiedDamage;
+            OriginalCastPower = originalCastPower;
+            ModifiedCastPower = modifiedCastPower;
             IsBrokenCastRewardSuppressed = isBrokenCastRewardSuppressed;
             Message = message ?? string.Empty;
         }

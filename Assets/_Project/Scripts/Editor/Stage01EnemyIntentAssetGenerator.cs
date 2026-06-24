@@ -37,23 +37,31 @@ namespace Tessera.Editor
                 IntentPath_OpponentOpeningStrike,
                 "intent_opponent_opening_strike",
                 "Opening Strike",
-                "Opponent rolls first and sets the damage target.",
-                "Opponent acts first. Beat its damage or use Broken Cast.",
+                "Opponent rolls first and sets the CastPower target.",
+                "Opponent acts first. Beat its Power or use Broken Cast.",
                 EnemyIntentCategoryType.Aggression,
                 InitiativeOwnerType.Opponent,
                 useOpponentDevices: true,
-                chooseBestAvailableCast: true);
+                chooseBestAvailableCast: true,
+                opponentRollCount: 3,
+                targetImpactToStop: 7,
+                stopIfBeatsPlayerPower: true,
+                rollStrategy: OpponentRollStrategyType.Balanced);
 
             EnemyIntentDefinitionSO intentPlayerOpeningWindow = CreateOrUpdateIntent(
                 IntentPath_PlayerOpeningWindow,
                 "intent_player_opening_window",
                 "Opening Window",
                 "You act first before the opponent responds.",
-                "You act first. Set damage before the opponent rolls.",
+                "You act first. Set Power before the opponent rolls.",
                 EnemyIntentCategoryType.Tactics,
                 InitiativeOwnerType.Player,
                 useOpponentDevices: true,
-                chooseBestAvailableCast: true);
+                chooseBestAvailableCast: true,
+                opponentRollCount: 3,
+                targetImpactToStop: 6,
+                stopIfBeatsPlayerPower: true,
+                rollStrategy: OpponentRollStrategyType.Balanced);
 
             EnemyIntentDefinitionSO intentOpponentNoDeviceStrike = CreateOrUpdateIntent(
                 IntentPath_OpponentNoDeviceStrike,
@@ -64,7 +72,11 @@ namespace Tessera.Editor
                 EnemyIntentCategoryType.Aggression,
                 InitiativeOwnerType.Opponent,
                 useOpponentDevices: false,
-                chooseBestAvailableCast: true);
+                chooseBestAvailableCast: true,
+                opponentRollCount: 2,
+                targetImpactToStop: 5,
+                stopIfBeatsPlayerPower: true,
+                rollStrategy: OpponentRollStrategyType.Balanced);
 
             AssetDatabase.SaveAssets();
 
@@ -78,8 +90,8 @@ namespace Tessera.Editor
             AssetDatabase.Refresh();
 
             Debug.Log($"[Stage01EnemyIntentAssetGenerator] Generation complete.\n" +
-                      $"  Intents: {IntentPath_OpponentOpeningStrike}, {IntentPath_PlayerOpeningWindow}, {IntentPath_OpponentNoDeviceStrike}\n" +
-                      $"  Rounds: {RoundPath_TutorialTarget}, {RoundPath_Round01}, {RoundPath_Round02}, {RoundPath_Boss}");
+                    $"  Intents: {IntentPath_OpponentOpeningStrike}, {IntentPath_PlayerOpeningWindow}, {IntentPath_OpponentNoDeviceStrike}\n" +
+                    $"  Rounds: {RoundPath_TutorialTarget}, {RoundPath_Round01}, {RoundPath_Round02}, {RoundPath_Boss}");
         }
 
         // ── 폴더 생성 ─────────────────────────────────────────────────────
@@ -109,7 +121,11 @@ namespace Tessera.Editor
             EnemyIntentCategoryType categoryType,
             InitiativeOwnerType initiativeOwner,
             bool useOpponentDevices,
-            bool chooseBestAvailableCast)
+            bool chooseBestAvailableCast,
+            int opponentRollCount,
+            int targetImpactToStop,
+            bool stopIfBeatsPlayerPower,
+            OpponentRollStrategyType rollStrategy)
         {
             EnemyIntentDefinitionSO asset = AssetDatabase.LoadAssetAtPath<EnemyIntentDefinitionSO>(assetPath);
 
@@ -134,6 +150,10 @@ namespace Tessera.Editor
             SetSerializedFieldEnum(so, "initiativeOwner", (int)initiativeOwner);
             SetSerializedFieldBool(so, "useOpponentDevices", useOpponentDevices);
             SetSerializedFieldBool(so, "chooseBestAvailableCast", chooseBestAvailableCast);
+            SetSerializedFieldInt(so, "opponentRollCount", opponentRollCount);
+            SetSerializedFieldInt(so, "targetImpactToStop", targetImpactToStop);
+            SetSerializedFieldBool(so, "stopIfBeatsPlayerPower", stopIfBeatsPlayerPower);
+            SetSerializedFieldEnum(so, "rollStrategy", (int)rollStrategy);
 
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(asset);
@@ -271,6 +291,20 @@ namespace Tessera.Editor
                 return;
             }
             prop.boolValue = value;
+        }
+
+        /// <summary>SerializedObject에서 int 필드를 안전하게 설정한다.</summary>
+        private static void SetSerializedFieldInt(SerializedObject so, string fieldName, int value)
+        {
+            SerializedProperty prop = so.FindProperty(fieldName);
+
+            if (prop == null)
+            {
+                Debug.LogError($"[Stage01EnemyIntentAssetGenerator] SerializedProperty '{fieldName}' is null. Check field name.");
+                return;
+            }
+
+            prop.intValue = value;
         }
 
         /// <summary>SerializedObject에서 enum 필드를 안전하게 설정한다.</summary>

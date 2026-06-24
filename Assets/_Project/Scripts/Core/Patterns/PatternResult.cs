@@ -29,14 +29,14 @@ namespace Tessera.Core
         /// <summary>Cast Score에 적용되는 기본 Force 값.</summary>
         public int BaseForce { get; }
 
-        /// <summary>기존 코드 호환용 피해 배율 값이며 BaseForce와 동일하다.</summary>
-        public int DamageMultiplier => BaseForce;
+        /// <summary>Force 계산 이후 더해지는 고정 Power 보너스다.</summary>
+        public int TruePower { get; }
 
-        /// <summary>Force 계산 이후 더해지는 고정 피해 보너스.</summary>
-        public int ExtraBonus { get; }
+        /// <summary>Clash 승리 시 RawImpactDamage에 들어가는 Cast 등급 기본값이다.</summary>
+        public int BaseImpact { get; }
 
-        /// <summary>Table Rule 적용 전 피해량.</summary>
-        public int FinalDamage { get; }
+        /// <summary>Clash 승패 비교에 사용하는 CastPower 값이다.</summary>
+        public int CastPower { get; }
 
         /// <summary>Cast 카테고리 판정 결과를 생성한다.</summary>
         public PatternResult(
@@ -45,8 +45,9 @@ namespace Tessera.Core
             int rawCastScore,
             int flatBonus,
             int baseForce,
-            int extraBonus,
-            int finalDamage)
+            int truePower,
+            int baseImpact,
+            int castPower)
         {
             if (includedDiceValues == null)
                 throw new ArgumentNullException(nameof(includedDiceValues));
@@ -57,14 +58,15 @@ namespace Tessera.Core
             RawCastScore = rawCastScore;
             FlatBonus = flatBonus;
             BaseForce = baseForce;
-            ExtraBonus = extraBonus;
-            FinalDamage = finalDamage;
+            TruePower = truePower;
+            BaseImpact = baseImpact;
+            CastPower = castPower;
         }
 
         /// <summary>디버그용 Cast 결과 문자열을 반환한다.</summary>
         public override string ToString()
         {
-            return $"{PatternType} | Score={RawCastScore}, Flat={FlatBonus}, Force={BaseForce}, Extra={ExtraBonus}, Damage={FinalDamage}";
+            return $"{PatternType} | Score={RawCastScore}, Flat={FlatBonus}, Force={BaseForce}, TruePower={TruePower}, BaseImpact={BaseImpact}, CastPower={CastPower}";
         }
 
         /// <summary>정수 목록의 합계를 계산한다.</summary>

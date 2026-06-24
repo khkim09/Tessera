@@ -333,14 +333,14 @@ namespace Tessera.Editor
             int requiredMaxDiceValue,
             int requiredSlotIndex,
             int requiredStageThreatLevel,
-            int trueDamageValue)
+            int truePowerValue)
         {
             SlotPairDeviceDefinitionSO asset = LoadOrCreateAsset<SlotPairDeviceDefinitionSO>(path);
             ApplyDeviceFields(asset, deviceId, displayName, description, deviceType,
                 intValue, floatValue, forceThreshold,
                 requiredPatternType, secondaryPatternType, requiredParity,
                 requiredMinDiceValue, requiredMaxDiceValue, requiredSlotIndex,
-                requiredStageThreatLevel, trueDamageValue);
+                requiredStageThreatLevel, truePowerValue);
         }
 
         // ── Device SO 생성 ─────────────────────────────────────────────
@@ -421,8 +421,8 @@ namespace Tessera.Editor
 
             CreateDevice(DevicesCommonPath + "/Device_EndValveLight.asset",
                 "device.end_valve_light", "소형 엔드 밸브",
-                "5번 슬롯이면 True Damage +15.",
-                SlotPairDeviceType.AddTrueDamageIfSlotIndex, 0, 1f, 0f,
+                "5번 슬롯이면 True Power +15.",
+                SlotPairDeviceType.AddTruePowerIfSlotIndex, 0, 1f, 0f,
                 RollPatternType.None, RollPatternType.None,
                 DiceValueParity.Any, 1, 6, 4, 0, 15);
 
@@ -478,8 +478,8 @@ namespace Tessera.Editor
 
             CreateDevice(DevicesRarePath + "/Device_EndValve.asset",
                 "device.end_valve", "엔드 밸브",
-                "앞 슬롯 합이 20 이상이면 True Damage +35.",
-                SlotPairDeviceType.AddTrueDamageIfPreviousSlotsSumAtLeast, 20, 1f, 0f,
+                "앞 슬롯 합이 20 이상이면 True Power +35.",
+                SlotPairDeviceType.AddTruePowerIfPreviousSlotsSumAtLeast, 20, 1f, 0f,
                 RollPatternType.None, RollPatternType.None,
                 DiceValueParity.Any, 1, 6, -1, 0, 35);
 
@@ -508,14 +508,14 @@ namespace Tessera.Editor
             int requiredMaxDiceValue,
             int requiredSlotIndex,
             int requiredStageThreatLevel,
-            int trueDamageValue)
+            int truePowerValue)
         {
             SlotPairDeviceDefinitionSO asset = LoadOrCreateAsset<SlotPairDeviceDefinitionSO>(path);
             ApplyDeviceFields(asset, deviceId, displayName, description, deviceType,
                 intValue, floatValue, forceThreshold,
                 requiredPatternType, secondaryPatternType, requiredParity,
                 requiredMinDiceValue, requiredMaxDiceValue, requiredSlotIndex,
-                requiredStageThreatLevel, trueDamageValue);
+                requiredStageThreatLevel, truePowerValue);
         }
 
         /// <summary>SerializedObject를 통해 Device SO 필드를 설정한다.</summary>
@@ -535,7 +535,7 @@ namespace Tessera.Editor
             int requiredMaxDiceValue,
             int requiredSlotIndex,
             int requiredStageThreatLevel,
-            int trueDamageValue)
+            int truePowerValue)
         {
             SerializedObject so = new SerializedObject(asset);
             bool allOk = true;
@@ -554,7 +554,7 @@ namespace Tessera.Editor
             allOk &= SetInt(so, "requiredMaxDiceValue", requiredMaxDiceValue);
             allOk &= SetInt(so, "requiredSlotIndex", requiredSlotIndex);
             allOk &= SetInt(so, "requiredStageThreatLevel", requiredStageThreatLevel);
-            allOk &= SetInt(so, "trueDamageValue", trueDamageValue);
+            allOk &= SetInt(so, "truePowerValue", truePowerValue);
 
             if (!allOk)
             {
@@ -989,7 +989,7 @@ namespace Tessera.Editor
 
             CreateShopProductDevice(ShopDevicesPath + "/ShopProduct_Device_EndValveLight.asset",
                 "shop.device.end_valve_light", "Light End Valve",
-                "Adds True Damage +15 if this is slot index 5.",
+                "Adds True Power +15 if this is slot index 5.",
                 ShopProductType.Device, 1, 5, 0,
                 DevicesCommonPath + "/Device_EndValveLight.asset");
 
@@ -1037,7 +1037,7 @@ namespace Tessera.Editor
 
             CreateShopProductDevice(ShopDevicesPath + "/ShopProduct_Device_EndValve.asset",
                 "shop.device.end_valve", "End Valve",
-                "Adds True Damage +35 if the sum of previous slots is at least 20.",
+                "Adds True Power +35 if the sum of previous slots is at least 20.",
                 ShopProductType.Device, 2, 9, 0,
                 DevicesRarePath + "/Device_EndValve.asset");
 

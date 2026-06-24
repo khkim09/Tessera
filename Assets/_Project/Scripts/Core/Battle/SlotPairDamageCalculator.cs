@@ -28,7 +28,9 @@ namespace Tessera.Core
 
             int currentScore = patternResult.RawCastScore + patternResult.FlatBonus;
             float currentForce = patternResult.BaseForce;
-            int currentTrueDamage = 0;
+            int currentTruePower = 0;
+            int currentDeviceImpactBonus = 0;
+            int currentTrueImpactDamage = 0;
 
             List<SlotPairDamageStep> steps = new List<SlotPairDamageStep>();
 
@@ -49,18 +51,18 @@ namespace Tessera.Core
                     calculationContext,
                     currentScore,
                     currentForce,
-                    currentTrueDamage,
+                    currentTruePower,
                     out currentScore,
                     out currentForce,
-                    out currentTrueDamage);
+                    out currentTruePower);
 
                 steps.Add(step);
             }
 
-            int damageBeforeRules = CalculateDamageBeforeRules(
+            int castPowerBeforeRules = CalculateCastPowerBeforeRules(
                 currentScore,
                 currentForce,
-                patternResult.ExtraBonus + currentTrueDamage);
+                patternResult.TruePower + currentTruePower);
 
             return new SlotPairDamagePreview(
                 patternResult.PatternType,
@@ -69,8 +71,10 @@ namespace Tessera.Core
                 patternResult.BaseForce,
                 currentScore,
                 currentForce,
-                currentTrueDamage,
-                damageBeforeRules,
+                currentTruePower,
+                castPowerBeforeRules,
+                currentDeviceImpactBonus,
+                currentTrueImpactDamage,
                 steps);
         }
 
@@ -85,20 +89,20 @@ namespace Tessera.Core
             SlotPairCalculationContext calculationContext,
             int scoreBefore,
             float forceBefore,
-            int trueDamageBefore,
+            int truePowerBefore,
             out int scoreAfter,
             out float forceAfter,
-            out int trueDamageAfter)
+            out int truePowerAfter)
         {
             scoreAfter = scoreBefore;
             forceAfter = forceBefore;
-            trueDamageAfter = trueDamageBefore;
+            truePowerAfter = truePowerBefore;
 
             if (device == null || device.DeviceType == SlotPairDeviceType.None)
-                return CreateStep(slotIndex, diceIndex, diceValue, SlotPairDeviceType.None, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, false, "No device.");
+                return CreateStep(slotIndex, diceIndex, diceValue, SlotPairDeviceType.None, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, false, "No device.");
 
             if (diceIndex < 0 || diceValue <= 0)
-                return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, false, "No dice in slot.");
+                return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, false, "No dice in slot.");
 
             switch (device.DeviceType)
             {
@@ -106,16 +110,16 @@ namespace Tessera.Core
                     {
                         int addedScore = diceValue * device.IntValue;
                         scoreAfter += addedScore;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Score +{addedScore}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Score +{addedScore}.");
                     }
 
                 case SlotPairDeviceType.AddForceIfDiceIncluded:
                     {
                         if (!IsDiceValueIncluded(patternResult, diceValue))
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "Dice value is not included.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Dice value is not included.");
 
                         forceAfter += device.IntValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Force +{device.IntValue}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Force +{device.IntValue}.");
                     }
 
                 case SlotPairDeviceType.AddForceIfSameAsPrevious:
@@ -123,118 +127,118 @@ namespace Tessera.Core
                         int previousDiceValue = GetPreviousSlotDiceValue(slotIndex, lockSlotDiceIndexes, currentDiceValues);
 
                         if (previousDiceValue != diceValue)
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "Previous dice is different.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Previous dice is different.");
 
                         forceAfter += device.IntValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Force +{device.IntValue}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Force +{device.IntValue}.");
                     }
 
                 case SlotPairDeviceType.MultiplyForceIfCurrentForceAtLeast:
                     {
                         if (forceBefore < device.ForceThreshold)
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "Force threshold not met.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Force threshold not met.");
 
                         forceAfter *= device.FloatValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Force x{device.FloatValue:0.##}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Force x{device.FloatValue:0.##}.");
                     }
 
                 case SlotPairDeviceType.AddScoreIfCastType:
                     {
                         if (patternResult.PatternType != device.RequiredPatternType)
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "Cast type not matched.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Cast type not matched.");
 
                         scoreAfter += device.IntValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Score +{device.IntValue}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Score +{device.IntValue}.");
                     }
 
                 case SlotPairDeviceType.AddScoreIfDiceParity:
                     {
                         if (!MatchesParity(diceValue, device.RequiredParity))
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "Dice parity not matched.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Dice parity not matched.");
 
                         scoreAfter += device.IntValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Score +{device.IntValue}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Score +{device.IntValue}.");
                     }
 
                 case SlotPairDeviceType.AddForceIfDiceParity:
                     {
                         if (!MatchesParity(diceValue, device.RequiredParity))
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "Dice parity not matched.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Dice parity not matched.");
 
                         forceAfter += device.IntValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Force +{device.IntValue}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Force +{device.IntValue}.");
                     }
 
                 case SlotPairDeviceType.MultiplyForceIfDiceParity:
                     {
                         if (!MatchesParity(diceValue, device.RequiredParity))
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "Dice parity not matched.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Dice parity not matched.");
 
                         forceAfter *= device.FloatValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Force x{device.FloatValue:0.##}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Force x{device.FloatValue:0.##}.");
                     }
 
                 case SlotPairDeviceType.AddScoreIfDiceValueAtLeast:
                     {
                         if (diceValue < device.RequiredMinDiceValue)
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "Dice value is too low.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Dice value is too low.");
 
                         scoreAfter += device.IntValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Score +{device.IntValue}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Score +{device.IntValue}.");
                     }
 
                 case SlotPairDeviceType.AddScoreIfDiceValueAtMost:
                     {
                         if (diceValue > device.RequiredMaxDiceValue)
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "Dice value is too high.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Dice value is too high.");
 
                         scoreAfter += device.IntValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Score +{device.IntValue}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Score +{device.IntValue}.");
                     }
 
                 case SlotPairDeviceType.AddForceIfDiceValueAtLeast:
                     {
                         if (diceValue < device.RequiredMinDiceValue)
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "Dice value is too low.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Dice value is too low.");
 
                         forceAfter += device.IntValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Force +{device.IntValue}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Force +{device.IntValue}.");
                     }
 
                 case SlotPairDeviceType.AddForceIfDiceValueAtMost:
                     {
                         if (diceValue > device.RequiredMaxDiceValue)
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "Dice value is too high.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Dice value is too high.");
 
                         forceAfter += device.IntValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Force +{device.IntValue}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Force +{device.IntValue}.");
                     }
 
                 case SlotPairDeviceType.MultiplyForceIfDiceValueAtLeast:
                     {
                         if (diceValue < device.RequiredMinDiceValue)
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "Dice value is too low.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Dice value is too low.");
 
                         forceAfter *= device.FloatValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Force x{device.FloatValue:0.##}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Force x{device.FloatValue:0.##}.");
                     }
 
                 case SlotPairDeviceType.AddScoreIfSlotIndex:
                     {
                         if (slotIndex != device.RequiredSlotIndex)
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "Slot index not matched.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Slot index not matched.");
 
                         scoreAfter += device.IntValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Score +{device.IntValue}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Score +{device.IntValue}.");
                     }
 
-                case SlotPairDeviceType.AddTrueDamageIfSlotIndex:
+                case SlotPairDeviceType.AddTruePowerIfSlotIndex:
                     {
                         if (slotIndex != device.RequiredSlotIndex)
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "Slot index not matched.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Slot index not matched.");
 
-                        trueDamageAfter += device.TrueDamageValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"True Damage +{device.TrueDamageValue}.");
+                        truePowerAfter += device.TruePowerValue;
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"True Power +{device.TruePowerValue}.");
                     }
 
                 case SlotPairDeviceType.AddForceIfGreaterThanPrevious:
@@ -242,10 +246,10 @@ namespace Tessera.Core
                         int previousDiceValue = GetPreviousSlotDiceValue(slotIndex, lockSlotDiceIndexes, currentDiceValues);
 
                         if (previousDiceValue <= 0 || diceValue <= previousDiceValue)
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "Dice is not greater than previous.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Dice is not greater than previous.");
 
                         forceAfter += device.IntValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Force +{device.IntValue}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Force +{device.IntValue}.");
                     }
 
                 case SlotPairDeviceType.MultiplyForceIfGreaterThanPrevious:
@@ -253,10 +257,10 @@ namespace Tessera.Core
                         int previousDiceValue = GetPreviousSlotDiceValue(slotIndex, lockSlotDiceIndexes, currentDiceValues);
 
                         if (previousDiceValue <= 0 || diceValue <= previousDiceValue)
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "Dice is not greater than previous.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Dice is not greater than previous.");
 
                         forceAfter *= device.FloatValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Force x{device.FloatValue:0.##}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Force x{device.FloatValue:0.##}.");
                     }
 
                 case SlotPairDeviceType.AddForceIfSameAsMirrorSlot:
@@ -264,79 +268,79 @@ namespace Tessera.Core
                         int mirrorDiceValue = GetMirrorSlotDiceValue(slotIndex, lockSlotDiceIndexes, currentDiceValues);
 
                         if (mirrorDiceValue <= 0 || mirrorDiceValue != diceValue)
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "Mirror slot dice is different.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Mirror slot dice is different.");
 
                         forceAfter += device.IntValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Force +{device.IntValue}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Force +{device.IntValue}.");
                     }
 
                 case SlotPairDeviceType.AddScoreIfIsolatedFromNeighbors:
                     {
                         if (!IsIsolatedFromNeighbors(slotIndex, diceValue, lockSlotDiceIndexes, currentDiceValues))
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "Neighbor difference condition not met.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Neighbor difference condition not met.");
 
                         scoreAfter += device.IntValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Score +{device.IntValue}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Score +{device.IntValue}.");
                     }
 
                 case SlotPairDeviceType.AddScoreIfCastTypeEither:
                     {
                         if (!MatchesEitherCast(patternResult.PatternType, device.RequiredPatternType, device.SecondaryPatternType))
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "Cast type not matched.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Cast type not matched.");
 
                         scoreAfter += device.IntValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Score +{device.IntValue}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Score +{device.IntValue}.");
                     }
 
                 case SlotPairDeviceType.AddForceIfCastTypeEither:
                     {
                         if (!MatchesEitherCast(patternResult.PatternType, device.RequiredPatternType, device.SecondaryPatternType))
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "Cast type not matched.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Cast type not matched.");
 
                         forceAfter += device.IntValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Force +{device.IntValue}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Force +{device.IntValue}.");
                     }
 
                 case SlotPairDeviceType.MultiplyForceIfCastType:
                     {
                         if (patternResult.PatternType != device.RequiredPatternType)
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "Cast type not matched.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Cast type not matched.");
 
                         forceAfter *= device.FloatValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Force x{device.FloatValue:0.##}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Force x{device.FloatValue:0.##}.");
                     }
 
-                case SlotPairDeviceType.AddTrueDamageIfPreviousSlotsSumAtLeast:
+                case SlotPairDeviceType.AddTruePowerIfPreviousSlotsSumAtLeast:
                     {
                         int previousSum = GetPreviousSlotsDiceValueSum(slotIndex, lockSlotDiceIndexes, currentDiceValues);
 
                         if (previousSum < device.IntValue)
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, $"Previous slot sum {previousSum} is too low.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, $"Previous slot sum {previousSum} is too low.");
 
-                        trueDamageAfter += device.TrueDamageValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"True Damage +{device.TrueDamageValue}.");
+                        truePowerAfter += device.TruePowerValue;
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"True Power +{device.TruePowerValue}.");
                     }
 
                 case SlotPairDeviceType.AddScoreIfStageThreatAtLeast:
                     {
                         if (calculationContext.StageThreatLevel < device.RequiredStageThreatLevel)
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "StageThreat condition not met.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "StageThreat condition not met.");
 
                         scoreAfter += device.IntValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Score +{device.IntValue}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Score +{device.IntValue}.");
                     }
 
                 case SlotPairDeviceType.AddForceIfStageThreatAtLeast:
                     {
                         if (calculationContext.StageThreatLevel < device.RequiredStageThreatLevel)
-                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "StageThreat condition not met.");
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "StageThreat condition not met.");
 
                         forceAfter += device.IntValue;
-                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, trueDamageBefore, trueDamageAfter, true, $"Force +{device.IntValue}.");
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Force +{device.IntValue}.");
                     }
 
                 default:
-                    return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, trueDamageBefore, "Unsupported device.");
+                    return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Unsupported device.");
             }
         }
 
@@ -347,7 +351,7 @@ namespace Tessera.Core
             SlotPairDeviceDefinition device,
             int scoreBefore,
             float forceBefore,
-            int trueDamageBefore,
+            int truePowerBefore,
             string message)
         {
             return CreateStep(
@@ -359,8 +363,8 @@ namespace Tessera.Core
                 scoreBefore,
                 forceBefore,
                 forceBefore,
-                trueDamageBefore,
-                trueDamageBefore,
+                truePowerBefore,
+                truePowerBefore,
                 false,
                 message);
         }
@@ -374,8 +378,8 @@ namespace Tessera.Core
             int scoreAfter,
             float forceBefore,
             float forceAfter,
-            int trueDamageBefore,
-            int trueDamageAfter,
+            int truePowerBefore,
+            int truePowerAfter,
             bool didApply,
             string message)
         {
@@ -388,16 +392,17 @@ namespace Tessera.Core
                 scoreAfter,
                 forceBefore,
                 forceAfter,
-                trueDamageBefore,
-                trueDamageAfter,
+                truePowerBefore,
+                truePowerAfter,
                 didApply,
                 message);
         }
 
-        private static int CalculateDamageBeforeRules(int score, float force, int extraBonus)
+        /// <summary>Score, Force, TruePower를 조합해 TableRule 적용 전 CastPower를 계산한다.</summary>
+        private static int CalculateCastPowerBeforeRules(int score, float force, int truePower)
         {
-            float multipliedDamage = score * force;
-            return (int)Math.Floor(multipliedDamage) + extraBonus;
+            float multipliedPower = score * force;
+            return (int)Math.Floor(multipliedPower) + truePower;
         }
 
         private static int GetDiceIndexOrEmpty(IReadOnlyList<int> lockSlotDiceIndexes, int slotIndex)

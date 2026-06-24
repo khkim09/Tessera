@@ -10,9 +10,9 @@ namespace Tessera.UI
         [SerializeField] private CanvasGroup canvasGroup;
         [SerializeField] private bool hideWhenNoCastPreview = false;
 
-        [Header("Clash Damage Texts")]
-        [SerializeField] private TMP_Text playerClashDamageText;
-        [SerializeField] private TMP_Text opponentClashDamageText;
+        [Header("Clash Power Texts")]
+        [SerializeField] private TMP_Text playerClashPowerText;
+        [SerializeField] private TMP_Text opponentClashPowerText;
 
         [Header("Cast Preview Texts")]
         [SerializeField] private TMP_Text castText;
@@ -82,19 +82,19 @@ namespace Tessera.UI
                 SetVisible(false);
         }
 
-        /// <summary>Clash 비교용 Player/Opponent 피해 수치를 갱신한다.</summary>
-        public void RefreshClashDamage(int playerDamage, int opponentDamage)
+        /// <summary>Clash 비교용 Player/Opponent CastPower 수치를 갱신한다.</summary>
+        public void RefreshClashPower(int playerCastPower, int opponentCastPower)
         {
             SetVisible(true);
-            SetText(playerClashDamageText, playerDamage.ToString());
-            SetText(opponentClashDamageText, opponentDamage.ToString());
+            SetText(playerClashPowerText, playerCastPower.ToString());
+            SetText(opponentClashPowerText, opponentCastPower.ToString());
         }
 
         /// <summary>Clash 피해 표시를 기본값으로 초기화한다.</summary>
-        public void ClearClashDamage()
+        public void ClearClashPower()
         {
-            SetText(playerClashDamageText, "0");
-            SetText(opponentClashDamageText, "0");
+            SetText(playerClashPowerText, "0");
+            SetText(opponentClashPowerText, "0");
         }
 
         /// <summary>SlotPair 계산 중 현재 단계의 Score / Force 값을 표시한다.</summary>

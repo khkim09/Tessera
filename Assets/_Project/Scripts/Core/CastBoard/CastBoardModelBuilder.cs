@@ -31,7 +31,7 @@ namespace Tessera.Core
             RollPatternType[] orderedPatternTypes = CastBoardCatalog.GetOrderedPatternTypes();
 
             RollPatternType recommendedPatternType = RollPatternType.None;
-            int recommendedDamage = int.MinValue;
+            int recommendedCastPower = int.MinValue;
 
             for (int i = 0; i < orderedPatternTypes.Length; i++)
             {
@@ -44,15 +44,15 @@ namespace Tessera.Core
                 if (entry.PatternType == RollPatternType.BrokenCast)
                     continue;
 
-                if (entry.DamageAfterTableRules <= recommendedDamage)
+                if (entry.CastPowerAfterTableRules <= recommendedCastPower)
                     continue;
 
                 recommendedPatternType = entry.PatternType;
-                recommendedDamage = entry.DamageAfterTableRules;
+                recommendedCastPower = entry.CastPowerAfterTableRules;
             }
 
-            if (recommendedDamage == int.MinValue)
-                recommendedDamage = 0;
+            if (recommendedCastPower == int.MinValue)
+                recommendedCastPower = 0;
 
             List<CastBoardEntryModel> finalEntries = new List<CastBoardEntryModel>(entries.Count);
 
@@ -63,9 +63,10 @@ namespace Tessera.Core
                 finalEntries.Add(CloneWithRecommended(entry, isRecommended));
             }
 
-            return new CastBoardViewModel(finalEntries, recommendedPatternType, recommendedDamage);
+            return new CastBoardViewModel(finalEntries, recommendedPatternType, recommendedCastPower);
         }
 
+        /// <summary>단일 Cast Board 항목 표시 데이터를 생성한다.</summary>
         private CastBoardEntryModel BuildEntry(
             RoundState roundState,
             IReadOnlyList<int> diceValues,
@@ -80,7 +81,10 @@ namespace Tessera.Core
             bool isUsedThisRound = useCount > 0;
             bool isUsageAllowed = useCount < maxUseCount;
 
-            bool isConditionMet = _patternEvaluator.TryEvaluateSpecificPattern(diceValues, patternType, out PatternResult patternResult);
+            bool isConditionMet = _patternEvaluator.TryEvaluateSpecificPattern(
+                diceValues,
+                patternType,
+                out PatternResult patternResult);
 
             if (!isConditionMet)
             {
@@ -118,8 +122,8 @@ namespace Tessera.Core
                     maxUseCount,
                     patternResult.RawCastScore,
                     patternResult.IncludedDiceSum,
-                    tableRuleResult.OriginalDamage,
-                    tableRuleResult.ModifiedDamage,
+                    tableRuleResult.OriginalCastPower,
+                    tableRuleResult.ModifiedCastPower,
                     isRecommended,
                     "Already used in this Round.");
             }
@@ -138,8 +142,8 @@ namespace Tessera.Core
                     maxUseCount,
                     patternResult.RawCastScore,
                     patternResult.IncludedDiceSum,
-                    tableRuleResult.OriginalDamage,
-                    tableRuleResult.ModifiedDamage,
+                    tableRuleResult.OriginalCastPower,
+                    tableRuleResult.ModifiedCastPower,
                     isRecommended,
                     tableRuleResult.Message);
             }
@@ -156,12 +160,13 @@ namespace Tessera.Core
                 maxUseCount,
                 patternResult.RawCastScore,
                 patternResult.IncludedDiceSum,
-                tableRuleResult.OriginalDamage,
-                tableRuleResult.ModifiedDamage,
+                tableRuleResult.OriginalCastPower,
+                tableRuleResult.ModifiedCastPower,
                 isRecommended,
                 tableRuleResult.Message);
         }
 
+        /// <summary>추천 여부만 변경한 Cast Board 항목 복사본을 생성한다.</summary>
         private static CastBoardEntryModel CloneWithRecommended(CastBoardEntryModel source, bool isRecommended)
         {
             return new CastBoardEntryModel(
@@ -176,8 +181,8 @@ namespace Tessera.Core
                 source.MaxUseCount,
                 source.RawCastScore,
                 source.IncludedDiceSum,
-                source.DamageBeforeTableRules,
-                source.DamageAfterTableRules,
+                source.CastPowerBeforeTableRules,
+                source.CastPowerAfterTableRules,
                 isRecommended,
                 source.Message);
         }

@@ -223,14 +223,15 @@ namespace Tessera.Editor
                 diceCount: 5,
                 maxAttempts: 3,
                 roundRollPool: 8,
+                impactCap: 8,
                 maxUsesPerCastPerRound: 1,
                 maxBrokenCastUsesPerRound: 3,
                 brokenCastGrantsOvercharge: true,
                 brokenCastOverchargeAmount: 1,
                 brokenCastGrantsNextAttemptFreeReroll: true,
                 brokenCastFreeRerollTokenAmount: 1,
-                applyNonAcesDamagePenalty: false,
-                nonAcesDamagePercent: 50,
+                applyNonAcesCastPowerPenalty: false,
+                nonAcesCastPowerPercent: 50,
                 disableChance: false,
                 disableBrokenCastReward: false,
                 opponentDevicePool: new SlotPairDeviceDefinitionSO[]
@@ -282,14 +283,15 @@ namespace Tessera.Editor
                 diceCount: 5,
                 maxAttempts: 3,
                 roundRollPool: 8,
+                impactCap: 8,
                 maxUsesPerCastPerRound: 1,
                 maxBrokenCastUsesPerRound: 3,
                 brokenCastGrantsOvercharge: true,
                 brokenCastOverchargeAmount: 1,
                 brokenCastGrantsNextAttemptFreeReroll: true,
                 brokenCastFreeRerollTokenAmount: 1,
-                applyNonAcesDamagePenalty: false,
-                nonAcesDamagePercent: 50,
+                applyNonAcesCastPowerPenalty: false,
+                nonAcesCastPowerPercent: 50,
                 disableChance: false,
                 disableBrokenCastReward: false,
                 opponentDevicePool: new SlotPairDeviceDefinitionSO[]
@@ -343,14 +345,15 @@ namespace Tessera.Editor
                 diceCount: 5,
                 maxAttempts: 3,
                 roundRollPool: 8,
+                impactCap: 9,
                 maxUsesPerCastPerRound: 1,
                 maxBrokenCastUsesPerRound: 3,
                 brokenCastGrantsOvercharge: true,
                 brokenCastOverchargeAmount: 1,
                 brokenCastGrantsNextAttemptFreeReroll: true,
                 brokenCastFreeRerollTokenAmount: 1,
-                applyNonAcesDamagePenalty: false,
-                nonAcesDamagePercent: 50,
+                applyNonAcesCastPowerPenalty: false,
+                nonAcesCastPowerPercent: 50,
                 disableChance: false,
                 disableBrokenCastReward: false,
                 opponentDevicePool: new SlotPairDeviceDefinitionSO[]
@@ -406,14 +409,15 @@ namespace Tessera.Editor
                 diceCount: 5,
                 maxAttempts: 3,
                 roundRollPool: 8,
+                impactCap: 11,
                 maxUsesPerCastPerRound: 1,
                 maxBrokenCastUsesPerRound: 3,
                 brokenCastGrantsOvercharge: true,
                 brokenCastOverchargeAmount: 1,
                 brokenCastGrantsNextAttemptFreeReroll: true,
                 brokenCastFreeRerollTokenAmount: 1,
-                applyNonAcesDamagePenalty: true,
-                nonAcesDamagePercent: 50,
+                applyNonAcesCastPowerPenalty: true,
+                nonAcesCastPowerPercent: 50,
                 disableChance: false,
                 disableBrokenCastReward: false,
                 opponentDevicePool: new SlotPairDeviceDefinitionSO[]
@@ -451,14 +455,15 @@ namespace Tessera.Editor
             int diceCount,
             int maxAttempts,
             int roundRollPool,
+            int impactCap,
             int maxUsesPerCastPerRound,
             int maxBrokenCastUsesPerRound,
             bool brokenCastGrantsOvercharge,
             int brokenCastOverchargeAmount,
             bool brokenCastGrantsNextAttemptFreeReroll,
             int brokenCastFreeRerollTokenAmount,
-            bool applyNonAcesDamagePenalty,
-            int nonAcesDamagePercent,
+            bool applyNonAcesCastPowerPenalty,
+            int nonAcesCastPowerPercent,
             bool disableChance,
             bool disableBrokenCastReward,
             SlotPairDeviceDefinitionSO[] opponentDevicePool,
@@ -480,14 +485,15 @@ namespace Tessera.Editor
             so.FindProperty("diceCount").intValue = diceCount;
             so.FindProperty("maxAttempts").intValue = maxAttempts;
             so.FindProperty("roundRollPool").intValue = roundRollPool;
+            so.FindProperty("impactCap").intValue = impactCap;
             so.FindProperty("maxUsesPerCastPerRound").intValue = maxUsesPerCastPerRound;
             so.FindProperty("maxBrokenCastUsesPerRound").intValue = maxBrokenCastUsesPerRound;
             so.FindProperty("brokenCastGrantsOvercharge").boolValue = brokenCastGrantsOvercharge;
             so.FindProperty("brokenCastOverchargeAmount").intValue = brokenCastOverchargeAmount;
             so.FindProperty("brokenCastGrantsNextAttemptFreeReroll").boolValue = brokenCastGrantsNextAttemptFreeReroll;
             so.FindProperty("brokenCastFreeRerollTokenAmount").intValue = brokenCastFreeRerollTokenAmount;
-            so.FindProperty("applyNonAcesDamagePenalty").boolValue = applyNonAcesDamagePenalty;
-            so.FindProperty("nonAcesDamagePercent").intValue = nonAcesDamagePercent;
+            so.FindProperty("applyNonAcesCastPowerPenalty").boolValue = applyNonAcesCastPowerPenalty;
+            so.FindProperty("nonAcesCastPowerPercent").intValue = nonAcesCastPowerPercent;
             so.FindProperty("disableChance").boolValue = disableChance;
             so.FindProperty("disableBrokenCastReward").boolValue = disableBrokenCastReward;
 

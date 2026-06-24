@@ -46,8 +46,8 @@ namespace Tessera.Data
         [Header("Run Conditions")]
         [SerializeField] private int requiredStageThreatLevel;
 
-        [Header("True Damage")]
-        [SerializeField] private int trueDamageValue;
+        [Header("True Power")]
+        [SerializeField] private int truePowerValue;
 
         public string DeviceId => deviceId;
         public string DisplayName => displayName;
@@ -76,7 +76,7 @@ namespace Tessera.Data
 
         public int RequiredSlotIndex => requiredSlotIndex;
         public int RequiredStageThreatLevel => Mathf.Max(0, requiredStageThreatLevel);
-        public int TrueDamageValue => Mathf.Max(0, trueDamageValue);
+        public int TruePowerValue => Mathf.Max(0, truePowerValue);
 
         /// <summary>Device SO를 현재 Core 계산용 정의로 변환한다.</summary>
         public SlotPairDeviceDefinition ToCoreDefinition()
@@ -112,7 +112,7 @@ namespace Tessera.Data
                 RequiredMaxDiceValue,
                 requiredSlotIndex,
                 RequiredStageThreatLevel,
-                TrueDamageValue,
+                TruePowerValue,
                 description);
         }
 
