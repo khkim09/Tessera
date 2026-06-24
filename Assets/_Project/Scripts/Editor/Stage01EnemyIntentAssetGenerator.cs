@@ -149,7 +149,9 @@ namespace Tessera.Editor
             SetSerializedFieldEnum(so, "categoryType", (int)categoryType);
             SetSerializedFieldEnum(so, "initiativeOwner", (int)initiativeOwner);
             SetSerializedFieldBool(so, "useOpponentDevices", useOpponentDevices);
-            SetSerializedFieldBool(so, "chooseBestAvailableCast", chooseBestAvailableCast);
+            SetSerializedFieldEnum(so, "castSelectionPolicy", chooseBestAvailableCast
+                ? (int)OpponentCastSelectionPolicy.UtilityBest
+                : (int)OpponentCastSelectionPolicy.DebugFirstValid);
             SetSerializedFieldInt(so, "opponentRollCount", opponentRollCount);
             SetSerializedFieldInt(so, "targetImpactToStop", targetImpactToStop);
             SetSerializedFieldBool(so, "stopIfBeatsPlayerPower", stopIfBeatsPlayerPower);

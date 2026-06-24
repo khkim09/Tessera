@@ -19,7 +19,9 @@ namespace Tessera.UI
         [Header("Colors")]
         [SerializeField] private Color normalColor = new Color(0.08f, 0.10f, 0.10f, 0.82f);
         [SerializeField] private Color selectedColor = new Color(0.22f, 0.34f, 0.55f, 0.95f);
-        [SerializeField] private Color recommendedColor = new Color(0.18f, 0.24f, 0.32f, 0.92f);
+        [SerializeField] private Color recommendedColor = new Color(1f, 0.78f, 0.12f, 0.92f);
+        [SerializeField] private Color disabledColor = new Color(0.35f, 0.35f, 0.35f, 0.75f);
+        [SerializeField] private Color killColor = new Color(0.78f, 0.12f, 0.10f, 0.95f);
 
         [Header("Hover Highlight")]
         [SerializeField] private Color hoverOutlineColor = new Color(1f, 0.86f, 0.18f, 1f);
@@ -62,14 +64,19 @@ namespace Tessera.UI
             string displayName,
             int castScore,
             bool isSelected,
-            bool isRecommended)
+            bool isRecommended,
+            bool isDisabled = false,
+            bool canKill = false)
         {
             patternType = newPatternType;
 
             SetText(castNameText, displayName);
-            SetText(scoreText, castScore.ToString());
+            SetText(scoreText, string.Empty);
 
-            ApplyColor(isSelected, isRecommended);
+            if (button != null)
+                button.interactable = !isDisabled;
+
+            ApplyColor(isSelected, isRecommended, isDisabled, canKill);
         }
 
         /// <summary>후보 행 클릭 시 해당 Cast 타입을 전달한다.</summary>
@@ -79,10 +86,24 @@ namespace Tessera.UI
         }
 
         /// <summary>선택/추천 상태에 맞는 배경색을 적용한다.</summary>
-        private void ApplyColor(bool isSelected, bool isRecommended)
+        private void ApplyColor(bool isSelected, bool isRecommended,
+            bool isDisabled = false,
+            bool canKill = false)
         {
             if (backgroundImage == null)
                 return;
+
+            if (isDisabled)
+            {
+                backgroundImage.color = disabledColor;
+                return;
+            }
+
+            if (canKill)
+            {
+                backgroundImage.color = killColor;
+                return;
+            }
 
             if (isSelected)
             {

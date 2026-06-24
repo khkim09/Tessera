@@ -125,12 +125,12 @@ namespace Tessera.Core
             dice.SetLocked(!dice.IsLocked);
         }
 
-        /// <summary>잠기지 않은 주사위들을 Round Roll Pool을 소모해 다시 굴린다.</summary>
+        /// <summary>잠기지 않은 주사위들을 현재 Attempt의 Roll 자원을 소모해 다시 굴린다.</summary>
         public bool TryRerollUnlockedDice(RoundState roundState)
         {
             ValidatePlayableRound(roundState);
 
-            if (!roundState.TrySpendRoundRoll())
+            if (!roundState.TrySpendAttemptRoll())
                 return false;
 
             diceRoller.RollUnlocked(roundState.Dice);
@@ -264,6 +264,22 @@ namespace Tessera.Core
                 out clashCastResult);
         }
 
+        /// <summary>상대 주사위 값과 Device를 기준으로 선택 정책에 맞는 Opponent Clash Cast 결과를 생성하고 Attempt에 기록한다.</summary>
+        public bool TryBuildBestOpponentClashCastResult(
+            RoundState roundState,
+            IReadOnlyList<int> opponentDiceValues,
+            IReadOnlyList<SlotPairDeviceDefinition> opponentDeviceDefinitions,
+            OpponentCastSelectionPolicy castSelectionPolicy,
+            out ClashCastResult clashCastResult)
+        {
+            return TryBuildBestOpponentClashCastResult(
+                roundState,
+                opponentDiceValues,
+                opponentDeviceDefinitions,
+                castSelectionPolicy != OpponentCastSelectionPolicy.DebugFirstValid,
+                out clashCastResult);
+        }
+
         /// <summary>상대 주사위 값과 Device를 기준으로 Opponent Clash Cast 결과를 생성하고 Attempt에 기록한다.</summary>
         public bool TryBuildBestOpponentClashCastResult(
             RoundState roundState,
@@ -289,6 +305,22 @@ namespace Tessera.Core
             roundState.CurrentAttempt.SetOpponentClashResult(previewResult);
             clashCastResult = previewResult;
             return true;
+        }
+
+        /// <summary>상대 주사위 값과 Device를 기준으로 선택 정책에 맞는 Opponent Clash Cast 결과를 계산하되 Attempt에는 기록하지 않는다.</summary>
+        public bool TryBuildBestOpponentClashCastResultPreview(
+            RoundState roundState,
+            IReadOnlyList<int> opponentDiceValues,
+            IReadOnlyList<SlotPairDeviceDefinition> opponentDeviceDefinitions,
+            OpponentCastSelectionPolicy castSelectionPolicy,
+            out ClashCastResult clashCastResult)
+        {
+            return TryBuildBestOpponentClashCastResultPreview(
+                roundState,
+                opponentDiceValues,
+                opponentDeviceDefinitions,
+                castSelectionPolicy != OpponentCastSelectionPolicy.DebugFirstValid,
+                out clashCastResult);
         }
 
         /// <summary>상대 주사위 값과 Device를 기준으로 Opponent Clash Cast 결과를 계산하되 Attempt에는 기록하지 않는다.</summary>
@@ -463,8 +495,7 @@ namespace Tessera.Core
 
             bool canStartNextAttempt =
                 outcomeType == RoundOutcomeType.Ongoing &&
-                !roundState.IsLastAttempt() &&
-                roundState.RemainingRoundRolls > 0;
+                !roundState.IsLastAttempt();
 
             string message = BuildClashMessage(
                 roundState,
@@ -527,9 +558,6 @@ namespace Tessera.Core
                 return false;
 
             if (roundState.CurrentAttempt.AttemptNumber >= roundState.RuleContext.MaxAttempts)
-                return false;
-
-            if (roundState.RemainingRoundRolls <= 0)
                 return false;
 
             int nextAttemptNumber = roundState.CurrentAttempt.AttemptNumber + 1;
@@ -756,9 +784,6 @@ namespace Tessera.Core
             if (roundState.CurrentAttempt.AttemptNumber >= roundState.RuleContext.MaxAttempts)
                 return RoundOutcomeType.Lost;
 
-            if (roundState.RemainingRoundRolls <= 0)
-                return RoundOutcomeType.Lost;
-
             return RoundOutcomeType.Ongoing;
         }
 
@@ -792,8 +817,6 @@ namespace Tessera.Core
                     roundState.CurrentAttempt.AttemptNumber >= roundState.RuleContext.MaxAttempts)
                     return "Round lost. No attempts remain.";
 
-                if (roundState != null && roundState.RemainingRoundRolls <= 0)
-                    return "Round lost. No round rolls remain.";
 
                 return $"Round lost. Player took {appliedImpactDamageToPlayer} Impact.";
             }

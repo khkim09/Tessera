@@ -70,6 +70,7 @@ namespace Tessera.Data
         [SerializeField] private InitiativeOwnerType roundInitiativeOwner = InitiativeOwnerType.Opponent;
 
         [Header("Enemy Intent")]
+        [SerializeField] private EnemyIntentProfileSO intentProfile;
         [SerializeField] private EnemyIntentDefinitionSO openingIntent;
         [SerializeField] private EnemyIntentDefinitionSO[] intentDeck;
 
@@ -128,10 +129,13 @@ namespace Tessera.Data
         public bool AllowDuplicateOpponentDevices => allowDuplicateOpponentDevices;
 
         /// <summary>Round 시작 Attempt에서 사용할 기본 상대 Intent 정의.</summary>
-        public EnemyIntentDefinitionSO OpeningIntent => openingIntent;
+        public EnemyIntentDefinitionSO OpeningIntent => intentProfile != null && intentProfile.OpeningIntent != null ? intentProfile.OpeningIntent : openingIntent;
 
         /// <summary>Round 중 선택될 수 있는 상대 Intent 후보 목록.</summary>
-        public IReadOnlyList<EnemyIntentDefinitionSO> IntentDeck => intentDeck ?? Array.Empty<EnemyIntentDefinitionSO>();
+        public IReadOnlyList<EnemyIntentDefinitionSO> IntentDeck => intentProfile != null && intentProfile.IntentPool.Count > 0 ? intentProfile.IntentPool : intentDeck ?? Array.Empty<EnemyIntentDefinitionSO>();
+
+        /// <summary>이 Bounty가 사용할 Intent 프로필이다.</summary>
+        public EnemyIntentProfileSO IntentProfile => intentProfile;
 
         /// <summary>상대 Dice 로드아웃 정의. null이면 기본 D6 세트를 사용한다.</summary>
         public EnemyDiceLoadoutDefinitionSO OpponentDiceLoadout => opponentDiceLoadout;
@@ -148,8 +152,10 @@ namespace Tessera.Data
             if (!useOpeningIntentInitiativeAsRoundInitiative)
                 return roundInitiativeOwner;
 
-            if (openingIntent != null)
-                return openingIntent.InitiativeOwner;
+            EnemyIntentDefinitionSO resolvedOpeningIntent = OpeningIntent;
+
+            if (resolvedOpeningIntent != null)
+                return resolvedOpeningIntent.InitiativeOwner;
 
             return roundInitiativeOwner;
         }
@@ -265,8 +271,10 @@ namespace Tessera.Data
         /// <summary>Round 시작 시 사용할 Core EnemyIntent를 생성한다.</summary>
         public EnemyIntent BuildOpeningEnemyIntent()
         {
-            if (openingIntent != null)
-                return openingIntent.ToCoreIntent(enemyStrikeDamage);
+            EnemyIntentDefinitionSO resolvedOpeningIntent = OpeningIntent;
+
+            if (resolvedOpeningIntent != null)
+                return resolvedOpeningIntent.ToCoreIntent(enemyStrikeDamage);
 
             return new EnemyIntent(
                 EnemyIntentType.Strike,
@@ -279,8 +287,10 @@ namespace Tessera.Data
         /// <summary>Round 고정 Initiative를 반영해 Round 시작 Core EnemyIntent를 생성한다.</summary>
         public EnemyIntent BuildOpeningEnemyIntent(InitiativeOwnerType fixedRoundInitiativeOwner)
         {
-            if (openingIntent != null)
-                return openingIntent.ToCoreIntent(enemyStrikeDamage, fixedRoundInitiativeOwner);
+            EnemyIntentDefinitionSO resolvedOpeningIntent = OpeningIntent;
+
+            if (resolvedOpeningIntent != null)
+                return resolvedOpeningIntent.ToCoreIntent(enemyStrikeDamage, fixedRoundInitiativeOwner);
 
             EnemyIntentType intentType = fixedRoundInitiativeOwner == InitiativeOwnerType.Opponent
                 ? EnemyIntentType.Strike
@@ -298,21 +308,23 @@ namespace Tessera.Data
         public EnemyIntentDefinitionSO SelectIntentDefinitionForAttempt(int attemptNumber, int seed)
         {
             if (attemptNumber <= 1)
-                return openingIntent;
+                return OpeningIntent;
 
-            if (intentDeck == null || intentDeck.Length <= 0)
-                return openingIntent;
+            IReadOnlyList<EnemyIntentDefinitionSO> resolvedIntentDeck = IntentDeck;
+
+            if (resolvedIntentDeck == null || resolvedIntentDeck.Count <= 0)
+                return OpeningIntent;
 
             List<EnemyIntentDefinitionSO> candidates = new List<EnemyIntentDefinitionSO>();
 
-            for (int i = 0; i < intentDeck.Length; i++)
+            for (int i = 0; i < resolvedIntentDeck.Count; i++)
             {
-                if (intentDeck[i] != null)
-                    candidates.Add(intentDeck[i]);
+                if (resolvedIntentDeck[i] != null)
+                    candidates.Add(resolvedIntentDeck[i]);
             }
 
             if (candidates.Count <= 0)
-                return openingIntent;
+                return OpeningIntent;
 
             int resolvedSeed = seed + attemptNumber * 397;
             System.Random random = new System.Random(resolvedSeed);

@@ -35,6 +35,9 @@ namespace Tessera.UI
         #region Serialized Fields
 
         [Header("Round Simulator")]
+        [SerializeField] private bool useDeterministicCombatSeed = false;
+        [SerializeField] private int debugCombatSeed = 12345;
+        [SerializeField] private bool logCombatSeed;
         [SerializeField] private bool useFixedSeed = true;
         [SerializeField] private int seed = 12345;
 
@@ -181,6 +184,8 @@ namespace Tessera.UI
         private InitiativeOwnerType lockedRoundInitiativeOwner = InitiativeOwnerType.Opponent;
         private bool hasLockedRoundInitiativeOwner;
         private DiceRoller opponentDiceRoller;
+        private int combatEntrySerial;
+        private int activeCombatSeed;
 
         #endregion
 
@@ -202,7 +207,8 @@ namespace Tessera.UI
         /// <summary>Core 시뮬레이터와 ViewModel 빌더를 준비한다.</summary>
         private void Awake()
         {
-            simulator = useFixedSeed ? new CoreRoundSimulator(seed) : new CoreRoundSimulator();
+            activeCombatSeed = ResolveCombatSeed();
+            simulator = new CoreRoundSimulator(activeCombatSeed);
             castBoardModelBuilder = CastBoardModelBuilder.CreateDefault();
 
             // 슬롯 클릭 콜백은 한 번만 연결하고 이후에는 내부 매핑만 갱신한다.
@@ -241,6 +247,18 @@ namespace Tessera.UI
                 opponentSlotPairDevices = ResizeDeviceArray(opponentSlotPairDevices, SlotPairDamageCalculator.SlotPairCount);
         }
 
+
+        /// <summary>출시용/디버그용 Combat Seed를 분리해 계산한다.</summary>
+        private int ResolveCombatSeed()
+        {
+            combatEntrySerial++;
+
+            if (useDeterministicCombatSeed || useFixedSeed)
+                return debugCombatSeed != 0 ? debugCombatSeed : seed;
+
+            return unchecked(Environment.TickCount ^ (combatEntrySerial * 397) ^ Guid.NewGuid().GetHashCode());
+        }
+
         #endregion
 
         #region Public API
@@ -267,14 +285,18 @@ namespace Tessera.UI
                 return;
             }
 
+            activeCombatSeed = ResolveCombatSeed();
+            simulator = new CoreRoundSimulator(activeCombatSeed);
             roundState = simulator.StartRound(ruleContext, carriedPlayerHP, stageOverchargeState);
             currentRoundDefinition = roundDefinition;
             currentEnemyIntentDefinition = currentRoundDefinition != null
-                ? currentRoundDefinition.SelectIntentDefinitionForAttempt(1, seed)
+                ? currentRoundDefinition.SelectIntentDefinitionForAttempt(1, activeCombatSeed)
                 : null;
 
             ResolveAndStoreRoundInitiativeOwner(openingIntent);
-            opponentDiceRoller = new DiceRoller(seed + 9109);
+            opponentDiceRoller = new DiceRoller(activeCombatSeed + 9109);
+            if (logCombatSeed)
+                Debug.Log($"[Tessera][Battle] CombatSeed={activeCombatSeed} Serial={combatEntrySerial}");
 
             currentRoundDisplayName = string.IsNullOrWhiteSpace(roundDisplayName) ? "Round" : roundDisplayName;
             roundEndNotified = false;
@@ -373,7 +395,7 @@ namespace Tessera.UI
                     remainingAttempts,
                     roundState.RuleContext.MaxAttempts,
                     roundState.RemainingRoundRolls,
-                    roundState.RuleContext.RoundRollPool,
+                    RoundState.BaseRollsPerAttempt + RoundState.MaxExtraRollsPerAttempt,
                     currentOvercharge);
             }
 
@@ -954,7 +976,7 @@ namespace Tessera.UI
                     $"InitiativeLocked=True | " +
                     $"Category={intent.CategoryType} | " +
                     $"UseOpponentDevices={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.UseOpponentDevices.ToString() : "Fallback")} | " +
-                    $"ChooseBest={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.ChooseBestAvailableCast.ToString() : "Fallback")}");
+                    $"Policy={(currentEnemyIntentDefinition != null ? currentEnemyIntentDefinition.CastSelectionPolicy.ToString() : "Fallback")}");
 
                 return intent;
             }
@@ -1194,9 +1216,9 @@ namespace Tessera.UI
                 return false;
             }
 
-            if (roundState.RemainingRoundRolls <= 0)
+            if (roundState.RemainingBaseRollsThisAttempt <= 0 && !roundState.CanUseExtraRollThisAttempt)
             {
-                failureMessage = "No rolls left.";
+                failureMessage = "No rolls left for this attempt.";
                 return false;
             }
 
@@ -1223,7 +1245,7 @@ namespace Tessera.UI
             if (rerolled)
                 RefreshAll(successMessage);
             else
-                RefreshAll("No rolls left.");
+                RefreshAll("No rolls left for this attempt.");
 
             return rerolled;
         }
@@ -1282,7 +1304,7 @@ namespace Tessera.UI
             if (!CanActInCurrentAttempt())
                 return false;
 
-            if (roundState.RemainingRoundRolls <= 0)
+            if (roundState.RemainingBaseRollsThisAttempt <= 0 && !roundState.CanUseExtraRollThisAttempt)
                 return false;
 
             return HasUnlockedDice();
@@ -1993,7 +2015,7 @@ namespace Tessera.UI
                 remainingAttempts,
                 roundState.RuleContext.MaxAttempts,
                 roundState.RemainingRoundRolls,
-                roundState.RuleContext.RoundRollPool,
+                RoundState.BaseRollsPerAttempt + RoundState.MaxExtraRollsPerAttempt,
                 roundState.Overcharge.CurrentOvercharge);
         }
 
@@ -2163,7 +2185,9 @@ namespace Tessera.UI
                 currentCastBoardViewModel,
                 selectedPatternType,
                 currentCastBoardViewModel.RecommendedPatternType,
-                SelectCastCandidate);
+                SelectCastCandidate,
+                roundState != null ? roundState.Encounter.OpponentCurrentHP : 0,
+                pendingOpponentClashResult != null ? pendingOpponentClashResult.CastPower : 0);
         }
 
         /// <summary>버튼 상호작용 가능 상태를 갱신한다.</summary>
@@ -2707,7 +2731,7 @@ namespace Tessera.UI
             pendingOpponentClashResult = null;
 
             int rollCount = ResolveOpponentRollCount();
-            bool chooseBestAvailableCast = ResolveOpponentChooseBestAvailableCast();
+            OpponentCastSelectionPolicy castSelectionPolicy = ResolveOpponentCastSelectionPolicy();
             OpponentRollStrategyType rollStrategy = ResolveOpponentRollStrategy();
 
             List<DiceInstance> opponentDiceInstances = CreateOpponentDiceInstances();
@@ -2727,7 +2751,7 @@ namespace Tessera.UI
                     roundState,
                     enemyDiceValues,
                     opponentDevices,
-                    chooseBestAvailableCast,
+                    castSelectionPolicy,
                     out ClashCastResult candidateResult);
 
                 LogOpponentRollAIStep(
@@ -2772,7 +2796,7 @@ namespace Tessera.UI
                     roundState,
                     finalDiceValues,
                     opponentDevices,
-                    chooseBestAvailableCast,
+                    castSelectionPolicy,
                     out pendingOpponentClashResult);
 
                 if (!built || pendingOpponentClashResult == null)
@@ -2783,7 +2807,7 @@ namespace Tessera.UI
                 roundState,
                 pendingOpponentClashResult.DiceValues,
                 opponentDevices,
-                chooseBestAvailableCast,
+                castSelectionPolicy,
                 out ClashCastResult recordedResult);
 
             if (!recorded || recordedResult == null)
@@ -2803,12 +2827,12 @@ namespace Tessera.UI
         }
 
         /// <summary>현재 Intent 기준 상대 Cast 선택 방식을 반환한다.</summary>
-        private bool ResolveOpponentChooseBestAvailableCast()
+        private OpponentCastSelectionPolicy ResolveOpponentCastSelectionPolicy()
         {
             if (currentEnemyIntentDefinition == null)
-                return true;
+                return OpponentCastSelectionPolicy.UtilityBest;
 
-            return currentEnemyIntentDefinition.ChooseBestAvailableCast;
+            return currentEnemyIntentDefinition.CastSelectionPolicy;
         }
 
         /// <summary>현재 Intent 기준 상대 Roll 유지 전략을 반환한다.</summary>
@@ -2834,6 +2858,13 @@ namespace Tessera.UI
                 return true;
 
             if (currentEnemyIntentDefinition != null &&
+                currentEnemyIntentDefinition.TargetPowerToStop > 0 &&
+                candidateResult.CastPower >= currentEnemyIntentDefinition.TargetPowerToStop)
+            {
+                return true;
+            }
+
+            if (currentEnemyIntentDefinition != null &&
                 currentEnemyIntentDefinition.TargetImpactToStop > 0 &&
                 candidateResult.ExpectedImpactDamage >= currentEnemyIntentDefinition.TargetImpactToStop)
             {
@@ -2847,6 +2878,9 @@ namespace Tessera.UI
             {
                 return true;
             }
+
+            if (playerResult != null && candidateResult.ExpectedImpactDamage >= roundState.Encounter.PlayerCurrentHP)
+                return true;
 
             return false;
         }
@@ -3284,7 +3318,9 @@ namespace Tessera.UI
             if (opponentDiceRoller != null)
                 return;
 
-            opponentDiceRoller = new DiceRoller(seed + 9109);
+            opponentDiceRoller = new DiceRoller(activeCombatSeed + 9109);
+            if (logCombatSeed)
+                Debug.Log($"[Tessera][Battle] CombatSeed={activeCombatSeed} Serial={combatEntrySerial}");
         }
 
         /// <summary>잠기지 않은 상대 DiceInstance만 다시 굴린다.</summary>
@@ -3469,7 +3505,7 @@ namespace Tessera.UI
                 : "Fallback";
 
             string chooseBestText = currentEnemyIntentDefinition != null
-                ? currentEnemyIntentDefinition.ChooseBestAvailableCast.ToString()
+                ? currentEnemyIntentDefinition.CastSelectionPolicy.ToString()
                 : "Fallback";
 
             string attemptNumberText = roundState != null && roundState.CurrentAttempt != null
@@ -3482,7 +3518,7 @@ namespace Tessera.UI
                 $"Intent={intentName} | " +
                 $"Initiative={initiativeName} | " +
                 $"UseDevices={useDevicesText} | " +
-                $"ChooseBest={chooseBestText} | " +
+                $"Policy={chooseBestText} | " +
                 $"Dice=[{FormatDiceValuesForLog(result.DiceValues)}] | " +
                 $"Cast={result.PatternType} | " +
                 $"Score={finalScore} | " +
