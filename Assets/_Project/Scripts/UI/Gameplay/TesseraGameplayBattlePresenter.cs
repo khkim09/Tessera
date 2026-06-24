@@ -100,9 +100,17 @@ namespace Tessera.UI
         [SerializeField] private Vector3 slotPairFloatingWorldOffset = new Vector3(0f, 0f, -0.3f);
 
         [Header("DeviceSlot Lock Dice Presentation")]
-        [SerializeField] private Vector3 lockedDiceDeviceSlotLocalOffset = new Vector3(0f, 0f, 0.25f);
+        /// <summary>Player Lock Dice가 이동할 Slot별 Anchor 배열이다.</summary>
+        [SerializeField] private Transform[] playerLockedDiceSlotAnchors = new Transform[5];
+        /// <summary>Opponent Lock Dice가 이동할 Slot별 Anchor 배열이다.</summary>
+        [SerializeField] private Transform[] opponentLockedDiceSlotAnchors = new Transform[5];
+        /// <summary>Anchor 위치에서 추가로 올릴 월드 Y 오프셋이며 기존 방식의 Y 상승값은 0이다.</summary>
+        [SerializeField] private float lockedDiceAnchorWorldYOffset;
+        /// <summary>Lock Dice가 Slot Anchor에 배치될 때 추가로 적용할 회전값이다.</summary>
         [SerializeField] private Vector3 lockedDiceTiltEuler = new Vector3(0f, 45f, 0f);
+        /// <summary>Lock Dice가 Slot Anchor로 이동하는 연출 시간이다.</summary>
         [SerializeField] private float lockedDiceMoveDuration = 0.16f;
+        /// <summary>SlotPair 판정 후 Dice를 Tray로 복귀시킬지 여부이다.</summary>
         [SerializeField] private bool restoreDiceToTrayAfterEvaluation = true;
 
         [Header("SlotPair Dice Jump Roll")]
@@ -245,6 +253,12 @@ namespace Tessera.UI
 
             if (opponentSlotPairDevices == null || opponentSlotPairDevices.Length != SlotPairDamageCalculator.SlotPairCount)
                 opponentSlotPairDevices = ResizeDeviceArray(opponentSlotPairDevices, SlotPairDamageCalculator.SlotPairCount);
+
+            if (playerLockedDiceSlotAnchors == null || playerLockedDiceSlotAnchors.Length != SlotPairDamageCalculator.SlotPairCount)
+                playerLockedDiceSlotAnchors = ResizeTransformArray(playerLockedDiceSlotAnchors, SlotPairDamageCalculator.SlotPairCount);
+
+            if (opponentLockedDiceSlotAnchors == null || opponentLockedDiceSlotAnchors.Length != SlotPairDamageCalculator.SlotPairCount)
+                opponentLockedDiceSlotAnchors = ResizeTransformArray(opponentLockedDiceSlotAnchors, SlotPairDamageCalculator.SlotPairCount);
         }
 
 
@@ -1762,6 +1776,24 @@ namespace Tessera.UI
             return resized;
         }
 
+        /// <summary>Transform 배열 길이를 지정 길이로 보정한다.</summary>
+        private static Transform[] ResizeTransformArray(
+            Transform[] source,
+            int targetLength)
+        {
+            Transform[] resized = new Transform[targetLength];
+
+            if (source == null)
+                return resized;
+
+            int copyCount = Mathf.Min(source.Length, targetLength);
+
+            for (int i = 0; i < copyCount; i++)
+                resized[i] = source[i];
+
+            return resized;
+        }
+
         /// <summary>플레이어 장착 SlotPair Device SO를 Core 계산용 정의 리스트로 변환한다.</summary>
         private List<SlotPairDeviceDefinition> CreatePlayerDeviceDefinitions()
         {
@@ -2140,19 +2172,47 @@ namespace Tessera.UI
             }
         }
 
-        /// <summary>DeviceSlot 하단 Lock Dice 표시 위치와 회전을 계산한다.</summary>
+        /// <summary>Player Lock Dice Anchor 기준 표시 위치와 회전을 계산한다.</summary>
         private bool TryGetLockedDiceDeviceSlotPose(
             int slotIndex,
             out Vector3 worldPosition,
             out Quaternion worldRotation)
         {
-            return TryGetDeviceSlotPresentationPose(
-                DiceOwnerType.Player,
-                slotIndex,
-                lockedDiceDeviceSlotLocalOffset,
-                Quaternion.Euler(lockedDiceTiltEuler),
-                out worldPosition,
-                out worldRotation);
+            return TryGetLockedDiceSlotAnchorPose(DiceOwnerType.Player, slotIndex, out worldPosition, out worldRotation);
+        }
+
+        /// <summary>지정 소유자의 Lock Dice Anchor 기준 표시 위치와 회전을 계산한다.</summary>
+        private bool TryGetLockedDiceSlotAnchorPose(
+            DiceOwnerType owner,
+            int slotIndex,
+            out Vector3 worldPosition,
+            out Quaternion worldRotation)
+        {
+            worldPosition = Vector3.zero;
+            worldRotation = Quaternion.identity;
+
+            Transform[] anchors = ResolveLockedDiceSlotAnchors(owner);
+
+            if (anchors == null)
+                return false;
+
+            if (slotIndex < 0 || slotIndex >= anchors.Length)
+                return false;
+
+            if (anchors[slotIndex] == null)
+                return false;
+
+            worldPosition = anchors[slotIndex].position + Vector3.up * lockedDiceAnchorWorldYOffset;
+            worldRotation = anchors[slotIndex].rotation * Quaternion.Euler(lockedDiceTiltEuler);
+            return true;
+        }
+
+        /// <summary>지정 소유자의 Lock Dice Anchor 배열을 반환한다.</summary>
+        private Transform[] ResolveLockedDiceSlotAnchors(DiceOwnerType owner)
+        {
+            return owner == DiceOwnerType.Opponent
+                ? opponentLockedDiceSlotAnchors
+                : playerLockedDiceSlotAnchors;
         }
 
         /// <summary>Cast 후보 Popup을 갱신한다.</summary>
@@ -2417,11 +2477,9 @@ namespace Tessera.UI
                 if (slotIndex >= SlotPairDamageCalculator.SlotPairCount)
                     return;
 
-                if (!TryGetDeviceSlotPresentationPose(
+                if (!TryGetLockedDiceSlotAnchorPose(
                         DiceOwnerType.Opponent,
                         slotIndex,
-                        lockedDiceDeviceSlotLocalOffset,
-                        Quaternion.Euler(lockedDiceTiltEuler),
                         out Vector3 targetPosition,
                         out Quaternion targetRotation))
                 {
