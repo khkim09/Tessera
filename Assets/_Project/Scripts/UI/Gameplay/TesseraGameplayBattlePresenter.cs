@@ -94,6 +94,8 @@ namespace Tessera.UI
         [SerializeField] private float slotPairSequenceStartDelay = 0.25f;
         [SerializeField] private float slotPairHighlightDuration = 0.65f;
         [SerializeField] private float slotPairHighlightGap = 0.15f;
+        /// <summary>SlotPair 슬롯 연출 시작 후 홀로그램 누적값 갱신을 시작할 시점 비율이다.</summary>
+        [SerializeField] private float slotPairHologramUpdateLeadRatio = 0.58f;
 
         [Header("SlotPair Floating Text")]
         [SerializeField] private bool playSlotPairFloatingText = true;
@@ -180,7 +182,11 @@ namespace Tessera.UI
         private CastBoardModelBuilder castBoardModelBuilder;
         private CastBoardViewModel currentCastBoardViewModel;
         private SlotPairDamagePreview currentSlotPairPreview;
+        /// <summary>현재 선택 Cast의 족보 기준 계산 결과를 보관한다.</summary>
+        private PatternResult currentPreviewPatternResult;
         private TableRuleEvaluationResult currentPreviewTableRuleResult;
+        /// <summary>현재 SlotPair 연출이 최종 누적값 표시까지 완료되었는지 여부다.</summary>
+        private bool isSlotPairResultPresentationComplete;
         private RollPatternType selectedPatternType = RollPatternType.None;
         private int earnedMoney;
         private TesseraRunSession runSession;
@@ -325,7 +331,9 @@ namespace Tessera.UI
 
             selectedPatternType = RollPatternType.None;
             currentSlotPairPreview = null;
+            currentPreviewPatternResult = null;
             currentPreviewTableRuleResult = null;
+            isSlotPairResultPresentationComplete = false;
 
             ClearLockSlotMapping();
             ClearLastSubmittedDiceValues();
@@ -500,10 +508,12 @@ namespace Tessera.UI
             SetInteractionState(BattleInteractionState.CastResolving);
             selectedPatternType = playerResult.PatternType;
             currentSlotPairPreview = playerResult.SlotPairDamagePreview;
+            currentPreviewPatternResult = playerResult.PatternResult;
             currentPreviewTableRuleResult = playerResult.TableRuleEvaluationResult;
+            isSlotPairResultPresentationComplete = false;
 
             RefreshClashPowerTexts();
-            RefreshAll(BuildClashCastMessage(playerResult));
+            RefreshAll(BuildSubmittedCastStartMessage(playerResult));
             PlaySubmittedClashFlowAsync(playerResult).Forget();
         }
 
@@ -553,10 +563,12 @@ namespace Tessera.UI
             SetInteractionState(BattleInteractionState.CastResolving);
             selectedPatternType = playerResult.PatternType;
             currentSlotPairPreview = playerResult.SlotPairDamagePreview;
+            currentPreviewPatternResult = playerResult.PatternResult;
             currentPreviewTableRuleResult = playerResult.TableRuleEvaluationResult;
+            isSlotPairResultPresentationComplete = false;
 
             RefreshClashPowerTexts();
-            RefreshAll(BuildClashCastMessage(playerResult));
+            RefreshAll(BuildSubmittedCastStartMessage(playerResult));
             PlaySubmittedClashFlowAsync(playerResult).Forget();
         }
 
@@ -593,7 +605,9 @@ namespace Tessera.UI
 
             selectedPatternType = RollPatternType.None;
             currentSlotPairPreview = null;
+            currentPreviewPatternResult = null;
             currentPreviewTableRuleResult = null;
+            isSlotPairResultPresentationComplete = false;
             pendingOpponentClashResult = null;
             lastClashResolveResult = null;
 
@@ -1940,7 +1954,9 @@ namespace Tessera.UI
                 return;
 
             currentSlotPairPreview = null;
+            currentPreviewPatternResult = null;
             currentPreviewTableRuleResult = null;
+            isSlotPairResultPresentationComplete = false;
 
             if (selectedPatternType == RollPatternType.None)
                 return;
@@ -1955,6 +1971,8 @@ namespace Tessera.UI
                 out PatternResult patternResult,
                 out currentSlotPairPreview,
                 out currentPreviewTableRuleResult);
+
+            currentPreviewPatternResult = patternResult;
         }
 
         /// <summary>좌측 전투 정보 텍스트를 갱신한다.</summary>
@@ -1991,11 +2009,17 @@ namespace Tessera.UI
             }
 
             string castName = CastBoardCatalog.GetDisplayName(selectedPatternType);
-            string forceValue = currentSlotPairPreview.FormatFinalForce();
+            int displayScore = isSlotPairResultPresentationComplete
+                ? currentSlotPairPreview.FinalScore
+                : currentSlotPairPreview.InitialScore;
+
+            string forceValue = isSlotPairResultPresentationComplete
+                ? currentSlotPairPreview.FormatFinalForce()
+                : FormatForce(currentSlotPairPreview.BaseForce);
 
             RefreshTableHologramCastPreview(
                 castName,
-                currentSlotPairPreview.FinalScore,
+                displayScore,
                 forceValue);
         }
 
@@ -2018,7 +2042,7 @@ namespace Tessera.UI
             else
             {
                 playerCastPower = currentPreviewTableRuleResult != null
-                    ? Mathf.Max(0, currentPreviewTableRuleResult.ModifiedCastPower)
+                    ? ResolveDisplayedPlayerCastPower()
                     : 0;
 
                 opponentCastPower = pendingOpponentClashResult != null
@@ -2028,6 +2052,34 @@ namespace Tessera.UI
 
             if (useTableHologramView && tableHologramView != null)
                 tableHologramView.RefreshClashPower(playerCastPower, opponentCastPower);
+        }
+
+        /// <summary>현재 UI 단계에서 표시해야 하는 플레이어 CastPower 값을 반환한다.</summary>
+        private int ResolveDisplayedPlayerCastPower()
+        {
+            if (isSlotPairResultPresentationComplete || currentSlotPairPreview == null)
+                return Mathf.Max(0, currentPreviewTableRuleResult.ModifiedCastPower);
+
+            return CalculateTableRuleAppliedCastPower(
+                currentSlotPairPreview.InitialScore,
+                currentSlotPairPreview.BaseForce,
+                0);
+        }
+
+        /// <summary>지정 Score / Force / 추가 TruePower 누적값에 테이블 규칙까지 반영한 CastPower를 계산한다.</summary>
+        private int CalculateTableRuleAppliedCastPower(int score, float force, int accumulatedTruePower)
+        {
+            if (currentPreviewPatternResult == null || roundState == null)
+                return 0;
+
+            int truePower = currentPreviewPatternResult.TruePower + accumulatedTruePower;
+            int castPowerBeforeRules = Mathf.FloorToInt(score * force) + truePower;
+            TableRuleEvaluationResult tableRuleResult = TableRuleEvaluator.Evaluate(
+                roundState.RuleContext,
+                currentPreviewPatternResult.PatternType,
+                castPowerBeforeRules);
+
+            return Mathf.Max(0, tableRuleResult.ModifiedCastPower);
         }
 
         /// <summary>Clash 피해 비교 표시를 기본값으로 초기화한다.</summary>
@@ -2093,19 +2145,34 @@ namespace Tessera.UI
         }
 
         /// <summary>테이블 홀로그램에 현재 SlotPair 계산 단계를 표시한다.</summary>
-        private void RefreshTableHologramSlotPairStep(ClashCastResult result, SlotPairDamageStep step)
+        private async UniTask RefreshTableHologramSlotPairStepAsync(
+            ClashCastResult result,
+            SlotPairDamageStep step,
+            CancellationToken cancellationToken)
         {
             if (!useTableHologramView) return;
             if (tableHologramView == null) return;
             if (result == null || step == null) return;
 
-            // SlotPair 계산 중에는 현재 단계 이후의 Score / Force 값을 표시한다.
-            tableHologramView.RefreshSlotPairStep(
+            bool didScoreChange = step.ScoreAfter != step.ScoreBefore;
+            bool didForceChange = Mathf.Abs(step.ForceAfter - step.ForceBefore) > 0.001f;
+
+            if (!didScoreChange && !didForceChange)
+                return;
+
+            await tableHologramView.RefreshSlotPairStepAsync(
                 step.SlotIndex,
                 SlotPairDamageCalculator.SlotPairCount,
                 CastBoardCatalog.GetDisplayName(result.PatternResult.PatternType),
                 step.ScoreAfter,
-                FormatForce(step.ForceAfter));
+                FormatForce(step.ForceAfter),
+                didScoreChange,
+                didForceChange,
+                cancellationToken);
+
+            tableHologramView.RefreshClashPower(
+                CalculateTableRuleAppliedCastPower(step.ScoreAfter, step.ForceAfter, step.TruePowerAfter),
+                pendingOpponentClashResult != null ? pendingOpponentClashResult.CastPower : 0);
         }
 
         /// <summary>3D Tray 주사위와 Lock 표시를 갱신한다.</summary>
@@ -2674,9 +2741,13 @@ namespace Tessera.UI
         /// <summary>Cast 제출 후 SlotPair 계산 순서 연출을 비동기로 재생한다.</summary>
         private async UniTask PlaySlotPairEvaluationSequenceAsync(ClashCastResult result)
         {
-            if (!playSlotPairSequenceOnSubmit) return;
-            if (result == null) return;
-            if (result.SlotPairDamagePreview == null) return;
+            if (!playSlotPairSequenceOnSubmit || result == null || result.SlotPairDamagePreview == null)
+            {
+                isSlotPairResultPresentationComplete = true;
+                RefreshSelectedCastTexts();
+                RefreshClashPowerTexts();
+                return;
+            }
 
             CancelSlotPairEvaluationSequence();
 
@@ -2718,7 +2789,11 @@ namespace Tessera.UI
                     ClearSlotPairEvaluationHighlights();
 
                     if (completed)
+                    {
+                        isSlotPairResultPresentationComplete = true;
                         RefreshSelectedCastTexts();
+                        RefreshClashPowerTexts();
+                    }
                 }
 
                 currentCts.Dispose();
@@ -2739,6 +2814,7 @@ namespace Tessera.UI
 
             IReadOnlyList<SlotPairDamageStep> steps = preview.Steps;
             int stepCount = steps != null ? steps.Count : 0;
+            float hologramUpdateLeadDuration = CalculateSlotPairHologramUpdateLeadDuration();
 
             for (int i = 0; i < stepCount; i++)
             {
@@ -2746,23 +2822,38 @@ namespace Tessera.UI
 
                 SlotPairDamageStep step = steps[i];
 
-                // 현재 DiceIndex와 대응 PlayerDeviceSlot을 계산 대상으로 강조한다.
                 HighlightSlotPair(step.SlotIndex);
 
-                RefreshTableHologramSlotPairStep(result, step);
                 LogSlotPairStep(result, step);
 
                 PlayEvaluationDiceJumpRollAsync(step, cancellationToken).Forget();
                 PlaySlotPairFloatingTextAsync(step, cancellationToken).Forget();
 
-                if (slotPairHighlightDuration > 0f)
-                    await UniTask.Delay(TimeSpan.FromSeconds(slotPairHighlightDuration), cancellationToken: cancellationToken);
+                if (hologramUpdateLeadDuration > 0f)
+                    await UniTask.Delay(TimeSpan.FromSeconds(hologramUpdateLeadDuration), cancellationToken: cancellationToken);
+
+                await RefreshTableHologramSlotPairStepAsync(result, step, cancellationToken);
+
+                float remainingHighlightDuration = Mathf.Max(0f, slotPairHighlightDuration - hologramUpdateLeadDuration);
+
+                if (remainingHighlightDuration > 0f)
+                    await UniTask.Delay(TimeSpan.FromSeconds(remainingHighlightDuration), cancellationToken: cancellationToken);
 
                 ClearSlotPairEvaluationHighlights();
 
                 if (slotPairHighlightGap > 0f)
                     await UniTask.Delay(TimeSpan.FromSeconds(slotPairHighlightGap), cancellationToken: cancellationToken);
             }
+        }
+
+        /// <summary>SlotPair 슬롯 연출 내에서 홀로그램 누적값 갱신 전 대기 시간을 계산한다.</summary>
+        private float CalculateSlotPairHologramUpdateLeadDuration()
+        {
+            if (slotPairHighlightDuration <= 0f)
+                return 0f;
+
+            float ratio = Mathf.Clamp01(slotPairHologramUpdateLeadRatio);
+            return slotPairHighlightDuration * ratio;
         }
 
         /// <summary>진행 중인 SlotPair 계산 연출을 중단한다.</summary>
@@ -3606,22 +3697,25 @@ namespace Tessera.UI
             Debug.Log($"[Tessera][Message] {message}");
         }
 
-        /// <summary>Clash Cast 결과 메시지를 생성한다.</summary>
-        private string BuildClashCastMessage(ClashCastResult result)
+        /// <summary>SlotPair 연출 시작 전 기본 Cast 값만 담은 메시지를 생성한다.</summary>
+        private string BuildSubmittedCastStartMessage(ClashCastResult result)
         {
             if (result == null)
                 return "Submit failed.";
 
-            if (result.SlotPairDamagePreview != null)
-            {
-                return
-                    $"{result.PatternResult.PatternType}: " +
-                    $"Score {result.SlotPairDamagePreview.FinalScore} x " +
-                    $"Force {result.SlotPairDamagePreview.FormatFinalForce()} = " +
-                    $"Power {result.CastPower} / Expected Impact {result.ExpectedImpactDamage}.";
-            }
+            if (result.SlotPairDamagePreview == null)
+                return $"{result.PatternResult.PatternType}: SlotPair evaluation started.";
 
-            return $"{result.PatternResult.PatternType}: Power {result.CastPower} / Expected Impact {result.ExpectedImpactDamage}.";
+            int basePower = CalculateTableRuleAppliedCastPower(
+                result.SlotPairDamagePreview.InitialScore,
+                result.SlotPairDamagePreview.BaseForce,
+                0);
+
+            return
+                $"{result.PatternResult.PatternType}: " +
+                $"Base Score {result.SlotPairDamagePreview.InitialScore} x " +
+                $"Force {FormatForce(result.SlotPairDamagePreview.BaseForce)} = " +
+                $"Base Power {basePower}.";
         }
 
         /// <summary>Clash 판정 결과를 디버그 로그로 출력한다.</summary>
