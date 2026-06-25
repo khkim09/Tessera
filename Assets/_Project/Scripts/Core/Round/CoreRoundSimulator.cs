@@ -494,7 +494,6 @@ namespace Tessera.Core
             }
 
             roundState.AddClashPatternUse(playerResult.PatternType);
-            roundState.AddClashPatternUse(opponentResult.PatternType);
 
             RoundOutcomeType outcomeType = ResolveRoundOutcomeAfterClash(roundState);
 

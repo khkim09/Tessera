@@ -74,12 +74,13 @@ namespace Tessera.Core
             bool isRecommended)
         {
             int useCount = roundState.GetPatternUseCount(patternType);
-            int maxUseCount = patternType == RollPatternType.BrokenCast
-                ? roundState.RuleContext.MaxBrokenCastUsesPerRound
+            bool isBrokenCast = patternType == RollPatternType.BrokenCast;
+            int maxUseCount = isBrokenCast
+                ? int.MaxValue
                 : roundState.RuleContext.MaxUsesPerCastPerRound;
 
             bool isUsedThisRound = useCount > 0;
-            bool isUsageAllowed = useCount < maxUseCount;
+            bool isUsageAllowed = isBrokenCast || useCount < maxUseCount;
 
             bool isConditionMet = _patternEvaluator.TryEvaluateSpecificPattern(
                 diceValues,

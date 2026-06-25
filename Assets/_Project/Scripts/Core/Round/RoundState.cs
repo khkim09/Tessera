@@ -159,10 +159,11 @@ namespace Tessera.Core
         /// <summary>지정한 Cast 카테고리를 이번 Round에서 사용할 수 있는지 확인한다.</summary>
         public bool CanUseCastThisRound(RollPatternType patternType)
         {
+            if (patternType == RollPatternType.BrokenCast)
+                return true;
+
             int currentUseCount = GetPatternUseCount(patternType);
-            int maxUses = patternType == RollPatternType.BrokenCast
-                ? RuleContext.MaxBrokenCastUsesPerRound
-                : RuleContext.MaxUsesPerCastPerRound;
+            int maxUses = RuleContext.MaxUsesPerCastPerRound;
 
             return currentUseCount < maxUses;
         }
@@ -279,6 +280,7 @@ namespace Tessera.Core
         /// <summary>Round를 승리 상태로 종료한다.</summary>
         internal void MarkWon()
         {
+            ClearCastUseLocks();
             IsRoundEnded = true;
             IsRoundWon = true;
             IsRoundLost = false;
@@ -287,9 +289,16 @@ namespace Tessera.Core
         /// <summary>Round를 패배 상태로 종료한다.</summary>
         internal void MarkLost()
         {
+            ClearCastUseLocks();
             IsRoundEnded = true;
             IsRoundWon = false;
             IsRoundLost = true;
+        }
+
+        /// <summary>Round 종료 시 Cast 사용 제한 Lock을 모두 해제한다.</summary>
+        internal void ClearCastUseLocks()
+        {
+            _patternUseCounts.Clear();
         }
 
         private void AddPatternUse(RollPatternType patternType)

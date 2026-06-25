@@ -37,7 +37,7 @@ namespace Tessera.UI
             SetText(statusText, model.Status.ToString());
             SetText(rawScoreText, $"Raw {model.RawCastScore}");
             SetText(damageText, BuildDamageText(model));
-            SetText(useCountText, $"{model.UseCount}/{model.MaxUseCount}");
+            SetText(useCountText, BuildUseCountText(model));
             SetText(recommendedText, model.IsRecommended ? "BEST" : string.Empty);
             SetText(messageText, model.Message);
 
@@ -58,6 +58,14 @@ namespace Tessera.UI
                 return $"{model.CastPowerBeforeTableRules} → {model.CastPowerAfterTableRules}";
 
             return model.CastPowerAfterTableRules.ToString();
+        }
+
+        private static string BuildUseCountText(CastBoardEntryModel model)
+        {
+            if (model.PatternType == RollPatternType.BrokenCast)
+                return $"{model.UseCount}/∞";
+
+            return $"{model.UseCount}/{model.MaxUseCount}";
         }
 
         private void ApplyBackgroundColor(CastBoardEntryModel model)
