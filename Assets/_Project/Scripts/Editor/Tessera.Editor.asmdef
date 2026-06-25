@@ -8,7 +8,8 @@
         "Tessera.UI",
         "Tessera.Infrastructure",
         "Unity.TextMeshPro",
-        "Unity.RenderPipelines.Core.Runtime"
+        "Unity.RenderPipelines.Core.Runtime",
+        "Tessera.Presentation"
     ],
     "includePlatforms": [
         "Editor"

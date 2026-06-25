@@ -62,37 +62,16 @@ namespace Tessera.Core
                 finalModifierPercent);
         }
 
-        /// <summary>CastPower 구간 보너스를 계산한다.</summary>
+        /// <summary>CastPower 45당 1씩 증가하는 PowerTierBonus를 최대 7까지 계산한다.</summary>
         private static int CalculatePowerTierBonus(int castPower)
         {
-            if (castPower >= 250)
-                return 4;
-
-            if (castPower >= 160)
-                return 3;
-
-            if (castPower >= 100)
-                return 2;
-
-            if (castPower >= 50)
-                return 1;
-
-            return 0;
+            return Math.Min(7, Math.Max(0, castPower) / 45);
         }
 
-        /// <summary>승리 CastPower 차이 구간 보너스를 계산한다.</summary>
+        /// <summary>승리 CastPower 차이 35당 1씩 증가하는 MarginTierBonus를 최대 6까지 계산한다.</summary>
         private static int CalculateMarginTierBonus(int margin)
         {
-            if (margin >= 150)
-                return 3;
-
-            if (margin >= 75)
-                return 2;
-
-            if (margin >= 25)
-                return 1;
-
-            return 0;
+            return Math.Min(6, Math.Max(0, margin) / 35);
         }
     }
 }

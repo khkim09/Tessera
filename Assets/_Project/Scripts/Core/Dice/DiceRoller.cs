@@ -35,6 +35,17 @@ namespace Tessera.Core
             }
         }
 
+
+        /// <summary>잠금 여부와 상관없이 모든 주사위를 다시 굴린다.</summary>
+        public void RollAll(IReadOnlyList<DiceInstance> dice)
+        {
+            if (dice == null)
+                throw new ArgumentNullException(nameof(dice));
+
+            for (int i = 0; i < dice.Count; i++)
+                RollSingle(dice[i]);
+        }
+
         /// <summary>주사위 하나를 잠금 여부와 상관없이 굴린다.</summary>
         public void RollSingle(DiceInstance dice)
         {

@@ -1,4 +1,6 @@
-﻿using TMPro;
+﻿using System.Threading;
+using Cysharp.Threading.Tasks;
+using TMPro;
 using UnityEngine;
 
 namespace Tessera.UI
@@ -27,6 +29,12 @@ namespace Tessera.UI
         [Header("Display Options")]
         [SerializeField] private bool showAttemptMaxValue = false;
         [SerializeField] private bool showRollMaxValue = false;
+
+        /// <summary>SlotPair 값 변화 강조 시 텍스트가 커지는 배율이다.</summary>
+        [Header("SlotPair Value Pulse")]
+        [SerializeField] private float slotPairValuePulseScale = 1.18f;
+        /// <summary>SlotPair 값 변화 강조 연출 시간이다.</summary>
+        [SerializeField] private float slotPairValuePulseDuration = 0.12f;
 
         /// <summary>홀로그램 표시 여부를 변경한다.</summary>
         public void SetVisible(bool isVisible)
@@ -97,19 +105,72 @@ namespace Tessera.UI
             SetText(opponentClashPowerText, "0");
         }
 
-        /// <summary>SlotPair 계산 중 현재 단계의 Score / Force 값을 표시한다.</summary>
-        public void RefreshSlotPairStep(
+        /// <summary>SlotPair 단계에서 변화한 Score / Force 텍스트를 짧게 강조한 뒤 누적값으로 갱신한다.</summary>
+        public async UniTask RefreshSlotPairStepAsync(
             int slotIndex,
             int totalSlotCount,
             string castName,
             int scoreAfter,
-            string forceAfter)
+            string forceAfter,
+            bool pulseScore,
+            bool pulseForce,
+            CancellationToken cancellationToken)
         {
-            // 계산 중에는 Cast 영역에 현재 SlotPair 진행 상태를 짧게 표시한다.
             SetVisible(true);
-            SetText(castText, $"Slot {slotIndex + 1}/{totalSlotCount}");
-            SetText(scoreText, scoreAfter.ToString());
-            SetText(forceText, forceAfter);
+            string stepLabel = $"Slot {slotIndex + 1}/{totalSlotCount}";
+            SetText(castText, string.IsNullOrWhiteSpace(castName) ? stepLabel : $"{castName} {stepLabel}");
+
+            UniTask scoreTask = pulseScore
+                ? PlayTextPulseThenSetAsync(scoreText, scoreAfter.ToString(), cancellationToken)
+                : UniTask.CompletedTask;
+
+            UniTask forceTask = pulseForce
+                ? PlayTextPulseThenSetAsync(forceText, forceAfter, cancellationToken)
+                : UniTask.CompletedTask;
+
+            await UniTask.WhenAll(scoreTask, forceTask);
+        }
+
+        /// <summary>텍스트 RectTransform을 짧게 키웠다가 원복한 뒤 값을 바꾼다.</summary>
+        private async UniTask PlayTextPulseThenSetAsync(TMP_Text targetText, string value, CancellationToken cancellationToken)
+        {
+            if (targetText == null)
+                return;
+
+            RectTransform targetTransform = targetText.rectTransform;
+
+            if (targetTransform == null)
+            {
+                SetText(targetText, value);
+                return;
+            }
+
+            Vector3 originalScale = targetTransform.localScale;
+            float duration = Mathf.Max(0.01f, slotPairValuePulseDuration);
+            float elapsed = 0f;
+
+            try
+            {
+                while (elapsed < duration)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    elapsed += Time.deltaTime;
+                    float t = Mathf.Clamp01(elapsed / duration);
+                    float pulseT = Mathf.Sin(t * Mathf.PI);
+                    float scale = Mathf.Lerp(1f, slotPairValuePulseScale, pulseT);
+
+                    targetTransform.localScale = originalScale * scale;
+
+                    await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
+                }
+            }
+            finally
+            {
+                targetTransform.localScale = originalScale;
+            }
+
+            SetText(targetText, value);
         }
 
         /// <summary>텍스트가 연결되어 있을 때만 값을 대입한다.</summary>

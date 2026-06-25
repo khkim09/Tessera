@@ -49,7 +49,9 @@ namespace Tessera.UI
             CastBoardViewModel viewModel,
             RollPatternType selectedPatternType,
             RollPatternType recommendedPatternType,
-            Action<RollPatternType> onCandidateClicked)
+            Action<RollPatternType> onCandidateClicked,
+            int opponentCurrentHP = 0,
+            int opponentCastPower = 0)
         {
             Clear();
 
@@ -71,7 +73,7 @@ namespace Tessera.UI
             SortEntriesByCastScoreDescending();
 
             for (int i = 0; i < filteredEntries.Count; i++)
-                CreateEntry(filteredEntries[i], selectedPatternType, recommendedPatternType, onCandidateClicked);
+                CreateEntry(filteredEntries[i], selectedPatternType, recommendedPatternType, onCandidateClicked, opponentCurrentHP, opponentCastPower);
 
             ResizePopupHeight(filteredEntries.Count);
             ApplyResolvedPopupVisibility();
@@ -113,10 +115,7 @@ namespace Tessera.UI
             {
                 CastBoardEntryModel entry = viewModel.Entries[i];
 
-                if (entry.Status != CastBoardEntryStatus.Available)
-                    continue;
-
-                // Broken Cast는 0점이어도 후보로 유지한다.
+                // Broken Cast는 항상 표시하고, 그 외 0점 후보는 숨긴다.
                 if (entry.PatternType != RollPatternType.BrokenCast && entry.RawCastScore <= 0)
                     continue;
 
@@ -157,7 +156,9 @@ namespace Tessera.UI
             CastBoardEntryModel entryModel,
             RollPatternType selectedPatternType,
             RollPatternType recommendedPatternType,
-            Action<RollPatternType> onCandidateClicked)
+            Action<RollPatternType> onCandidateClicked,
+            int opponentCurrentHP = 0,
+            int opponentCastPower = 0)
         {
             if (entryRoot == null || entryTemplate == null)
                 return;
@@ -165,7 +166,9 @@ namespace Tessera.UI
             CastCandidateEntryView entryView = Instantiate(entryTemplate, entryRoot);
 
             bool isSelected = entryModel.PatternType == selectedPatternType;
-            bool isRecommended = entryModel.PatternType == recommendedPatternType;
+            bool isDisabled = entryModel.Status != CastBoardEntryStatus.Available || !entryModel.IsUsageAllowed || entryModel.IsBlockedByTableRule;
+            bool canKill = !isDisabled && opponentCurrentHP > 0 && entryModel.CastPowerAfterTableRules >= opponentCurrentHP;
+            bool isRecommended = !canKill && !isDisabled && entryModel.CastPowerAfterTableRules > opponentCastPower;
 
             entryView.gameObject.SetActive(true);
             entryView.Initialize(onCandidateClicked);
@@ -174,7 +177,9 @@ namespace Tessera.UI
                 entryModel.DisplayName,
                 entryModel.RawCastScore,
                 isSelected,
-                isRecommended);
+                isRecommended,
+                isDisabled,
+                canKill);
 
             spawnedEntries.Add(entryView);
         }

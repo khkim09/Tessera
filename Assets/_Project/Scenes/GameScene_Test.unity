@@ -3797,7 +3797,7 @@ GameObject:
   - component: {fileID: 495089846}
   - component: {fileID: 495089847}
   m_Layer: 0
-  m_Name: PlayerClashDamageText
+  m_Name: PlayerClashPowerText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -7852,6 +7852,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: df39d7a2a21c2f04b824862902de6265, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Tessera.UI::Tessera.UI.TesseraGameplayBattlePresenter
+  useDeterministicCombatSeed: 0
+  debugCombatSeed: 12345
+  logCombatSeed: 0
   useFixedSeed: 0
   seed: 12345
   useManualDiceValuesOnStart: 1
@@ -7900,9 +7903,20 @@ MonoBehaviour:
   slotPairFloatingTextRoot: {fileID: 875781658}
   battleCamera: {fileID: 702736728}
   slotPairFloatingWorldOffset: {x: 0, y: 0, z: -0.3}
-  lockedDiceDeviceSlotLocalOffset: {x: 0, y: 0, z: 0.25}
-  lockedDiceTiltEuler: {x: 0, y: 45, z: 0}
-  lockedDiceMoveDuration: 0.16
+  playerLockedDiceSlotAnchors:
+  - {fileID: 1271929653940369301}
+  - {fileID: 1271929654213594895}
+  - {fileID: 1271929655458550102}
+  - {fileID: 1271929654283129250}
+  - {fileID: 1271929654622203844}
+  opponentLockedDiceSlotAnchors:
+  - {fileID: 1598161821410760020}
+  - {fileID: 4377300045524248860}
+  - {fileID: 6894558456303160631}
+  - {fileID: 7421301623390614347}
+  - {fileID: 2511792285910057567}
+  lockedDiceMoveDuration: 0.3
+  opponentLockedDiceMoveDelay: 0.3
   restoreDiceToTrayAfterEvaluation: 1
   playDiceJumpRollDuringEvaluation: 1
   slotPairDiceJumpHeight: 0.16
@@ -10696,6 +10710,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1277234867936049789, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
       propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1277234867936049789, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.z
       value: -0.7071068
       objectReference: {fileID: 0}
     - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
@@ -10910,11 +10928,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1277234867936049789, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0.7071068
+      value: -0.00000004371139
+      objectReference: {fileID: 0}
+    - target: {fileID: 1277234867936049789, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 1277234867936049789, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
       propertyPath: m_LocalRotation.z
-      value: 0.7071068
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1625970312079915823, guid: c4868de88fe701341ab794e36c5fb1db, type: 3}
       propertyPath: m_LocalPosition.x
@@ -12107,8 +12129,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.UI::Tessera.UI.BattleTableHologramView
   canvasGroup: {fileID: 1617329027}
   hideWhenNoCastPreview: 0
-  playerClashDamageText: {fileID: 495089847}
-  opponentClashDamageText: {fileID: 1831004401}
+  playerClashPowerText: {fileID: 495089847}
+  opponentClashPowerText: {fileID: 1831004401}
   castText: {fileID: 1097259366}
   scoreText: {fileID: 252374403}
   forceText: {fileID: 677598646}
@@ -16166,7 +16188,7 @@ GameObject:
   - component: {fileID: 1831004402}
   - component: {fileID: 1831004401}
   m_Layer: 0
-  m_Name: OpponentClashDamageText
+  m_Name: OpponentClashPowerText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
