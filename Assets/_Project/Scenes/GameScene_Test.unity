@@ -7915,9 +7915,8 @@ MonoBehaviour:
   - {fileID: 6894558456303160631}
   - {fileID: 7421301623390614347}
   - {fileID: 2511792285910057567}
-  lockedDiceAnchorWorldYOffset: 0
-  lockedDiceTiltEuler: {x: 0, y: 0, z: 0}
-  lockedDiceMoveDuration: 0.16
+  lockedDiceMoveDuration: 0.3
+  opponentLockedDiceMoveDelay: 0.3
   restoreDiceToTrayAfterEvaluation: 1
   playDiceJumpRollDuringEvaluation: 1
   slotPairDiceJumpHeight: 0.16

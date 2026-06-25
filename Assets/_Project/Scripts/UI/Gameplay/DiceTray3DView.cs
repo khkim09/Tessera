@@ -281,6 +281,30 @@ namespace Tessera.UI
             diceView.MoveTo(targetPosition, targetRotation, duration);
         }
 
+        /// <summary>지정 소유자의 단일 DiceView를 DiceTray 원래 DicePoint 위치로 복귀시킨다.</summary>
+        public void RestoreDiceToTray(
+            DiceOwnerType owner,
+            int diceIndex,
+            IReadOnlyList<int> diceValues,
+            float duration)
+        {
+            if (!TryGetDiceView(owner, diceIndex, out Dice3DView diceView))
+                return;
+
+            if (diceValues == null || diceIndex < 0 || diceIndex >= diceValues.Count)
+            {
+                diceView.Hide();
+                return;
+            }
+
+            diceView.SetDice(diceIndex, diceValues[diceIndex], false);
+
+            if (!TryGetDicePointPose(diceIndex, out Vector3 trayPosition, out Quaternion trayRotation))
+                return;
+
+            diceView.MoveTo(trayPosition, trayRotation, duration);
+        }
+
         /// <summary>Player DeviceSlot 하단 Lock Dice 구조에서 DiceView 표시값을 갱신한다.</summary>
         public void SetDiceForDeviceSlotLockPresentation(
             IReadOnlyList<int> diceValues,

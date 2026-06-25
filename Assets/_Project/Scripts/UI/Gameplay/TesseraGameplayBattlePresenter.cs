@@ -109,8 +109,8 @@ namespace Tessera.UI
         [SerializeField] private Transform[] opponentLockedDiceSlotAnchors = new Transform[5];
         /// <summary>Lock Dice가 Slot Anchor로 이동하는 연출 시간이다.</summary>
         [SerializeField] private float lockedDiceMoveDuration = 0.16f; // Dice가 Slot Anchor로 이동하는 Tween 시간이다.
-        /// <summary>Opponent Roll 후 Lock Dice가 Slot Anchor로 이동하기 전 대기 시간이다.</summary>
-        [SerializeField] private float opponentLockedDiceMoveDelay = 0.18f; // Opponent Roll 결과를 잠깐 보여준 뒤 Slot Anchor로 이동시키는 전용 지연 시간이다.
+        /// <summary>Opponent Roll 결과가 나온 뒤 Dice를 Lock하기 전 대기 시간이다.</summary>
+        [SerializeField] private float opponentLockedDiceMoveDelay = 0.3f; // Opponent Roll 결과 표시와 AI Lock 선택 사이에 두는 전용 지연 시간이다.
         /// <summary>SlotPair 판정 후 Dice를 Tray로 복귀시킬지 여부이다.</summary>
         [SerializeField] private bool restoreDiceToTrayAfterEvaluation = true; // 판정 연출 종료 후 Dice를 Tray 위치로 되돌릴지 결정한다.
 
@@ -169,7 +169,10 @@ namespace Tessera.UI
 
         #region Runtime State
 
+        /// <summary>Player DeviceSlot별로 현재 고정된 Dice 인덱스를 저장한다.</summary>
         private readonly int[] lockedDiceIndexBySlot = { -1, -1, -1, -1, -1 };
+        /// <summary>Opponent DeviceSlot별로 현재 고정된 Dice 인덱스를 저장한다.</summary>
+        private readonly int[] opponentLockedDiceIndexBySlot = { -1, -1, -1, -1, -1 };
         private string currentRoundDisplayName = "Round";
 
         private CoreRoundSimulator simulator;
@@ -2465,18 +2468,24 @@ namespace Tessera.UI
             if (enemyDiceValues == null || lockStates == null)
                 return;
 
-            int slotIndex = 0;
+            ReleaseUnlockedOpponentDiceSlots(enemyDiceValues, lockStates);
 
             for (int diceIndex = 0; diceIndex < enemyDiceValues.Count && diceIndex < lockStates.Count; diceIndex++)
             {
                 if (!lockStates[diceIndex])
                     continue;
 
-                while (slotIndex < SlotPairDamageCalculator.SlotPairCount && !IsOpponentDeviceSlotAvailableForLockedDice(slotIndex))
-                    slotIndex++;
+                int slotIndex = FindOpponentLockedDiceSlot(diceIndex);
 
-                if (slotIndex >= SlotPairDamageCalculator.SlotPairCount)
-                    return;
+                if (slotIndex < 0)
+                {
+                    slotIndex = FindEmptyOpponentLockedDiceSlot();
+
+                    if (slotIndex < 0)
+                        return;
+
+                    opponentLockedDiceIndexBySlot[slotIndex] = diceIndex;
+                }
 
                 if (!TryGetLockedDiceSlotAnchorPose(
                         DiceOwnerType.Opponent,
@@ -2497,15 +2506,69 @@ namespace Tessera.UI
                         targetRotation,
                         lockedDiceMoveDuration);
                 }
-
-                slotIndex++;
             }
         }
 
-        /// <summary>상대 Lock Dice가 들어갈 Opponent DeviceSlot 사용 가능 여부를 반환한다.</summary>
-        private bool IsOpponentDeviceSlotAvailableForLockedDice(int slotIndex)
+        /// <summary>Unlock되었거나 유효하지 않은 Opponent Lock Slot을 비우고 Dice를 Tray로 복귀시킨다.</summary>
+        private void ReleaseUnlockedOpponentDiceSlots(IReadOnlyList<int> enemyDiceValues, IReadOnlyList<bool> lockStates)
         {
-            return slotIndex >= 0 && slotIndex < SlotPairDamageCalculator.SlotPairCount;
+            for (int slotIndex = 0; slotIndex < opponentLockedDiceIndexBySlot.Length; slotIndex++)
+            {
+                int diceIndex = opponentLockedDiceIndexBySlot[slotIndex];
+
+                if (diceIndex < 0)
+                    continue;
+
+                bool isValidDice = diceIndex < enemyDiceValues.Count && diceIndex < lockStates.Count;
+                bool shouldStayLocked = isValidDice && lockStates[diceIndex];
+
+                if (shouldStayLocked)
+                    continue;
+
+                opponentLockedDiceIndexBySlot[slotIndex] = -1;
+
+                if (isValidDice && diceTray3DView != null)
+                {
+                    diceTray3DView.RestoreDiceToTray(
+                        DiceOwnerType.Opponent,
+                        diceIndex,
+                        enemyDiceValues,
+                        lockedDiceMoveDuration);
+                }
+            }
+        }
+
+        /// <summary>지정 Dice가 이미 배치된 Opponent Lock Slot 인덱스를 반환한다.</summary>
+        private int FindOpponentLockedDiceSlot(int diceIndex)
+        {
+            for (int slotIndex = 0; slotIndex < opponentLockedDiceIndexBySlot.Length; slotIndex++)
+            {
+                if (opponentLockedDiceIndexBySlot[slotIndex] == diceIndex)
+                    return slotIndex;
+            }
+
+            return -1;
+        }
+
+        /// <summary>비어 있는 첫 Opponent Lock Slot 인덱스를 반환한다.</summary>
+        private int FindEmptyOpponentLockedDiceSlot()
+        {
+            int slotCount = Mathf.Min(opponentLockedDiceIndexBySlot.Length, SlotPairDamageCalculator.SlotPairCount);
+
+            for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
+            {
+                if (opponentLockedDiceIndexBySlot[slotIndex] < 0)
+                    return slotIndex;
+            }
+
+            return -1;
+        }
+
+        /// <summary>Opponent Lock Slot 매핑을 모두 초기화한다.</summary>
+        private void ClearOpponentLockSlotMapping()
+        {
+            for (int slotIndex = 0; slotIndex < opponentLockedDiceIndexBySlot.Length; slotIndex++)
+                opponentLockedDiceIndexBySlot[slotIndex] = -1;
         }
 
         /// <summary>지정 SlotPair 인덱스의 Player DeviceSlot을 강조한다.</summary>
@@ -2843,6 +2906,7 @@ namespace Tessera.UI
         private async UniTask<bool> BuildOpponentClashResultWithRollAIAsync(string phaseName, ClashCastResult playerResult)
         {
             pendingOpponentClashResult = null;
+            ClearOpponentLockSlotMapping();
 
             int rollCount = ResolveOpponentRollCount();
             OpponentCastSelectionPolicy castSelectionPolicy = ResolveOpponentCastSelectionPolicy();
@@ -2890,10 +2954,6 @@ namespace Tessera.UI
                     break;
                 }
 
-                ApplyOpponentRollStrategyLocks(enemyDiceValues, candidateResult, lockStates, rollStrategy);
-                ApplyLockStatesToOpponentDiceInstances(opponentDiceInstances, lockStates);
-                MoveLockedOpponentDiceToDeviceSlots(enemyDiceValues, lockStates);
-
                 if (opponentLockedDiceMoveDelay > 0f)
                 {
                     await UniTask.Delay(
@@ -2901,6 +2961,8 @@ namespace Tessera.UI
                         cancellationToken: this.GetCancellationTokenOnDestroy());
                 }
 
+                ApplyOpponentRollStrategyLocks(enemyDiceValues, candidateResult, lockStates, rollStrategy);
+                ApplyLockStatesToOpponentDiceInstances(opponentDiceInstances, lockStates);
                 MoveLockedOpponentDiceToDeviceSlots(enemyDiceValues, lockStates);
 
                 LogOpponentRollAILockDecision(
