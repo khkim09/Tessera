@@ -50,7 +50,7 @@ namespace Tessera.Core
         /// <summary>Broken Cast로 지급할 다음 Attempt 무료 리롤 토큰 수.</summary>
         public int BrokenCastFreeRerollTokenAmount { get; }
 
-        /// <summary>Attempt당 적용 가능한 최대 ImpactDamage 값이다.</summary>
+        /// <summary>0보다 크면 적용되는 선택적 Impact 상한이며 0 이하면 비활성화된다.</summary>
         public int ImpactCap { get; }
 
         /// <summary>Round 규칙 정보를 생성한다.</summary>
@@ -104,9 +104,6 @@ namespace Tessera.Core
             if (brokenCastFreeRerollTokenAmount < 0)
                 throw new ArgumentOutOfRangeException(nameof(brokenCastFreeRerollTokenAmount), "Broken Cast 무료 리롤 보상은 음수가 될 수 없습니다.");
 
-            if (impactCap < 0)
-                throw new ArgumentOutOfRangeException(nameof(impactCap), "ImpactCap은 음수가 될 수 없습니다.");
-
             DiceCount = diceCount;
             MaxAttempts = maxAttempts;
             RoundRollPool = roundRollPool;
@@ -121,7 +118,7 @@ namespace Tessera.Core
             BrokenCastGrantsNextAttemptFreeReroll = brokenCastGrantsNextAttemptFreeReroll;
             BrokenCastFreeRerollTokenAmount = brokenCastFreeRerollTokenAmount;
             _tableRules = tableRules != null ? new List<TableRule>(tableRules) : new List<TableRule>();
-            ImpactCap = impactCap;
+            ImpactCap = Math.Max(0, impactCap);
         }
 
         /// <summary>초기 Core 테스트용 기본 Round 규칙을 생성한다.</summary>
@@ -141,7 +138,7 @@ namespace Tessera.Core
                 brokenCastGrantsNextAttemptFreeReroll: true,
                 brokenCastFreeRerollTokenAmount: 1,
                 stageThreatLevel: 0,
-                impactCap: 8);
+                impactCap: 0);
         }
 
         /// <summary>Aces 이외 Cast 피해를 반감하는 Boss Round 테스트 규칙을 생성한다.</summary>
@@ -167,7 +164,7 @@ namespace Tessera.Core
                 brokenCastFreeRerollTokenAmount: 1,
                 tableRules: tableRules,
                 stageThreatLevel: 0,
-                impactCap: 8);
+                impactCap: 20);
         }
 
         /// <summary>Chance와 Broken Cast 보상을 막는 Boss Round 테스트 규칙을 생성한다.</summary>
@@ -194,7 +191,7 @@ namespace Tessera.Core
                 brokenCastFreeRerollTokenAmount: 1,
                 tableRules: tableRules,
                 stageThreatLevel: 0,
-                impactCap: 8);
+                impactCap: 20);
         }
     }
 }

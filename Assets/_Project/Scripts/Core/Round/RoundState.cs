@@ -9,6 +9,10 @@ namespace Tessera.Core
         private readonly List<DiceInstance> _dice;
         private readonly List<CastSubmitResult> _submitResults;
         private readonly Dictionary<RollPatternType, int> _patternUseCounts;
+        /// <summary>Attempt마다 기본으로 제공되는 Roll 횟수다.</summary>
+        public const int BaseRollsPerAttempt = 3;
+        /// <summary>Attempt마다 사용할 수 있는 최대 추가 Roll 횟수다.</summary>
+        public const int MaxExtraRollsPerAttempt = 1;
 
         /// <summary>이 Round에 적용 중인 규칙 정보.</summary>
         public RoundRuleContext RuleContext { get; }
@@ -31,8 +35,35 @@ namespace Tessera.Core
         /// <summary>Cast 카테고리별 사용 횟수 기록.</summary>
         public IReadOnlyDictionary<RollPatternType, int> PatternUseCounts => _patternUseCounts;
 
-        /// <summary>Round에 남은 Roll 횟수.</summary>
-        public int RemainingRoundRolls { get; private set; }
+        /// <summary>현재 Attempt에서 사용한 기본 Roll 횟수.</summary>
+        public int RollsUsedThisAttempt { get; private set; }
+
+        /// <summary>Bounty 전투 중 유지되는 추가 Roll 충전량.</summary>
+        public int ExtraRollCharge { get; private set; }
+
+        /// <summary>현재 Attempt에서 사용한 추가 Roll 횟수.</summary>
+        public int ExtraRollsUsedThisAttempt { get; private set; }
+
+        /// <summary>호환용으로 현재 Attempt에서 남은 전체 Roll 횟수를 반환한다.</summary>
+        public int RemainingRoundRolls => RemainingRollsThisAttempt;
+
+        /// <summary>현재 Attempt에서 남은 기본 Roll 횟수다.</summary>
+        public int RemainingBaseRollsThisAttempt => Math.Max(0, BaseRollsPerAttempt - RollsUsedThisAttempt);
+
+        /// <summary>현재 Attempt에서 남은 추가 Roll 횟수다.</summary>
+        public int RemainingExtraRollsThisAttempt => Math.Min(ExtraRollCharge, Math.Max(0, MaxExtraRollsPerAttempt - ExtraRollsUsedThisAttempt));
+
+        /// <summary>현재 Attempt에서 남은 기본 및 추가 Roll 합계다.</summary>
+        public int RemainingRollsThisAttempt => RemainingBaseRollsThisAttempt + RemainingExtraRollsThisAttempt;
+
+        /// <summary>현재 Attempt에서 표시할 최대 Roll 횟수다.</summary>
+        public int MaxRollsThisAttempt => BaseRollsPerAttempt + ExtraRollsUsedThisAttempt + RemainingExtraRollsThisAttempt;
+
+        /// <summary>현재 Attempt에서 첫 Roll을 아직 사용하지 않았는지 확인한다.</summary>
+        public bool IsFirstRollThisAttempt => RollsUsedThisAttempt <= 0;
+
+        /// <summary>현재 Attempt에서 추가 Roll을 사용할 수 있는지 확인한다.</summary>
+        public bool CanUseExtraRollThisAttempt => RemainingExtraRollsThisAttempt > 0;
 
         /// <summary>현재 상대 Intent.</summary>
         public EnemyIntent CurrentEnemyIntent { get; private set; }
@@ -79,7 +110,9 @@ namespace Tessera.Core
 
             CurrentAttempt = firstAttempt ?? throw new ArgumentNullException(nameof(firstAttempt));
             CurrentEnemyIntent = initialEnemyIntent ?? EnemyIntent.None();
-            RemainingRoundRolls = ruleContext.RoundRollPool;
+            RollsUsedThisAttempt = 0;
+            ExtraRollCharge = 0;
+            ExtraRollsUsedThisAttempt = 0;
             _dice = new List<DiceInstance>(initialDice);
             _submitResults = new List<CastSubmitResult>();
             _patternUseCounts = new Dictionary<RollPatternType, int>();
@@ -158,14 +191,40 @@ namespace Tessera.Core
             CurrentAttempt.MarkCastReady(source);
         }
 
-        /// <summary>Round Roll Pool에서 Roll 1회를 소비한다.</summary>
-        public bool TrySpendRoundRoll()
+        /// <summary>현재 Attempt의 기본 또는 추가 Roll 1회를 소비한다.</summary>
+        public bool TrySpendAttemptRoll()
         {
-            if (RemainingRoundRolls <= 0)
+            if (CurrentAttempt == null || CurrentAttempt.IsSubmitted)
                 return false;
 
-            RemainingRoundRolls--;
+            if (RollsUsedThisAttempt < BaseRollsPerAttempt)
+            {
+                RollsUsedThisAttempt++;
+                return true;
+            }
+
+            if (!CanUseExtraRollThisAttempt)
+                return false;
+
+            ExtraRollCharge--;
+            ExtraRollsUsedThisAttempt++;
             return true;
+        }
+
+        /// <summary>아이템 등 외부 효과로 ExtraRollCharge를 추가한다.</summary>
+        public void AddExtraRollCharge(int amount)
+        {
+            if (amount < 0)
+                throw new ArgumentOutOfRangeException(nameof(amount), "추가 Roll 충전량은 음수가 될 수 없습니다.");
+
+            ExtraRollCharge += amount;
+        }
+
+        /// <summary>현재 Attempt에서 추가 Roll 사용 상태를 초기화한다.</summary>
+        public void ResetAttemptRollState()
+        {
+            RollsUsedThisAttempt = 0;
+            ExtraRollsUsedThisAttempt = 0;
         }
 
         /// <summary>새 Attempt와 새 주사위 목록으로 진행 상태를 갱신한다.</summary>
@@ -178,6 +237,7 @@ namespace Tessera.Core
                 throw new ArgumentNullException(nameof(dice));
 
             CurrentAttempt = attempt;
+            ResetAttemptRollState();
             _dice.Clear();
 
             for (int i = 0; i < dice.Count; i++)

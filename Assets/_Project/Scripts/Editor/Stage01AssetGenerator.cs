@@ -46,13 +46,13 @@ public static class Stage01AssetGenerator
             rewardMoney: 10,
             rewardOvercharge: 0,
             rewardDescription: "First tutorial bounty reward.",
-            opponentMaxHP: 40,
+            opponentMaxHP: 18,
             enemyStrikeDamage: 2,
             playerMaxHP: 100,
             diceCount: 5,
             maxAttempts: 3,
             roundRollPool: 8,
-            impactCap: 8,
+            impactCap: 0,
             maxUsesPerCastPerRound: 1,
             maxBrokenCastUsesPerRound: 3,
             brokenCastGrantsOvercharge: true,
@@ -77,13 +77,13 @@ public static class Stage01AssetGenerator
             rewardMoney: 20,
             rewardOvercharge: 0,
             rewardDescription: "Chain choice test reward.",
-            opponentMaxHP: 70,
+            opponentMaxHP: 26,
             enemyStrikeDamage: 3,
             playerMaxHP: 100,
             diceCount: 5,
             maxAttempts: 3,
             roundRollPool: 8,
-            impactCap: 9,
+            impactCap: 0,
             maxUsesPerCastPerRound: 1,
             maxBrokenCastUsesPerRound: 3,
             brokenCastGrantsOvercharge: true,
@@ -108,13 +108,13 @@ public static class Stage01AssetGenerator
             rewardMoney: 50,
             rewardOvercharge: 0,
             rewardDescription: "Stage clear reward.",
-            opponentMaxHP: 90,
+            opponentMaxHP: 48,
             enemyStrikeDamage: 4,
             playerMaxHP: 100,
             diceCount: 5,
-            maxAttempts: 3,
+            maxAttempts: 4,
             roundRollPool: 8,
-            impactCap: 11,
+            impactCap: 20,
             maxUsesPerCastPerRound: 1,
             maxBrokenCastUsesPerRound: 3,
             brokenCastGrantsOvercharge: true,
@@ -175,7 +175,7 @@ public static class Stage01AssetGenerator
         StageRoundDefinitionSO[] rounds,
         StageWorkshopRulesSO workshopRules = null)
     {
-        var so = new SerializedObject(stage);
+        SerializedObject so = new SerializedObject(stage);
         so.FindProperty("stageNumber").intValue = stageNumber;
         so.FindProperty("displayName").stringValue = displayName;
         so.FindProperty("descentLabel").stringValue = descentLabel;
@@ -184,7 +184,7 @@ public static class Stage01AssetGenerator
         so.FindProperty("shopEntryRequiresOverchargeAfterStageClear").boolValue = shopEntryRequiresOverchargeAfterStageClear;
         so.FindProperty("keepChainAfterStageClear").boolValue = keepChainAfterStageClear;
 
-        var roundsProp = so.FindProperty("roundDefinitions");
+        SerializedProperty roundsProp = so.FindProperty("roundDefinitions");
         roundsProp.ClearArray();
         roundsProp.arraySize = rounds.Length;
         for (int i = 0; i < rounds.Length; i++)
@@ -224,7 +224,7 @@ public static class Stage01AssetGenerator
         bool disableChance,
         bool disableBrokenCastReward)
     {
-        var so = new SerializedObject(round);
+        SerializedObject so = new SerializedObject(round);
         so.FindProperty("roundId").stringValue = roundId;
         so.FindProperty("displayName").stringValue = displayName;
         so.FindProperty("roundType").enumValueIndex = (int)roundType;

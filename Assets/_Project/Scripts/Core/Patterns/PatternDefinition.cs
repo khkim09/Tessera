@@ -51,18 +51,18 @@ namespace Tessera.Core
                 { RollPatternType.Aces, new PatternDefinition(RollPatternType.Aces, 0, 2, 3) },
                 { RollPatternType.Twos, new PatternDefinition(RollPatternType.Twos, 0, 2, 3) },
                 { RollPatternType.Threes, new PatternDefinition(RollPatternType.Threes, 0, 2, 3) },
-                { RollPatternType.Fours, new PatternDefinition(RollPatternType.Fours, 0, 2, 3) },
-                { RollPatternType.Fives, new PatternDefinition(RollPatternType.Fives, 0, 2, 3) },
-                { RollPatternType.Sixes, new PatternDefinition(RollPatternType.Sixes, 0, 2, 3) },
+                { RollPatternType.Fours, new PatternDefinition(RollPatternType.Fours, 0, 2, 4) },
+                { RollPatternType.Fives, new PatternDefinition(RollPatternType.Fives, 0, 2, 4) },
+                { RollPatternType.Sixes, new PatternDefinition(RollPatternType.Sixes, 0, 2, 4) },
 
                 // 조합 Cast는 제작 난이도와 폭발력을 반영해 Force를 차등 적용한다.
-                { RollPatternType.ThreeOfAKind, new PatternDefinition(RollPatternType.ThreeOfAKind, 0, 2, 5) },
-                { RollPatternType.FourOfAKind, new PatternDefinition(RollPatternType.FourOfAKind, 0, 3, 8) },
-                { RollPatternType.FullHouse, new PatternDefinition(RollPatternType.FullHouse, 0, 3, 7) },
-                { RollPatternType.SmallStraight, new PatternDefinition(RollPatternType.SmallStraight, 0, 3, 6) },
-                { RollPatternType.LargeStraight, new PatternDefinition(RollPatternType.LargeStraight, 0, 4, 9) },
-                { RollPatternType.Chance, new PatternDefinition(RollPatternType.Chance, 0, 1, 4) },
-                { RollPatternType.Tessera, new PatternDefinition(RollPatternType.Tessera, 0, 5, 11) },
+                { RollPatternType.ThreeOfAKind, new PatternDefinition(RollPatternType.ThreeOfAKind, 0, 2, 6) },
+                { RollPatternType.FourOfAKind, new PatternDefinition(RollPatternType.FourOfAKind, 0, 3, 10) },
+                { RollPatternType.FullHouse, new PatternDefinition(RollPatternType.FullHouse, 0, 3, 8) },
+                { RollPatternType.SmallStraight, new PatternDefinition(RollPatternType.SmallStraight, 0, 3, 7) },
+                { RollPatternType.LargeStraight, new PatternDefinition(RollPatternType.LargeStraight, 0, 4, 11) },
+                { RollPatternType.Chance, new PatternDefinition(RollPatternType.Chance, 0, 1, 5) },
+                { RollPatternType.Tessera, new PatternDefinition(RollPatternType.Tessera, 0, 5, 14) },
 
                 // Broken Cast는 피해 0이며 Overcharge/리롤 보상용 Cast로 유지한다.
                 { RollPatternType.BrokenCast, new PatternDefinition(RollPatternType.BrokenCast, 0, 0, 0) }
