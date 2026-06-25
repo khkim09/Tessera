@@ -28,14 +28,15 @@ MonoBehaviour:
   diceCount: 5
   maxAttempts: 3
   roundRollPool: 8
+  impactCap: 0
   maxUsesPerCastPerRound: 1
   maxBrokenCastUsesPerRound: 3
   brokenCastGrantsOvercharge: 1
   brokenCastOverchargeAmount: 1
   brokenCastGrantsNextAttemptFreeReroll: 1
   brokenCastFreeRerollTokenAmount: 1
-  applyNonAcesDamagePenalty: 0
-  nonAcesDamagePercent: 50
+  applyNonAcesCastPowerPenalty: 0
+  nonAcesCastPowerPercent: 50
   disableChance: 0
   disableBrokenCastReward: 0
   opponentDevicePool:
@@ -45,7 +46,7 @@ MonoBehaviour:
   minOpponentDeviceCount: 0
   maxOpponentDeviceCount: 1
   allowDuplicateOpponentDevices: 0
-  opponentMaxHP: 40
+  opponentMaxHP: 18
   enemyStrikeDamage: 2
   opponentDiceLoadout: {fileID: 11400000, guid: 99cfdc513bd9d90448f6c4e68c814ea1, type: 2}
   useOpeningIntentInitiativeAsRoundInitiative: 1

@@ -19,8 +19,9 @@ MonoBehaviour:
   categoryType: 0
   initiativeOwner: 1
   useOpponentDevices: 0
-  chooseBestAvailableCast: 1
+  castSelectionPolicy: 0
   opponentRollCount: 2
-  targetDamageToStop: 18
-  stopIfBeatsPlayerDamage: 1
+  targetPowerToStop: 25
+  targetImpactToStop: 5
+  stopIfBeatsPlayerPower: 1
   rollStrategy: 1

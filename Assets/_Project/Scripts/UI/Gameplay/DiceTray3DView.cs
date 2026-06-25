@@ -240,6 +240,10 @@ namespace Tessera.UI
 
                 bool isLocked = IsDiceLocked(lockStates, diceIndex);
                 diceView.SetDice(diceIndex, diceValues[diceIndex], isLocked);
+
+                if (isLocked)
+                    continue;
+
                 tasks.Add(diceView.PlayArcMoveRollAsync(
                     trayPosition,
                     trayRotation,
@@ -260,10 +264,45 @@ namespace Tessera.UI
             Quaternion targetRotation,
             float duration)
         {
-            if (!TryGetDiceView(DiceOwnerType.Player, diceIndex, out Dice3DView diceView))
+            MoveDiceToLockedDeviceSlot(DiceOwnerType.Player, diceIndex, targetPosition, targetRotation, duration);
+        }
+
+        /// <summary>지정 소유자의 DiceView를 DeviceSlot 하단 Lock 표시 위치로 이동시킨다.</summary>
+        public void MoveDiceToLockedDeviceSlot(
+            DiceOwnerType owner,
+            int diceIndex,
+            Vector3 targetPosition,
+            Quaternion targetRotation,
+            float duration)
+        {
+            if (!TryGetDiceView(owner, diceIndex, out Dice3DView diceView))
                 return;
 
             diceView.MoveTo(targetPosition, targetRotation, duration);
+        }
+
+        /// <summary>지정 소유자의 단일 DiceView를 DiceTray 원래 DicePoint 위치로 복귀시킨다.</summary>
+        public void RestoreDiceToTray(
+            DiceOwnerType owner,
+            int diceIndex,
+            IReadOnlyList<int> diceValues,
+            float duration)
+        {
+            if (!TryGetDiceView(owner, diceIndex, out Dice3DView diceView))
+                return;
+
+            if (diceValues == null || diceIndex < 0 || diceIndex >= diceValues.Count)
+            {
+                diceView.Hide();
+                return;
+            }
+
+            diceView.SetDice(diceIndex, diceValues[diceIndex], false);
+
+            if (!TryGetDicePointPose(diceIndex, out Vector3 trayPosition, out Quaternion trayRotation))
+                return;
+
+            diceView.MoveTo(trayPosition, trayRotation, duration);
         }
 
         /// <summary>Player DeviceSlot 하단 Lock Dice 구조에서 DiceView 표시값을 갱신한다.</summary>
@@ -316,7 +355,13 @@ namespace Tessera.UI
         /// <summary>Player DiceView가 목표 위치 근처에 있는지 확인한다.</summary>
         public bool IsDiceNearPosition(int diceIndex, Vector3 targetPosition, float threshold)
         {
-            if (!TryGetDiceView(DiceOwnerType.Player, diceIndex, out Dice3DView diceView))
+            return IsDiceNearPosition(DiceOwnerType.Player, diceIndex, targetPosition, threshold);
+        }
+
+        /// <summary>지정 소유자의 DiceView가 목표 위치 근처에 있는지 확인한다.</summary>
+        public bool IsDiceNearPosition(DiceOwnerType owner, int diceIndex, Vector3 targetPosition, float threshold)
+        {
+            if (!TryGetDiceView(owner, diceIndex, out Dice3DView diceView))
                 return false;
 
             float sqrDistance = (diceView.transform.position - targetPosition).sqrMagnitude;
