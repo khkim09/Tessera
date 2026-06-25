@@ -107,9 +107,12 @@ namespace Tessera.UI
         [SerializeField] private Transform[] playerLockedDiceSlotAnchors = new Transform[5];
         /// <summary>Opponent Lock Dice가 이동할 Slot별 Anchor 배열이다.</summary>
         [SerializeField] private Transform[] opponentLockedDiceSlotAnchors = new Transform[5];
-        [SerializeField] private float lockedDiceMoveDuration = 0.16f;
+        /// <summary>Lock Dice가 Slot Anchor로 이동하는 연출 시간이다.</summary>
+        [SerializeField] private float lockedDiceMoveDuration = 0.16f; // Dice가 Slot Anchor로 이동하는 Tween 시간이다.
+        /// <summary>Opponent Roll 후 Lock Dice가 Slot Anchor로 이동하기 전 대기 시간이다.</summary>
+        [SerializeField] private float opponentLockedDiceMoveDelay = 0.18f; // Opponent Roll 결과를 잠깐 보여준 뒤 Slot Anchor로 이동시키는 전용 지연 시간이다.
         /// <summary>SlotPair 판정 후 Dice를 Tray로 복귀시킬지 여부이다.</summary>
-        [SerializeField] private bool restoreDiceToTrayAfterEvaluation = true;
+        [SerializeField] private bool restoreDiceToTrayAfterEvaluation = true; // 판정 연출 종료 후 Dice를 Tray 위치로 되돌릴지 결정한다.
 
         [Header("SlotPair Dice Jump Roll")]
         [SerializeField] private bool playDiceJumpRollDuringEvaluation = true;
@@ -2889,6 +2892,15 @@ namespace Tessera.UI
 
                 ApplyOpponentRollStrategyLocks(enemyDiceValues, candidateResult, lockStates, rollStrategy);
                 ApplyLockStatesToOpponentDiceInstances(opponentDiceInstances, lockStates);
+                MoveLockedOpponentDiceToDeviceSlots(enemyDiceValues, lockStates);
+
+                if (opponentLockedDiceMoveDelay > 0f)
+                {
+                    await UniTask.Delay(
+                        TimeSpan.FromSeconds(opponentLockedDiceMoveDelay),
+                        cancellationToken: this.GetCancellationTokenOnDestroy());
+                }
+
                 MoveLockedOpponentDiceToDeviceSlots(enemyDiceValues, lockStates);
 
                 LogOpponentRollAILockDecision(
