@@ -53,8 +53,8 @@ namespace Tessera.Core
 
             return new ImpactDamageBreakdown(
                 attackerResult.PatternResult.BaseImpact,
-                CalculatePowerTierBonus(attackerCastPower),
-                CalculateMarginTierBonus(margin),
+                CalculatePowerTierBonusForDebug(attackerCastPower),
+                CalculateMarginTierBonusForDebug(margin),
                 deviceImpactBonus,
                 trueImpactDamage,
                 0,
@@ -62,14 +62,14 @@ namespace Tessera.Core
                 finalModifierPercent);
         }
 
-        /// <summary>CastPower 45당 1씩 증가하는 PowerTierBonus를 최대 7까지 계산한다.</summary>
-        private static int CalculatePowerTierBonus(int castPower)
+        /// <summary>디버그 리포트와 실제 계산이 공유하는 PowerTierBonus 값을 계산한다.</summary>
+        public static int CalculatePowerTierBonusForDebug(int castPower)
         {
             return Math.Min(7, Math.Max(0, castPower) / 45);
         }
 
-        /// <summary>승리 CastPower 차이 35당 1씩 증가하는 MarginTierBonus를 최대 6까지 계산한다.</summary>
-        private static int CalculateMarginTierBonus(int margin)
+        /// <summary>디버그 리포트와 실제 계산이 공유하는 MarginTierBonus 값을 계산한다.</summary>
+        public static int CalculateMarginTierBonusForDebug(int margin)
         {
             return Math.Min(6, Math.Max(0, margin) / 35);
         }
