@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c8eae0d6d0450ed4aba879509cd7a43e, type: 3}
+  m_Name: DiceType_Standard
+  m_EditorClassIdentifier: Tessera.Data::Tessera.Data.DiceTypeDefinitionSO
+  diceTypeId: dice.standard
+  displayName: Standard Dice
+  description: "\uAE30\uBCF8 \uC8FC\uC0AC\uC704. \uBCC4\uB3C4 \uBCF4\uC815 \uC5C6\uC774
+    \uC548\uC815\uC801\uC73C\uB85C \uC0AC\uC6A9\uB41C\uB2E4."
+  icon: {fileID: 0}
+  visualColor: {r: 0.85, g: 0.85, b: 0.85, a: 1}
+  materialKey: standard
+  synergyTag: 0
+  intrinsicEffectType: 0
+  intValue: 0
+  floatValue: 0
+  tier: 1
+  rarity: 1
+  unlockStage: 1
+  baseMoneyPrice: 4
+  baseOverchargePrice: 0

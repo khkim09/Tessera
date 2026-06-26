@@ -14,17 +14,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.DiceTypeDefinitionSO
   diceTypeId: dice.gold
   displayName: Gold Dice
-  description: Candidate for earning Money +1 when winning a Round with this dice
-    in the Cast.
+  description: "Round \uC2B9\uB9AC \uBCF4\uC0C1\uC774\uB098 \uACBD\uC81C \uD6A8\uACFC\uC640
+    \uC5F0\uACC4\uB420 DiceType \uD6C4\uBCF4."
   icon: {fileID: 0}
   visualColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
-  materialKey: dice.gold
+  materialKey: gold
   synergyTag: 50
   intrinsicEffectType: 50
   intValue: 1
   floatValue: 0
-  tier: 1
+  tier: 2
   rarity: 2
   unlockStage: 2
-  baseMoneyPrice: 7
+  baseMoneyPrice: 8
   baseOverchargePrice: 0

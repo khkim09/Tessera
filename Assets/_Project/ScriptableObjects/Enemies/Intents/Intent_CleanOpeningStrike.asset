@@ -12,15 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6dfb16a733503c54bb25087d5a0331ae, type: 3}
   m_Name: Intent_CleanOpeningStrike
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.EnemyIntentDefinitionSO
-  intentId: intent_clean_opening_strike
+  intentId: intent.clean_opening_strike
   displayName: Clean Opening Strike
   shortDescription: Opponent rolls first without Device effects.
-  bountyCardDescription: Opponent acts first, but does not use Devices.
+  bountyCardDescription: "\uC0C1\uB300\uAC00 \uBA3C\uC800 \uAD74\uB9AC\uC9C0\uB9CC
+    Device\uB97C \uC0AC\uC6A9\uD558\uC9C0 \uC54A\uB294 \uD29C\uD1A0\uB9AC\uC5BC\uC6A9
+    Intent."
   categoryType: 0
   initiativeOwner: 1
   useOpponentDevices: 0
   castSelectionPolicy: 1
-  opponentRollCount: 2
   targetPowerToStop: 25
   targetImpactToStop: 5
   stopIfBeatsPlayerPower: 1

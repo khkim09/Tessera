@@ -14,10 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.DiceTypeDefinitionSO
   diceTypeId: dice.iron
   displayName: Iron Dice
-  description: Adds Score +3 when a result of 5 or higher is used in SlotPair calculation.
+  description: "\uB192\uC740 \uB208\uAE08\uACFC \uBB35\uC9C1\uD55C CastPower \uC870\uD569\uC5D0
+    \uC5B4\uC6B8\uB9AC\uB294 DiceType \uD6C4\uBCF4."
   icon: {fileID: 0}
-  visualColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-  materialKey: dice.iron
+  visualColor: {r: 0.4, g: 0.4, b: 0.4, a: 1}
+  materialKey: iron
   synergyTag: 30
   intrinsicEffectType: 20
   intValue: 3

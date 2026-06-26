@@ -13,8 +13,9 @@ MonoBehaviour:
   m_Name: FaceUpgrade_IronMark
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.DiceFaceUpgradeDefinitionSO
   upgradeId: face.iron_mark
-  displayName: Iron Mark
-  description: Adds Score +3 when rolled if the face value is 5 or higher.
+  displayName: "\uCCA0 \uD45C\uC2DD"
+  description: "\uB192\uC740 \uB208\uAE08\uACFC \uC5F0\uACC4\uB418\uB294 \uAE30\uBCF8
+    Face Upgrade \uD6C4\uBCF4."
   icon: {fileID: 0}
   requiresSpecificNumber: 0
   targetNumber: 5
@@ -26,5 +27,5 @@ MonoBehaviour:
   tier: 1
   rarity: 1
   unlockStage: 1
-  baseMoneyPrice: 4
+  baseMoneyPrice: 5
   baseOverchargePrice: 0

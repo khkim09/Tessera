@@ -15,12 +15,12 @@ MonoBehaviour:
   deviceId: device.stage_pressure_meter
   displayName: "\uC555\uB825\uACC4"
   description: "StageThreat 2 \uC774\uC0C1\uC774\uBA74 Force +1."
-  tier: 1
+  tier: 2
   icon: {fileID: 0}
   equippedViewPrefab: {fileID: 0}
-  rarity: 1
-  unlockStage: 1
-  baseMoneyPrice: 4
+  rarity: 2
+  unlockStage: 3
+  baseMoneyPrice: 7
   baseOverchargePrice: 0
   deviceType: 71
   intValue: 1

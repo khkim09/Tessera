@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.DiceSynergyDefinitionSO
   synergyId: synergy.red.4
   displayName: Red 4 Set
-  description: Adds Force +1 when the Cast has at least 3 odd results with 4 or more
-    Red dice.
+  description: "Red Dice\uAC00 4\uAC1C \uC774\uC0C1\uC774\uBA74 \uAC15\uD55C \uD640\uC218/\uACF5\uACA9\uD615
+    \uC870\uD569 \uBCF4\uB108\uC2A4 \uD6C4\uBCF4."
   icon: {fileID: 0}
   requiredTag: 10
   requiredCount: 4

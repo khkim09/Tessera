@@ -12,15 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6dfb16a733503c54bb25087d5a0331ae, type: 3}
   m_Name: Intent_Execution
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.EnemyIntentDefinitionSO
-  intentId: intent_execution
+  intentId: intent.execution
   displayName: Execution
-  shortDescription: Opponent executes a heavy strike with high Power.
-  bountyCardDescription: Opponent executes a devastating strike.
-  categoryType: 0
+  shortDescription: Opponent prioritizes strong CastPower and lethal impact.
+  bountyCardDescription: "\uC0C1\uB300\uAC00 \uB192\uC740 CastPower\uC640 \uCC98\uCE58
+    \uAC00\uB2A5\uC131\uC744 \uC6B0\uC120\uD558\uB294 \uBCF4\uC2A4/\uD6C4\uBC18\uC6A9
+    Intent."
+  categoryType: 3
   initiativeOwner: 1
   useOpponentDevices: 1
   castSelectionPolicy: 0
-  opponentRollCount: 3
   targetPowerToStop: 55
   targetImpactToStop: 9
   stopIfBeatsPlayerPower: 1

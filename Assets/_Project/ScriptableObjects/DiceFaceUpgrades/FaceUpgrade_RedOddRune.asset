@@ -13,8 +13,9 @@ MonoBehaviour:
   m_Name: FaceUpgrade_RedOddRune
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.DiceFaceUpgradeDefinitionSO
   upgradeId: face.red_odd_rune
-  displayName: Red Odd Rune
-  description: Adds Score +2 when rolled if the face value is odd.
+  displayName: "\uBD89\uC740 \uD640\uC218 \uB8EC"
+  description: "\uD640\uC218 Face\uC640 \uC5F0\uACC4\uB418\uB294 \uACF5\uACA9\uD615
+    Face Upgrade \uD6C4\uBCF4."
   icon: {fileID: 0}
   requiresSpecificNumber: 0
   targetNumber: 1
@@ -26,5 +27,5 @@ MonoBehaviour:
   tier: 1
   rarity: 1
   unlockStage: 1
-  baseMoneyPrice: 3
+  baseMoneyPrice: 5
   baseOverchargePrice: 0

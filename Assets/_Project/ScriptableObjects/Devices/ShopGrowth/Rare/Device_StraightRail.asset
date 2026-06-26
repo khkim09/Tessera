@@ -16,12 +16,12 @@ MonoBehaviour:
   displayName: "\uC2A4\uD2B8\uB808\uC774\uD2B8 \uB808\uC77C"
   description: "Small Straight \uB610\uB294 Large Straight \uC81C\uCD9C \uC2DC Force
     +1."
-  tier: 1
+  tier: 2
   icon: {fileID: 0}
   equippedViewPrefab: {fileID: 0}
-  rarity: 1
-  unlockStage: 1
-  baseMoneyPrice: 4
+  rarity: 2
+  unlockStage: 3
+  baseMoneyPrice: 7
   baseOverchargePrice: 0
   deviceType: 51
   intValue: 1

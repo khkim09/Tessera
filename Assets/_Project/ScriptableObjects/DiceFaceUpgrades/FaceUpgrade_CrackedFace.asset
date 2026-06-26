@@ -13,8 +13,9 @@ MonoBehaviour:
   m_Name: FaceUpgrade_CrackedFace
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.DiceFaceUpgradeDefinitionSO
   upgradeId: face.cracked_face
-  displayName: Cracked Face
-  description: Treated as 6 but increases incoming damage by 10% when losing a Clash.
+  displayName: "\uAE08 \uAC04 Face"
+  description: "\uAC15\uD55C \uBCF4\uC815\uACFC \uD328\uB110\uD2F0\uB97C \uD568\uAED8
+    \uAC16\uB294 \uC704\uD5D8 \uBCF4\uC0C1\uD615 Face Upgrade \uD6C4\uBCF4."
   icon: {fileID: 0}
   requiresSpecificNumber: 0
   targetNumber: 6
@@ -23,8 +24,8 @@ MonoBehaviour:
   effectType: 101
   intValue: 10
   floatValue: 0
-  tier: 1
-  rarity: 1
-  unlockStage: 1
-  baseMoneyPrice: 2
+  tier: 2
+  rarity: 2
+  unlockStage: 2
+  baseMoneyPrice: 7
   baseOverchargePrice: 0

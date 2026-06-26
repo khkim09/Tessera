@@ -11,7 +11,7 @@ namespace Tessera.Core
         private readonly Dictionary<RollPatternType, int> _patternUseCounts;
 
         /// <summary>SO가 없을 때 사용할 기본 Attempt Roll 횟수다.</summary>
-        public const int DefaultBaseRollsPerAttempt = 3;
+        public const int DefaultPlayerBaseRollsPerAttempt = 3;
 
         /// <summary>이 Round에 적용 중인 규칙 정보.</summary>
         public RoundRuleContext RuleContext { get; }
@@ -46,13 +46,11 @@ namespace Tessera.Core
         /// <summary>호환용으로 현재 Attempt에서 남은 전체 Roll 횟수를 반환한다.</summary>
         public int RemainingRoundRolls => RemainingRollsThisAttempt;
 
-        /// <summary>현재 Round 규칙에서 가져온 Attempt 기본 Roll 횟수다.</summary>
-        public int BaseRollsPerAttempt => RuleContext != null
-            ? RuleContext.BaseRollsPerAttempt
-            : DefaultBaseRollsPerAttempt;
+        /// <summary>플레이어가 Attempt마다 기본으로 사용할 Roll 횟수다.</summary>
+        public int PlayerBaseRollsPerAttempt => DefaultPlayerBaseRollsPerAttempt;
 
         /// <summary>현재 Attempt에서 남은 기본 Roll 횟수다.</summary>
-        public int RemainingBaseRollsThisAttempt => Math.Max(0, BaseRollsPerAttempt - RollsUsedThisAttempt);
+        public int RemainingBaseRollsThisAttempt => Math.Max(0, PlayerBaseRollsPerAttempt - RollsUsedThisAttempt);
 
         /// <summary>현재 Attempt에서 남은 추가 Roll 횟수다.</summary>
         public int RemainingExtraRollsThisAttempt => Math.Max(0, ExtraRollCharge);
@@ -61,7 +59,7 @@ namespace Tessera.Core
         public int RemainingRollsThisAttempt => RemainingBaseRollsThisAttempt + RemainingExtraRollsThisAttempt;
 
         /// <summary>현재 Attempt에서 표시할 최대 Roll 횟수다.</summary>
-        public int MaxRollsThisAttempt => BaseRollsPerAttempt + ExtraRollsUsedThisAttempt + RemainingExtraRollsThisAttempt;
+        public int MaxRollsThisAttempt => PlayerBaseRollsPerAttempt + ExtraRollsUsedThisAttempt + RemainingExtraRollsThisAttempt;
 
         /// <summary>현재 Attempt에서 추가 Roll을 사용할 수 있는지 확인한다.</summary>
         public bool CanUseExtraRollThisAttempt => RemainingExtraRollsThisAttempt > 0;
@@ -202,7 +200,7 @@ namespace Tessera.Core
             if (CurrentAttempt == null || CurrentAttempt.IsSubmitted)
                 return false;
 
-            if (RollsUsedThisAttempt < BaseRollsPerAttempt)
+            if (RollsUsedThisAttempt < PlayerBaseRollsPerAttempt)
             {
                 RollsUsedThisAttempt++;
                 return true;

@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.SlotPairDeviceDefinitionSO
   deviceId: device.unstable_fuse
   displayName: "\uBD88\uC548\uC815\uD55C \uB3C4\uD654\uC120"
-  description: "\uD604\uC7AC \uC2AC\uB86F \uC8FC\uC0AC\uC704\uAC00 \uD640\uC218\uBA74
+  description: "\uD604\uC7AC \uC2AC\uB86F \uC8FC\uC0AC\uC704\uAC00 \uD640\uC218\uC774\uBA74
     Force +1."
   tier: 1
   icon: {fileID: 0}

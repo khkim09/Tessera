@@ -24,49 +24,99 @@ MonoBehaviour:
   - displayName: Left Device
     allowedProductTypes: 0a000000
     productPool:
+    - {fileID: 11400000, guid: be61a20e0170ebe45a31c240887c8f99, type: 2}
+    - {fileID: 11400000, guid: be3698369eea16841a8729e4896a71ae, type: 2}
+    - {fileID: 11400000, guid: e87fa593fff811649baa9d27b01ac808, type: 2}
+    - {fileID: 11400000, guid: f1e1e59c428b24147b3363364029f2e2, type: 2}
+    - {fileID: 11400000, guid: a398a8bef71236244bb96a094e4baa72, type: 2}
+    - {fileID: 11400000, guid: aa81304f3a17c4742b0f0d0fc14a7fee, type: 2}
     - {fileID: 11400000, guid: b460e13c1f7e92847bc26e8335111d44, type: 2}
     - {fileID: 11400000, guid: 03ca1b41d4936824aaea6bf0b8ce3c99, type: 2}
-    - {fileID: 11400000, guid: dde7b028b1a8f734ab42df2fbb381ea2, type: 2}
-    - {fileID: 11400000, guid: 3d69a13f39c34574d9ce69a5b207adfe, type: 2}
     - {fileID: 11400000, guid: fa671064f34d8624388c6113274bb2c4, type: 2}
     - {fileID: 11400000, guid: 689f85b4dc9948d48829c58f73b7bdea, type: 2}
+    - {fileID: 11400000, guid: d8262127433110043b68d0abe356ad17, type: 2}
+    - {fileID: 11400000, guid: 14d00a73648accd4491ca1774cf4908f, type: 2}
     - {fileID: 11400000, guid: f95c71d7ac2ec02459f2116e9d5be4d7, type: 2}
     - {fileID: 11400000, guid: 25a9bed95a668f644ad83e7d3024d692, type: 2}
     - {fileID: 11400000, guid: 917e8fc56ed5ec84c946e1d3f0c5c4d2, type: 2}
+    - {fileID: 11400000, guid: dde7b028b1a8f734ab42df2fbb381ea2, type: 2}
+    - {fileID: 11400000, guid: 0bdb8ac8c9c12554aa61b0065bef54d5, type: 2}
+    - {fileID: 11400000, guid: 3d69a13f39c34574d9ce69a5b207adfe, type: 2}
     minTierOverride: 1
     maxTierOverride: 1
   - displayName: Right Device
     allowedProductTypes: 0a000000
     productPool:
+    - {fileID: 11400000, guid: be61a20e0170ebe45a31c240887c8f99, type: 2}
+    - {fileID: 11400000, guid: be3698369eea16841a8729e4896a71ae, type: 2}
+    - {fileID: 11400000, guid: e87fa593fff811649baa9d27b01ac808, type: 2}
+    - {fileID: 11400000, guid: f1e1e59c428b24147b3363364029f2e2, type: 2}
+    - {fileID: 11400000, guid: a398a8bef71236244bb96a094e4baa72, type: 2}
+    - {fileID: 11400000, guid: aa81304f3a17c4742b0f0d0fc14a7fee, type: 2}
     - {fileID: 11400000, guid: b460e13c1f7e92847bc26e8335111d44, type: 2}
     - {fileID: 11400000, guid: 03ca1b41d4936824aaea6bf0b8ce3c99, type: 2}
-    - {fileID: 11400000, guid: dde7b028b1a8f734ab42df2fbb381ea2, type: 2}
-    - {fileID: 11400000, guid: 3d69a13f39c34574d9ce69a5b207adfe, type: 2}
     - {fileID: 11400000, guid: fa671064f34d8624388c6113274bb2c4, type: 2}
     - {fileID: 11400000, guid: 689f85b4dc9948d48829c58f73b7bdea, type: 2}
+    - {fileID: 11400000, guid: d8262127433110043b68d0abe356ad17, type: 2}
+    - {fileID: 11400000, guid: 14d00a73648accd4491ca1774cf4908f, type: 2}
     - {fileID: 11400000, guid: f95c71d7ac2ec02459f2116e9d5be4d7, type: 2}
     - {fileID: 11400000, guid: 25a9bed95a668f644ad83e7d3024d692, type: 2}
     - {fileID: 11400000, guid: 917e8fc56ed5ec84c946e1d3f0c5c4d2, type: 2}
+    - {fileID: 11400000, guid: dde7b028b1a8f734ab42df2fbb381ea2, type: 2}
+    - {fileID: 11400000, guid: 0bdb8ac8c9c12554aa61b0065bef54d5, type: 2}
+    - {fileID: 11400000, guid: 3d69a13f39c34574d9ce69a5b207adfe, type: 2}
+    - {fileID: 11400000, guid: a11fadca2c02afb4eaf3611cf85b0270, type: 2}
+    - {fileID: 11400000, guid: b3306f1fea578c34d85375c139882560, type: 2}
+    - {fileID: 11400000, guid: 81ffbae61f215bb4186e0228c9dcc977, type: 2}
+    - {fileID: 11400000, guid: e26c81d7fdd7f9242a9d49ad13b0b911, type: 2}
+    - {fileID: 11400000, guid: 5cb6e66c82e49a84fa758aeb00d4d426, type: 2}
+    - {fileID: 11400000, guid: 313b1fceb4272b24cadd745e242ac890, type: 2}
+    - {fileID: 11400000, guid: acb5e16b35cdc8e418a6b853f10852c8, type: 2}
     - {fileID: 11400000, guid: dc68400ce9cf6b3429b806b3388d4eda, type: 2}
     minTierOverride: 1
     maxTierOverride: 2
   - displayName: Left Dice Type
-    allowedProductTypes: 140000001400000015000000
-    productPool: []
+    allowedProductTypes: 16000000
+    productPool:
+    - {fileID: 11400000, guid: 1458f90925a2d5e4cbdf06672af59290, type: 2}
+    - {fileID: 11400000, guid: 34e845144ce38de4694b47438bd63d34, type: 2}
+    - {fileID: 11400000, guid: 132801be29bacd64ab3fb1da817b2f07, type: 2}
+    - {fileID: 11400000, guid: 9b85060d01ee91845adce4a725a2b1de, type: 2}
+    - {fileID: 11400000, guid: b894b86060b320f4995fc85d138ea7cf, type: 2}
+    - {fileID: 11400000, guid: a7659860f16ea8c458d981aa898abf1a, type: 2}
     minTierOverride: 1
     maxTierOverride: 1
   - displayName: Right Dice Type
-    allowedProductTypes: 140000001400000015000000
-    productPool: []
+    allowedProductTypes: 16000000
+    productPool:
+    - {fileID: 11400000, guid: 1458f90925a2d5e4cbdf06672af59290, type: 2}
+    - {fileID: 11400000, guid: 34e845144ce38de4694b47438bd63d34, type: 2}
+    - {fileID: 11400000, guid: 132801be29bacd64ab3fb1da817b2f07, type: 2}
+    - {fileID: 11400000, guid: 9b85060d01ee91845adce4a725a2b1de, type: 2}
+    - {fileID: 11400000, guid: b894b86060b320f4995fc85d138ea7cf, type: 2}
+    - {fileID: 11400000, guid: a7659860f16ea8c458d981aa898abf1a, type: 2}
     minTierOverride: 1
     maxTierOverride: 2
   - displayName: Left Face Upgrade
-    allowedProductTypes: 16000000
-    productPool: []
+    allowedProductTypes: 17000000
+    productPool:
+    - {fileID: 11400000, guid: e5579def875ff9a4f8e09305721703c4, type: 2}
+    - {fileID: 11400000, guid: b2b959a5ac75bc040bbcda194cf64e1c, type: 2}
+    - {fileID: 11400000, guid: 36f64c93d32d6ee4c86e627a7abe7214, type: 2}
+    - {fileID: 11400000, guid: 68ebb23608774e845ac1621429e607b0, type: 2}
+    - {fileID: 11400000, guid: 799fa60c7c8496141a4e1960d4709010, type: 2}
     minTierOverride: 1
     maxTierOverride: 1
   - displayName: Right Face Upgrade
-    allowedProductTypes: 16000000
-    productPool: []
+    allowedProductTypes: 17000000
+    productPool:
+    - {fileID: 11400000, guid: e5579def875ff9a4f8e09305721703c4, type: 2}
+    - {fileID: 11400000, guid: b2b959a5ac75bc040bbcda194cf64e1c, type: 2}
+    - {fileID: 11400000, guid: 36f64c93d32d6ee4c86e627a7abe7214, type: 2}
+    - {fileID: 11400000, guid: 68ebb23608774e845ac1621429e607b0, type: 2}
+    - {fileID: 11400000, guid: 799fa60c7c8496141a4e1960d4709010, type: 2}
+    - {fileID: 11400000, guid: da6d5b750ad18fc41a06f83813422792, type: 2}
+    - {fileID: 11400000, guid: 333bec0e5cca9844b945e47e7ae03700, type: 2}
+    - {fileID: 11400000, guid: b32494fd2aff68d4b83c1970e7a5550d, type: 2}
     minTierOverride: 1
     maxTierOverride: 2

@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.SlotPairDeviceDefinitionSO
   deviceId: device.end_valve_light
   displayName: "\uC18C\uD615 \uC5D4\uB4DC \uBC38\uBE0C"
-  description: "5\uBC88 \uC2AC\uB86F\uC774\uBA74 True Power +15."
+  description: "5\uBC88 \uC2AC\uB86F\uC774\uBA74 TruePower +15."
   tier: 1
   icon: {fileID: 0}
   equippedViewPrefab: {fileID: 0}

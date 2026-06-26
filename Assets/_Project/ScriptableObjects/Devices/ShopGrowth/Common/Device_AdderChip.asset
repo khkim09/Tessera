@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.SlotPairDeviceDefinitionSO
   deviceId: device.adder_chip
   displayName: Adder Chip
-  description: "\uD2B9\uC815 \uC2AC\uB86F \uB610\uB294 \uD2B9\uC815 \uC8FC\uC0AC\uC704
-    \uC870\uAC74\uC5D0\uC11C Score +3."
+  description: "\uD2B9\uC815 \uC2AC\uB86F \uB610\uB294 \uC8FC\uC0AC\uC704 \uC870\uAC74\uC5D0\uC11C
+    Score +3."
   tier: 1
   icon: {fileID: 0}
   equippedViewPrefab: {fileID: 0}

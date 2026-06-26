@@ -14,11 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.DiceTypeDefinitionSO
   diceTypeId: dice.green
   displayName: Green Dice
-  description: Candidate for adding Score +2 when a result of 3 or lower is used
-    in SlotPair calculation.
+  description: "Straight, Chance, \uC131\uC7A5\uD615 \uC870\uD569\uC5D0 \uC5B4\uC6B8\uB9AC\uB294
+    DiceType \uD6C4\uBCF4."
   icon: {fileID: 0}
   visualColor: {r: 0, g: 1, b: 0, a: 1}
-  materialKey: dice.green
+  materialKey: green
   synergyTag: 60
   intrinsicEffectType: 21
   intValue: 2

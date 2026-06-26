@@ -16,12 +16,12 @@ MonoBehaviour:
   displayName: "\uAC70\uC6B8 \uC870\uAC01"
   description: "\uB300\uCE6D \uC2AC\uB86F\uACFC \uB208\uC774 \uAC19\uC73C\uBA74 Force
     +2."
-  tier: 1
+  tier: 2
   icon: {fileID: 0}
   equippedViewPrefab: {fileID: 0}
-  rarity: 1
-  unlockStage: 1
-  baseMoneyPrice: 4
+  rarity: 2
+  unlockStage: 3
+  baseMoneyPrice: 7
   baseOverchargePrice: 0
   deviceType: 42
   intValue: 2

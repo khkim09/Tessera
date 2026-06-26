@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.SlotPairDeviceDefinitionSO
   deviceId: device.force_spring
   displayName: Force Spring
-  description: "\uC870\uAC74 \uCDA9\uC871 \uC2DC Force +0.3."
+  description: "\uC870\uAC74 \uCDA9\uC871 \uC2DC Force +1."
   tier: 1
   icon: {fileID: 0}
   equippedViewPrefab: {fileID: 0}
@@ -23,8 +23,8 @@ MonoBehaviour:
   baseMoneyPrice: 4
   baseOverchargePrice: 0
   deviceType: 2
-  intValue: 0
-  floatValue: 0.3
+  intValue: 1
+  floatValue: 1
   forceThreshold: 0
   requiredPatternType: 0
   secondaryPatternType: 0

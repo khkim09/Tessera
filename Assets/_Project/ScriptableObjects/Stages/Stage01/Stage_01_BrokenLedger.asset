@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: Stage_01_BrokenLedger
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.StageDefinitionSO
   stageNumber: 1
-  displayName: Stage 1 - Broken Ledger
-  descentLabel: Depth 01
-  stageDescription: Tutorial bounty board test stage.
-  tutorialStage: 1
+  displayName: Stage 01 - Broken Ledger
+  descentLabel: Depth 1
+  stageDescription: The Broken Ledger awaits.
+  tutorialStage: 0
   shopEntryRequiresOverchargeAfterStageClear: 0
   keepChainAfterStageClear: 1
   roundDefinitions:

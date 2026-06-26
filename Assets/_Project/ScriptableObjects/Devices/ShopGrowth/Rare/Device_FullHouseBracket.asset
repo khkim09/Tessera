@@ -15,12 +15,12 @@ MonoBehaviour:
   deviceId: device.fullhouse_bracket
   displayName: "\uD480\uD558\uC6B0\uC2A4 \uBE0C\uB798\uD0B7"
   description: "Full House \uC81C\uCD9C \uC2DC Score +30."
-  tier: 1
+  tier: 2
   icon: {fileID: 0}
   equippedViewPrefab: {fileID: 0}
-  rarity: 1
-  unlockStage: 1
-  baseMoneyPrice: 4
+  rarity: 2
+  unlockStage: 3
+  baseMoneyPrice: 7
   baseOverchargePrice: 0
   deviceType: 5
   intValue: 30

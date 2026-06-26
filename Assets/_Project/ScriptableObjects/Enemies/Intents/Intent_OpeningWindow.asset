@@ -12,15 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6dfb16a733503c54bb25087d5a0331ae, type: 3}
   m_Name: Intent_OpeningWindow
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.EnemyIntentDefinitionSO
-  intentId: intent_opening_window
+  intentId: intent.opening_window
   displayName: Opening Window
   shortDescription: You act first before the opponent responds.
-  bountyCardDescription: You act first. Set Power before the opponent rolls.
+  bountyCardDescription: "\uD50C\uB808\uC774\uC5B4\uAC00 \uBA3C\uC800 CastPower\uB97C
+    \uB9CC\uB4E4\uACE0 \uC0C1\uB300\uAC00 \uB300\uC751\uD558\uB294 \uD559\uC2B5/\uC77C\uBC18\uC6A9
+    Intent."
   categoryType: 1
   initiativeOwner: 0
   useOpponentDevices: 1
-  castSelectionPolicy: 0
-  opponentRollCount: 3
+  castSelectionPolicy: 1
   targetPowerToStop: 40
   targetImpactToStop: 6
   stopIfBeatsPlayerPower: 1

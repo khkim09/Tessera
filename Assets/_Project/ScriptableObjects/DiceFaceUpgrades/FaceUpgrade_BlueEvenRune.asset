@@ -13,8 +13,9 @@ MonoBehaviour:
   m_Name: FaceUpgrade_BlueEvenRune
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.DiceFaceUpgradeDefinitionSO
   upgradeId: face.blue_even_rune
-  displayName: Blue Even Rune
-  description: Adds Force +0.2 when rolled if the face value is even.
+  displayName: "\uD478\uB978 \uC9DD\uC218 \uB8EC"
+  description: "\uC9DD\uC218 Face\uC640 \uC5F0\uACC4\uB418\uB294 \uC548\uC815\uD615
+    Face Upgrade \uD6C4\uBCF4."
   icon: {fileID: 0}
   requiresSpecificNumber: 0
   targetNumber: 2
@@ -26,5 +27,5 @@ MonoBehaviour:
   tier: 1
   rarity: 1
   unlockStage: 1
-  baseMoneyPrice: 3
+  baseMoneyPrice: 5
   baseOverchargePrice: 0

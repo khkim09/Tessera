@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.SlotPairDeviceDefinitionSO
   deviceId: device.safety_pin
   displayName: "\uC548\uC804 \uD540"
-  description: "\uD604\uC7AC \uC2AC\uB86F \uC8FC\uC0AC\uC704\uAC00 \uC9DD\uC218\uBA74
+  description: "\uD604\uC7AC \uC2AC\uB86F \uC8FC\uC0AC\uC704\uAC00 \uC9DD\uC218\uC774\uBA74
     Score +12."
   tier: 1
   icon: {fileID: 0}

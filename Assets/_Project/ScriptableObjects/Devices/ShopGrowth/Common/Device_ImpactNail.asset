@@ -14,8 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.SlotPairDeviceDefinitionSO
   deviceId: device.impact_nail
   displayName: Impact Nail
-  description: "\uD574\uB2F9 Device\uAC00 \uC801\uC6A9\uB418\uBA74 DeviceImpactBonus
-    +1."
+  description: "\uC774 Device\uAC00 \uC801\uC6A9\uB418\uBA74 DeviceImpactBonus +1."
   tier: 1
   icon: {fileID: 0}
   equippedViewPrefab: {fileID: 0}

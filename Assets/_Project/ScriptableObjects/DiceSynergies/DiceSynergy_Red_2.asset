@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.DiceSynergyDefinitionSO
   synergyId: synergy.red.2
   displayName: Red 2 Set
-  description: Adds Score +2 when odd dice are used in SlotPair calculation with
-    2 or more Red dice.
+  description: "Red Dice\uAC00 2\uAC1C \uC774\uC0C1\uC774\uBA74 \uD640\uC218/\uACF5\uACA9\uD615
+    \uC870\uD569 \uBCF4\uB108\uC2A4 \uD6C4\uBCF4."
   icon: {fileID: 0}
   requiredTag: 10
   requiredCount: 2

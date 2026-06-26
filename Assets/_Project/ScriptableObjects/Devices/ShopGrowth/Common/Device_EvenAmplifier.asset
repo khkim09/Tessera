@@ -14,7 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.SlotPairDeviceDefinitionSO
   deviceId: device.even_amplifier
   displayName: Even Amplifier
-  description: "\uC9DD\uC218 \uC8FC\uC0AC\uC704\uBA74 Score +3."
+  description: "\uD604\uC7AC \uC2AC\uB86F \uC8FC\uC0AC\uC704\uAC00 \uC9DD\uC218\uC774\uBA74
+    Score +3."
   tier: 1
   icon: {fileID: 0}
   equippedViewPrefab: {fileID: 0}

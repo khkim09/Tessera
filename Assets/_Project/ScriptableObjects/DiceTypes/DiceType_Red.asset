@@ -14,10 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.DiceTypeDefinitionSO
   diceTypeId: dice.red
   displayName: Red Dice
-  description: Adds Score +2 when an odd result is used in SlotPair calculation.
+  description: "\uD640\uC218 \uB208\uAE08\uACFC \uACF5\uACA9\uD615 \uC870\uD569\uC5D0
+    \uC5B4\uC6B8\uB9AC\uB294 DiceType \uD6C4\uBCF4."
   icon: {fileID: 0}
   visualColor: {r: 1, g: 0, b: 0, a: 1}
-  materialKey: dice.red
+  materialKey: red
   synergyTag: 10
   intrinsicEffectType: 10
   intValue: 2

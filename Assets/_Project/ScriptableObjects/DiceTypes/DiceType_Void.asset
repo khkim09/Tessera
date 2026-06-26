@@ -14,17 +14,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.DiceTypeDefinitionSO
   diceTypeId: dice.void
   displayName: Void Dice
-  description: Candidate for reducing incoming damage when this dice is included
-    in a lost Clash.
+  description: "Broken Cast, Overcharge, \uC704\uD5D8 \uBCF4\uC0C1\uD615 \uC870\uD569\uACFC
+    \uC5F0\uACC4\uB420 \uACE0\uAE09 DiceType \uD6C4\uBCF4."
   icon: {fileID: 0}
-  visualColor: {r: 0, g: 0, b: 0, a: 1}
-  materialKey: dice.void
+  visualColor: {r: 0.5, g: 0, b: 0.5, a: 1}
+  materialKey: void
   synergyTag: 70
   intrinsicEffectType: 100
   intValue: 2
   floatValue: 0
-  tier: 1
-  rarity: 2
-  unlockStage: 2
-  baseMoneyPrice: 7
-  baseOverchargePrice: 0
+  tier: 3
+  rarity: 3
+  unlockStage: 4
+  baseMoneyPrice: 10
+  baseOverchargePrice: 1

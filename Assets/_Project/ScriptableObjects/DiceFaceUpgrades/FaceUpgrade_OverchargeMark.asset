@@ -13,9 +13,8 @@ MonoBehaviour:
   m_Name: FaceUpgrade_OverchargeMark
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.DiceFaceUpgradeDefinitionSO
   upgradeId: face.overcharge_mark
-  displayName: Overcharge Mark
-  description: Adds Overcharge +1 when this face is included in a submitted Cast.
-    Limited to once per round.
+  displayName: "\uACFC\uCDA9\uC804 \uD45C\uC2DD"
+  description: "Overcharge \uD68D\uB4DD\uACFC \uC5F0\uACC4\uB420 Face Upgrade \uD6C4\uBCF4."
   icon: {fileID: 0}
   requiresSpecificNumber: 0
   targetNumber: 1
@@ -24,8 +23,8 @@ MonoBehaviour:
   effectType: 50
   intValue: 1
   floatValue: 0
-  tier: 1
+  tier: 2
   rarity: 2
-  unlockStage: 1
-  baseMoneyPrice: 5
+  unlockStage: 2
+  baseMoneyPrice: 7
   baseOverchargePrice: 0

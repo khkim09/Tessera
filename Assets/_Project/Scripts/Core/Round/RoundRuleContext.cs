@@ -14,8 +14,11 @@ namespace Tessera.Core
         /// <summary>Round에서 사용할 수 있는 최대 Attempt 수.</summary>
         public int MaxAttempts { get; }
 
-        /// <summary>Attempt마다 기본으로 제공되는 Roll 횟수다.</summary>
+        /// <summary>플레이어가 Attempt마다 기본으로 사용할 Roll 횟수다.</summary>
         public int BaseRollsPerAttempt { get; }
+
+        /// <summary>상대가 Attempt마다 사용할 기본 Roll 횟수다.</summary>
+        public int OpponentBaseRollsPerAttempt { get; }
 
         /// <summary>플레이어 최대 HP.</summary>
         public int PlayerMaxHP { get; }
@@ -58,6 +61,7 @@ namespace Tessera.Core
             int diceCount,
             int maxAttempts,
             int baseRollsPerAttempt,
+            int opponentBaseRollsPerAttempt,
             int playerMaxHP,
             int opponentMaxHP,
             int maxUsesPerCastPerRound,
@@ -107,6 +111,7 @@ namespace Tessera.Core
             DiceCount = diceCount;
             MaxAttempts = maxAttempts;
             BaseRollsPerAttempt = baseRollsPerAttempt;
+            OpponentBaseRollsPerAttempt = opponentBaseRollsPerAttempt;
             PlayerMaxHP = playerMaxHP;
             OpponentMaxHP = opponentMaxHP;
             MaxUsesPerCastPerRound = maxUsesPerCastPerRound;
@@ -127,7 +132,8 @@ namespace Tessera.Core
             return new RoundRuleContext(
                 diceCount: 5,
                 maxAttempts: 3,
-                baseRollsPerAttempt: 3,
+                baseRollsPerAttempt: RoundState.DefaultPlayerBaseRollsPerAttempt,
+                opponentBaseRollsPerAttempt: 3,
                 playerMaxHP: 20,
                 opponentMaxHP: 18,
                 maxUsesPerCastPerRound: 1,

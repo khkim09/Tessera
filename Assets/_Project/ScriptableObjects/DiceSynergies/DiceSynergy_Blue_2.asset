@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.DiceSynergyDefinitionSO
   synergyId: synergy.blue.2
   displayName: Blue 2 Set
-  description: Adds Score +2 when even dice are used in SlotPair calculation with
-    2 or more Blue dice.
+  description: "Blue Dice\uAC00 2\uAC1C \uC774\uC0C1\uC774\uBA74 \uC9DD\uC218/\uC548\uC815\uD615
+    \uC870\uD569 \uBCF4\uB108\uC2A4 \uD6C4\uBCF4."
   icon: {fileID: 0}
   requiredTag: 20
   requiredCount: 2

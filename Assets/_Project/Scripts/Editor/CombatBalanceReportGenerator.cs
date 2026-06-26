@@ -188,10 +188,11 @@ namespace Tessera.Editor
                 RoundRuleContext ruleContext = roundDefinition.BuildRuleContext(0);
                 int requiredAverageImpact = Mathf.CeilToInt((float)ruleContext.OpponentMaxHP / ruleContext.MaxAttempts);
                 string verdict = ResolveClearabilityVerdict(requiredAverageImpact, goodCastImpact, strongCastImpact);
-                int baseRollsPerAttempt = ruleContext.BaseRollsPerAttempt;
+                int playerBaseRollsPerAttempt = ruleContext.BaseRollsPerAttempt;
+                int opponentBaseRollsPerAttempt = ruleContext.OpponentBaseRollsPerAttempt;
 
-                builder.AppendLine($"{RoundPrefix} Path={info.AssetPath} RoundId={roundDefinition.RoundId} DisplayName={roundDefinition.DisplayName} OpponentMaxHP={ruleContext.OpponentMaxHP} MaxAttempts={ruleContext.MaxAttempts} BaseRollsPerAttempt={baseRollsPerAttempt} StartingExtraRollCharge=0 ImpactCap={ruleContext.ImpactCap} OpeningIntent={openingIntentName} IntentProfile={intentProfileName} IntentStops={intentStopText}");
-                builder.AppendLine($"{VerdictPrefix} RoundId={roundDefinition.RoundId} RequiredAverageImpact={requiredAverageImpact} GoodCastImpact={goodCastImpact} StrongCastImpact={strongCastImpact} BaseRollsPerAttempt={baseRollsPerAttempt} StartingExtraRollCharge=0 Evaluation={verdict}");
+                builder.AppendLine($"{RoundPrefix} Path={info.AssetPath} RoundId={roundDefinition.RoundId} DisplayName={roundDefinition.DisplayName} OpponentMaxHP={ruleContext.OpponentMaxHP} MaxAttempts={ruleContext.MaxAttempts} PlayerBaseRollsPerAttempt={playerBaseRollsPerAttempt} StartingExtraRollCharge=0 OpponentBaseRollsPerAttempt={opponentBaseRollsPerAttempt} ImpactCap={ruleContext.ImpactCap} OpeningIntent={openingIntentName} IntentProfile={intentProfileName} IntentStops={intentStopText}");
+                builder.AppendLine($"{VerdictPrefix} RoundId={roundDefinition.RoundId} RequiredAverageImpact={requiredAverageImpact} GoodCastImpact={goodCastImpact} StrongCastImpact={strongCastImpact} PlayerBaseRollsPerAttempt={playerBaseRollsPerAttempt} StartingExtraRollCharge=0 OpponentBaseRollsPerAttempt={opponentBaseRollsPerAttempt} Evaluation={verdict}");
             }
         }
 

@@ -32,10 +32,9 @@ namespace Tessera.Data
         [SerializeField] private string rewardDescription;
 
         [Header("Player / Round Rules")]
-        [SerializeField] private int playerMaxHP = 100;
+        [SerializeField] private int playerMaxHP = 20;
         [SerializeField] private int diceCount = 5;
         [SerializeField] private int maxAttempts = 3;
-        [SerializeField] private int baseRollsPerAttempt = 3;
         [SerializeField] private int impactCap;
         [SerializeField] private int maxUsesPerCastPerRound = 1;
         [SerializeField] private int maxBrokenCastUsesPerRound = 3;
@@ -61,6 +60,7 @@ namespace Tessera.Data
         [Header("Enemy")]
         [SerializeField] private int opponentMaxHP = 80;
         [SerializeField] private int enemyStrikeDamage = 3;
+        [SerializeField, Min(1)] private int opponentBaseRollsPerAttempt = 3;
 
         [Header("Enemy Dice")]
         [SerializeField] private EnemyDiceLoadoutDefinitionSO opponentDiceLoadout;
@@ -107,8 +107,6 @@ namespace Tessera.Data
         public int DiceCount => Mathf.Max(1, diceCount);
         /// <summary>최대 Attempt 수.</summary>
         public int MaxAttempts => Mathf.Max(1, maxAttempts);
-        /// <summary>Attempt마다 기본으로 제공되는 Roll 횟수다.</summary>
-        public int BaseRollsPerAttempt => Mathf.Max(1, baseRollsPerAttempt);
         /// <summary>0보다 크면 적용되는 선택적 Impact 상한이며 0 이하면 비활성화된다.</summary>
         public int ImpactCap => Mathf.Max(0, impactCap);
         /// <summary>같은 Cast를 Round 안에서 사용할 수 있는 횟수다.</summary>
@@ -146,6 +144,8 @@ namespace Tessera.Data
         public int OpponentMaxHP => Mathf.Max(1, opponentMaxHP);
         /// <summary>상대 기본 Strike 피해량이다.</summary>
         public int EnemyStrikeDamage => Mathf.Max(0, enemyStrikeDamage);
+        /// <summary>상대가 Attempt마다 사용할 기본 Roll 횟수다.</summary>
+        public int OpponentBaseRollsPerAttempt => Mathf.Max(1, opponentBaseRollsPerAttempt);
 
         /// <summary>상대 Dice 로드아웃 정의. null이면 기본 D6 세트를 사용한다.</summary>
         public EnemyDiceLoadoutDefinitionSO OpponentDiceLoadout => opponentDiceLoadout;
@@ -198,14 +198,14 @@ namespace Tessera.Data
             int resolvedPlayerMaxHP = runPlayerMaxHP > 0 ? runPlayerMaxHP : PlayerMaxHP;
             int resolvedStageThreatLevel = Mathf.Max(0, stageThreatLevel);
             int resolvedEnemyStrikeDamage = EnemyStrikeDamage;
-            int resolvedBaseRollsPerAttempt = BaseRollsPerAttempt;
+            int resolvedOpponentBaseRollsPerAttempt = OpponentBaseRollsPerAttempt;
             int resolvedOpponentMaxHP = OpponentMaxHP;
 
             if (resolvedStageThreatLevel >= 1)
                 resolvedEnemyStrikeDamage += 1;
 
             if (resolvedStageThreatLevel >= 2)
-                resolvedBaseRollsPerAttempt = Mathf.Max(1, resolvedBaseRollsPerAttempt - 1);
+                resolvedOpponentBaseRollsPerAttempt += 1;
 
             if (resolvedStageThreatLevel >= 3)
                 resolvedOpponentMaxHP += resolvedStageThreatLevel * 5;
@@ -213,7 +213,8 @@ namespace Tessera.Data
             return new RoundRuleContext(
                 diceCount: DiceCount,
                 maxAttempts: MaxAttempts,
-                baseRollsPerAttempt: resolvedBaseRollsPerAttempt,
+                baseRollsPerAttempt: RoundState.DefaultPlayerBaseRollsPerAttempt,
+                opponentBaseRollsPerAttempt: resolvedOpponentBaseRollsPerAttempt,
                 playerMaxHP: Mathf.Max(1, resolvedPlayerMaxHP),
                 opponentMaxHP: resolvedOpponentMaxHP,
                 maxUsesPerCastPerRound: MaxUsesPerCastPerRound,

@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.SlotPairDeviceDefinitionSO
   deviceId: device.heavy_hammer
   displayName: Heavy Hammer
-  description: "\uC8FC\uC0AC\uC704 \uAC12\uC774 5 \uC774\uC0C1\uC774\uBA74 DeviceImpactBonus
-    +2."
+  description: "\uD604\uC7AC \uC2AC\uB86F \uC8FC\uC0AC\uC704\uAC00 5 \uC774\uC0C1\uC774\uBA74
+    DeviceImpactBonus +2."
   tier: 1
   icon: {fileID: 0}
   equippedViewPrefab: {fileID: 0}

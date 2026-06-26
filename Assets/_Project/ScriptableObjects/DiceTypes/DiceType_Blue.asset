@@ -14,10 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.DiceTypeDefinitionSO
   diceTypeId: dice.blue
   displayName: Blue Dice
-  description: Adds Force +0.2 when an even result is used in SlotPair calculation.
+  description: "\uC9DD\uC218 \uB208\uAE08\uACFC \uC548\uC815\uD615 \uC870\uD569\uC5D0
+    \uC5B4\uC6B8\uB9AC\uB294 DiceType \uD6C4\uBCF4."
   icon: {fileID: 0}
   visualColor: {r: 0, g: 0, b: 1, a: 1}
-  materialKey: dice.blue
+  materialKey: blue
   synergyTag: 20
   intrinsicEffectType: 13
   intValue: 0

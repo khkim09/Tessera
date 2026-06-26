@@ -17,18 +17,19 @@ MonoBehaviour:
   roundType: 0
   tutorialForcedRound: 0
   initiallyAvailable: 1
-  bountyDescription: A standard bounty. Test your first Device setup against a low-pressure
-    target.
-  intentDescription: Rolls after your Cast and lands a light strike.
-  specialRuleDescription: No special table rule.
+  bountyDescription: "\uAE30\uBCF8 \uC218\uBC30\uC9C0. \uD50C\uB808\uC774\uC5B4\uAC00
+    \uBA3C\uC800 CastPower\uB97C \uB9CC\uB4E4\uACE0 \uC0C1\uB300\uAC00 \uB300\uC751\uD55C\uB2E4."
+  intentDescription: "Opening Window \uD504\uB85C\uD544\uC744 \uC0AC\uC6A9\uD574
+    \uD50C\uB808\uC774\uC5B4 \uC120\uACF5 \uD750\uB984\uC744 \uD559\uC2B5\uC2DC\uD0A8\uB2E4."
+  specialRuleDescription: "\uAE30\uBCF8 Stage 01 \uADDC\uCE59. Broken Cast\uB294
+    Overcharge\uC640 \uB2E4\uC74C Attempt Free Roll Token\uC744 \uC81C\uACF5\uD55C\uB2E4."
   baseRewardMoney: 12
   bountyRank: 1
   rewardOvercharge: 0
-  rewardDescription: First tutorial bounty reward.
+  rewardDescription: "Stage 01 \uAE30\uBCF8 \uBCF4\uC0C1."
   playerMaxHP: 20
   diceCount: 5
   maxAttempts: 3
-  baseRollsPerAttempt: 3
   impactCap: 0
   maxUsesPerCastPerRound: 1
   maxBrokenCastUsesPerRound: 3
@@ -42,21 +43,30 @@ MonoBehaviour:
   disableBrokenCastReward: 0
   opponentDevicePool:
   - {fileID: 11400000, guid: 4a39b7b1fb875434a98409bcfbb08169, type: 2}
+  - {fileID: 11400000, guid: 1995962472d329c4d9c4a7639f61ceff, type: 2}
   - {fileID: 11400000, guid: cd158a00775c40b42888a2f1f1248190, type: 2}
   - {fileID: 11400000, guid: 29d1f5389011e9f4db326f71338f031b, type: 2}
-  - {fileID: 11400000, guid: 1995962472d329c4d9c4a7639f61ceff, type: 2}
   - {fileID: 11400000, guid: decc3716635bb3d49b607bba5035d555, type: 2}
   - {fileID: 11400000, guid: 2ae96adb5dcf78547a459715022b165d, type: 2}
   - {fileID: 11400000, guid: 89619187793e61e4c8e02504da6fdf6b, type: 2}
   - {fileID: 11400000, guid: 5a1fe1a299ba8034980aa0e10a4ad648, type: 2}
   - {fileID: 11400000, guid: cf796ec42769b7d47bd8514570bd43ad, type: 2}
   - {fileID: 11400000, guid: bb78398b7d92bcf409c8f3c899b64d63, type: 2}
+  - {fileID: 11400000, guid: 2a0a1c6e2d36c494f98b69a0d6cd5a53, type: 2}
+  - {fileID: 11400000, guid: b3fe30f594f8e3c459e7af49693f23d4, type: 2}
+  - {fileID: 11400000, guid: 06ac599c54c4c8643b9d996fa4e915e0, type: 2}
+  - {fileID: 11400000, guid: c476c08ebd2c8ab4c871481acdbdb28b, type: 2}
+  - {fileID: 11400000, guid: 777bb7e83760b0e4a973f5bff4f72e89, type: 2}
+  - {fileID: 11400000, guid: 8f698dace80eaf54d9be8f4fde99409d, type: 2}
+  - {fileID: 11400000, guid: 77d6dc63c5762014f8c2043908cb34e0, type: 2}
+  - {fileID: 11400000, guid: c7c7f9245a128e54585da5715d126ff8, type: 2}
   minOpponentDeviceCount: 1
   maxOpponentDeviceCount: 2
   allowDuplicateOpponentDevices: 0
   opponentMaxHP: 24
   enemyStrikeDamage: 3
+  opponentBaseRollsPerAttempt: 3
   opponentDiceLoadout: {fileID: 11400000, guid: d869bc4a71071684ea20df35d2ae2174, type: 2}
   useOpeningIntentInitiativeAsRoundInitiative: 1
-  roundInitiativeOwner: 0
+  roundInitiativeOwner: 1
   intentProfile: {fileID: 11400000, guid: e24889b55881a8748940d20e571eb922, type: 2}

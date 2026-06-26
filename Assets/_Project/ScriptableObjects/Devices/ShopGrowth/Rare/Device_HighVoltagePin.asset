@@ -14,14 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.SlotPairDeviceDefinitionSO
   deviceId: device.high_voltage_pin
   displayName: "\uACE0\uC804\uC555 \uD540"
-  description: "\uD604\uC7AC \uC2AC\uB86F \uC8FC\uC0AC\uC704\uAC00 6\uC774\uBA74
-    Force x2."
-  tier: 1
+  description: "\uD604\uC7AC \uB208\uC774 6\uC774\uBA74 Force x2."
+  tier: 2
   icon: {fileID: 0}
   equippedViewPrefab: {fileID: 0}
-  rarity: 1
-  unlockStage: 1
-  baseMoneyPrice: 4
+  rarity: 2
+  unlockStage: 3
+  baseMoneyPrice: 7
   baseOverchargePrice: 0
   deviceType: 24
   intValue: 0

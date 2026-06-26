@@ -14,7 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.DiceSynergyDefinitionSO
   synergyId: synergy.iron.3
   displayName: Iron 3 Set
-  description: Adds Score +3 for each dice of 5 or higher with 3 or more Iron dice.
+  description: "Iron Dice\uAC00 3\uAC1C \uC774\uC0C1\uC774\uBA74 \uB192\uC740 \uB208\uAE08/\uBB35\uC9C1\uD55C
+    CastPower \uC870\uD569 \uBCF4\uB108\uC2A4 \uD6C4\uBCF4."
   icon: {fileID: 0}
   requiredTag: 30
   requiredCount: 3

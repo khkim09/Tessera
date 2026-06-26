@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 602bd926d75f5c7408f5837a91bb2318, type: 3}
   m_Name: Loadout_Stage01Balanced
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.EnemyDiceLoadoutDefinitionSO
-  loadoutId: loadout_stage01_balanced
+  loadoutId: loadout.stage01_balanced
   displayName: Stage01 Balanced
   diceDefinitions:
   - numberFaces: 010000000200000003000000040000000500000006000000

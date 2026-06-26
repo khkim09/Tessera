@@ -15,12 +15,12 @@ MonoBehaviour:
   deviceId: device.overdrive_chip
   displayName: "\uC624\uBC84\uB4DC\uB77C\uC774\uBE0C \uCE69"
   description: "Tessera \uC81C\uCD9C \uC2DC Force x1.5."
-  tier: 1
+  tier: 2
   icon: {fileID: 0}
   equippedViewPrefab: {fileID: 0}
-  rarity: 1
-  unlockStage: 1
-  baseMoneyPrice: 4
+  rarity: 2
+  unlockStage: 3
+  baseMoneyPrice: 7
   baseOverchargePrice: 0
   deviceType: 52
   intValue: 0

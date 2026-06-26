@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Device_LeadWeight
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.SlotPairDeviceDefinitionSO
   deviceId: device.lead_weight
-  displayName: "\uB0A9 \uCD94"
+  displayName: "\uB0A9\uCD94"
   description: "\uD604\uC7AC \uC2AC\uB86F \uC8FC\uC0AC\uC704\uAC00 5 \uC774\uC0C1\uC774\uBA74
     Score +15."
   tier: 1

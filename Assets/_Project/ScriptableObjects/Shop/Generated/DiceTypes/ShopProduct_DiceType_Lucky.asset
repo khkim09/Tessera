@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a78b2f09ea475bd4a9434aae9428d8f9, type: 3}
+  m_Name: ShopProduct_DiceType_Lucky
+  m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
+  productId: shop.dice.lucky
+  productType: 20
+  deviceDefinition: {fileID: 0}
+  diceTypeDefinition: {fileID: 11400000, guid: 50b9c1ec2f3e784458c402905e4d9348, type: 2}
+  diceFaceUpgradeDefinition: {fileID: 0}
+  consumableDefinitionPlaceholder: {fileID: 0}
+  permanentUpgradeDefinitionPlaceholder: {fileID: 0}
+  hpRepairDefinitionPlaceholder: {fileID: 0}

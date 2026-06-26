@@ -13,8 +13,9 @@ MonoBehaviour:
   m_Name: FaceUpgrade_CoinMark
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.DiceFaceUpgradeDefinitionSO
   upgradeId: face.coin_mark
-  displayName: Coin Mark
-  description: Earns Money +1 when winning a Round with this face included.
+  displayName: "\uB3D9\uC804 \uD45C\uC2DD"
+  description: "\uBCF4\uC0C1/\uACBD\uC81C \uD6A8\uACFC\uC640 \uC5F0\uACC4\uB420 Face
+    Upgrade \uD6C4\uBCF4."
   icon: {fileID: 0}
   requiresSpecificNumber: 0
   targetNumber: 1
@@ -24,7 +25,7 @@ MonoBehaviour:
   intValue: 1
   floatValue: 0
   tier: 1
-  rarity: 2
+  rarity: 1
   unlockStage: 1
   baseMoneyPrice: 5
   baseOverchargePrice: 0

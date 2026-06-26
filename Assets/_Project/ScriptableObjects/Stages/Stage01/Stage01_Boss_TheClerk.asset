@@ -17,18 +17,19 @@ MonoBehaviour:
   roundType: 1
   tutorialForcedRound: 0
   initiallyAvailable: 1
-  bountyDescription: The stage boss. Clear this bounty to settle the ledger and leave
-    the stage.
-  intentDescription: Rolls after your Cast and strikes harder as the table gets dangerous.
-  specialRuleDescription: Non-Aces Cast damage is reduced.
+  bountyDescription: "Stage 01 \uBCF4\uC2A4. \uC7A5\uBD80\uB97C \uC815\uC0B0\uD558\uAE30
+    \uC804 \uB9C8\uC9C0\uB9C9 \uACF5\uBC29\uC774\uB2E4."
+  intentDescription: "Boss \uD504\uB85C\uD544\uC744 \uC0AC\uC6A9\uD574 \uB192\uC740
+    CastPower\uC640 \uCC98\uCE58 \uAC00\uB2A5\uC131\uC744 \uC6B0\uC120\uD55C\uB2E4."
+  specialRuleDescription: "Non-Aces CastPower\uAC00 \uAC10\uC18C\uD558\uACE0 ImpactCap\uC774
+    \uC801\uC6A9\uB41C\uB2E4."
   baseRewardMoney: 25
   bountyRank: 4
   rewardOvercharge: 0
-  rewardDescription: Stage clear reward.
+  rewardDescription: "Stage 01 \uD074\uB9AC\uC5B4 \uBCF4\uC0C1."
   playerMaxHP: 20
   diceCount: 5
   maxAttempts: 4
-  baseRollsPerAttempt: 3
   impactCap: 20
   maxUsesPerCastPerRound: 1
   maxBrokenCastUsesPerRound: 3
@@ -42,20 +43,36 @@ MonoBehaviour:
   disableBrokenCastReward: 0
   opponentDevicePool:
   - {fileID: 11400000, guid: 4a39b7b1fb875434a98409bcfbb08169, type: 2}
+  - {fileID: 11400000, guid: 1995962472d329c4d9c4a7639f61ceff, type: 2}
   - {fileID: 11400000, guid: cd158a00775c40b42888a2f1f1248190, type: 2}
   - {fileID: 11400000, guid: 29d1f5389011e9f4db326f71338f031b, type: 2}
-  - {fileID: 11400000, guid: 1995962472d329c4d9c4a7639f61ceff, type: 2}
   - {fileID: 11400000, guid: decc3716635bb3d49b607bba5035d555, type: 2}
   - {fileID: 11400000, guid: 2ae96adb5dcf78547a459715022b165d, type: 2}
   - {fileID: 11400000, guid: 89619187793e61e4c8e02504da6fdf6b, type: 2}
   - {fileID: 11400000, guid: 5a1fe1a299ba8034980aa0e10a4ad648, type: 2}
   - {fileID: 11400000, guid: cf796ec42769b7d47bd8514570bd43ad, type: 2}
   - {fileID: 11400000, guid: bb78398b7d92bcf409c8f3c899b64d63, type: 2}
+  - {fileID: 11400000, guid: 2a0a1c6e2d36c494f98b69a0d6cd5a53, type: 2}
+  - {fileID: 11400000, guid: b3fe30f594f8e3c459e7af49693f23d4, type: 2}
+  - {fileID: 11400000, guid: 06ac599c54c4c8643b9d996fa4e915e0, type: 2}
+  - {fileID: 11400000, guid: c476c08ebd2c8ab4c871481acdbdb28b, type: 2}
+  - {fileID: 11400000, guid: 777bb7e83760b0e4a973f5bff4f72e89, type: 2}
+  - {fileID: 11400000, guid: 8f698dace80eaf54d9be8f4fde99409d, type: 2}
+  - {fileID: 11400000, guid: 77d6dc63c5762014f8c2043908cb34e0, type: 2}
+  - {fileID: 11400000, guid: c7c7f9245a128e54585da5715d126ff8, type: 2}
+  - {fileID: 11400000, guid: 829dd39f94d756c4780d2125f11ad2ed, type: 2}
+  - {fileID: 11400000, guid: 56278f6e743be814ab99ebbcdd6c4300, type: 2}
+  - {fileID: 11400000, guid: 7c45807a9161ee244bc81fbbf51d6545, type: 2}
+  - {fileID: 11400000, guid: 96f90fb1a79fb74469a16f29335aef9f, type: 2}
+  - {fileID: 11400000, guid: 3ad357b53f6e8db4ba9c1c6be8a5f1f0, type: 2}
+  - {fileID: 11400000, guid: 9b1a3b18a290eb14dbae415fb9ae4f70, type: 2}
+  - {fileID: 11400000, guid: 905e305d73605f7439922214e0ce769d, type: 2}
   minOpponentDeviceCount: 2
   maxOpponentDeviceCount: 4
   allowDuplicateOpponentDevices: 0
   opponentMaxHP: 48
   enemyStrikeDamage: 4
+  opponentBaseRollsPerAttempt: 4
   opponentDiceLoadout: {fileID: 11400000, guid: ca8c1e34ad648144990a299575cb0e66, type: 2}
   useOpeningIntentInitiativeAsRoundInitiative: 1
   roundInitiativeOwner: 1

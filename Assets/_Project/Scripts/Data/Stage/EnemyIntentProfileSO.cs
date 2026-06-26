@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -18,6 +18,6 @@ namespace Tessera.Data
         public EnemyIntentDefinitionSO OpeningIntent => openingIntent;
 
         /// <summary>Attempt 전환 시 선택할 Intent 후보 풀이다.</summary>
-        public IReadOnlyList<EnemyIntentDefinitionSO> IntentPool => intentPool ?? Array.Empty<EnemyIntentDefinitionSO>();
+        public IReadOnlyList<EnemyIntentDefinitionSO> IntentPool => intentPool;
     }
 }
