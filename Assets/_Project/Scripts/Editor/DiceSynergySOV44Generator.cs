@@ -25,7 +25,13 @@ namespace Tessera.Editor
         /// <summary>Tools/Tessera/Assets/Generate DiceSynergy SO v4.4 메뉴 항목.
         /// DiceSynergy SO만 생성/수정한다. ShopProduct/WorkshopRules/StageRound는 건드리지 않는다.</summary>
         [MenuItem("Tools/Tessera/Assets/Generate DiceSynergy SO v4.4")]
-        private static void GenerateDiceSynergySOV44()
+        private static void GenerateFromMenu()
+        {
+            GenerateForPipeline();
+        }
+
+        /// <summary>v4.4 통합 생성 파이프라인에서 호출하는 진입점이다.</summary>
+        public static void GenerateForPipeline()
         {
             _createdCount = 0;
             _updatedCount = 0;

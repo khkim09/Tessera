@@ -76,7 +76,7 @@ MonoBehaviour:
     minTierOverride: 1
     maxTierOverride: 2
   - displayName: Left Dice Type
-    allowedProductTypes: 16000000
+    allowedProductTypes: 14000000
     productPool:
     - {fileID: 11400000, guid: 1458f90925a2d5e4cbdf06672af59290, type: 2}
     - {fileID: 11400000, guid: 34e845144ce38de4694b47438bd63d34, type: 2}
@@ -87,7 +87,7 @@ MonoBehaviour:
     minTierOverride: 1
     maxTierOverride: 1
   - displayName: Right Dice Type
-    allowedProductTypes: 16000000
+    allowedProductTypes: 14000000
     productPool:
     - {fileID: 11400000, guid: 1458f90925a2d5e4cbdf06672af59290, type: 2}
     - {fileID: 11400000, guid: 34e845144ce38de4694b47438bd63d34, type: 2}

@@ -44,7 +44,13 @@ namespace Tessera.Editor
 
         /// <summary>Tools/Tessera/Assets/Generate Stage Round SO v4.4 메뉴 항목이다.</summary>
         [MenuItem("Tools/Tessera/Assets/Generate Stage Round SO v4.4")]
-        private static void Generate()
+        private static void GenerateFromMenu()
+        {
+            GenerateForPipeline();
+        }
+
+        /// <summary>v4.4 통합 생성 파이프라인에서 호출하는 진입점이다.</summary>
+        public static void GenerateForPipeline()
         {
             List<string> createdOrUpdatedAssets = new List<string>();
 
@@ -638,13 +644,13 @@ namespace Tessera.Editor
                 SetupProductSlotRule(slotRulesProp.GetArrayElementAtIndex(1),
                     "Right Device", new ShopProductType[] { ShopProductType.Device }, 1, 2);
 
-                // Slot 2: Left Dice Type, AllowedTypes = DiceTypeUpgrade, Tier 1~1
+                // Slot 2: Left Dice Type, AllowedTypes = DiceSet, Tier 1~1
                 SetupProductSlotRule(slotRulesProp.GetArrayElementAtIndex(2),
-                    "Left Dice Type", new ShopProductType[] { ShopProductType.DiceTypeUpgrade }, 1, 1);
+                    "Left Dice Type", new ShopProductType[] { ShopProductType.DiceSet }, 1, 1);
 
-                // Slot 3: Right Dice Type, AllowedTypes = DiceTypeUpgrade, Tier 1~2
+                // Slot 3: Right Dice Type, AllowedTypes = DiceSet, Tier 1~2
                 SetupProductSlotRule(slotRulesProp.GetArrayElementAtIndex(3),
-                    "Right Dice Type", new ShopProductType[] { ShopProductType.DiceTypeUpgrade }, 1, 2);
+                    "Right Dice Type", new ShopProductType[] { ShopProductType.DiceSet }, 1, 2);
 
                 // Slot 4: Left Face Upgrade, AllowedTypes = DiceFaceUpgrade, Tier 1~1
                 SetupProductSlotRule(slotRulesProp.GetArrayElementAtIndex(4),
@@ -942,8 +948,8 @@ namespace Tessera.Editor
             {
                 ShopProductType.Device,          // Slot 0: Left Device
                 ShopProductType.Device,          // Slot 1: Right Device
-                ShopProductType.DiceTypeUpgrade, // Slot 2: Left Dice Type
-                ShopProductType.DiceTypeUpgrade, // Slot 3: Right Dice Type
+                ShopProductType.DiceSet,         // Slot 2: Left Dice Type
+                ShopProductType.DiceSet,         // Slot 3: Right Dice Type
                 ShopProductType.DiceFaceUpgrade, // Slot 4: Left Face Upgrade
                 ShopProductType.DiceFaceUpgrade  // Slot 5: Right Face Upgrade
             };

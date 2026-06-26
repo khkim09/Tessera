@@ -1,4 +1,4 @@
-﻿[Tessera][BalanceReport] v4.4 Combat Balance Report generatedAtUtc=2026-06-26 12:06:40
+﻿[Tessera][BalanceReport] v4.4 Combat Balance Report generatedAtUtc=2026-06-26 12:00:54
 [Tessera][BalanceReport] ImpactFormula PowerTier=Floor(CastPower/45),Max7 MarginTier=Floor(Margin/35),Max6 ImpactCap<=0 disables cap
 [Tessera][BalanceReport] Section=A Cast base calculation table
 [Tessera][BalanceReport][Cast] DisplayName=Aces RawCastScore=3 BaseForce=2 BaseImpact=3 ExampleCastPower=6 PowerTierBonus=0 ExpectedImpactDamage[Margin0=3, Margin35=4, Margin70=5, Margin105=6]
