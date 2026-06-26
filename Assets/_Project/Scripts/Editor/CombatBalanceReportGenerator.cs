@@ -30,6 +30,9 @@ namespace Tessera.Editor
         /// <summary>최근 검증 로그를 덮어쓸 파일 이름이다.</summary>
         private const string LatestReportFileName = "CombatBalanceReport_Latest.txt";
 
+        /// <summary>Shop 리포트 로그에 붙이는 접두사다.</summary>
+        private const string ShopPrefix = "[Tessera][ShopReport][Product]";
+
         /// <summary>Unity 메뉴에서 v4.4 밸런스 리포트를 생성한다.</summary>
         [MenuItem("Tools/Tessera/Combat/Print v4.4 Balance Report")]
         public static void PrintV44BalanceReport()
@@ -48,8 +51,57 @@ namespace Tessera.Editor
             builder.AppendLine($"{ReportPrefix} ImpactFormula PowerTier=Floor(CastPower/45),Max7 MarginTier=Floor(Margin/35),Max6 ImpactCap<=0 disables cap");
             AppendCastTable(builder);
             AppendRoundReports(builder);
+            AppendShopReport(builder);
             builder.AppendLine($"{ReportPrefix} End of v4.4 Combat Balance Report");
             return builder.ToString();
+        }
+
+        /// <summary>Shop 상품 요약을 리포트에 추가한다.</summary>
+        private static void AppendShopReport(StringBuilder builder)
+        {
+            builder.AppendLine($"{ReportPrefix} Section=D Shop product report");
+
+            string[] shopProductGuids = AssetDatabase.FindAssets("t:ShopProductDefinitionSO");
+            if (shopProductGuids.Length == 0)
+            {
+                builder.AppendLine($"{ShopPrefix} No ShopProductDefinitionSO assets found.");
+                return;
+            }
+
+            for (int i = 0; i < shopProductGuids.Length; i++)
+            {
+                string assetPath = AssetDatabase.GUIDToAssetPath(shopProductGuids[i]);
+                ShopProductDefinitionSO product = AssetDatabase.LoadAssetAtPath<ShopProductDefinitionSO>(assetPath);
+
+                if (product == null)
+                    continue;
+
+                string productName = product.DisplayName;
+                string productType = product.ProductType.ToString();
+                int tier = product.Tier;
+                int price = product.BaseMoneyPrice;
+                string linkedItem = "None";
+                string description = product.Description;
+
+                // 연결된 아이템 정보
+                if (product.DeviceDefinition != null)
+                    linkedItem = product.DeviceDefinition.DeviceId;
+                else if (product.DiceTypeDefinition != null)
+                    linkedItem = product.DiceTypeDefinition.DiceTypeId;
+                else if (product.DiceFaceUpgradeDefinition != null)
+                    linkedItem = product.DiceFaceUpgradeDefinition.UpgradeId;
+
+                // 미구현 경고
+                string warning = string.Empty;
+                if (description.Contains("not implemented", StringComparison.OrdinalIgnoreCase) ||
+                    description.Contains("on hold", StringComparison.OrdinalIgnoreCase) ||
+                    description.Contains("Candidate", StringComparison.OrdinalIgnoreCase))
+                {
+                    warning = " [WARNING: 미구현/보류 상품]";
+                }
+
+                builder.AppendLine($"{ShopPrefix} ProductName={productName} ProductType={productType} Tier={tier} Price={price} LinkedItem={linkedItem} Description={description}{warning}");
+            }
         }
 
         /// <summary>Cast별 기본 계산표를 리포트에 추가한다.</summary>
@@ -132,12 +184,14 @@ namespace Tessera.Editor
                 string openingIntentName = openingIntent != null ? openingIntent.DisplayName : "None";
                 string intentProfileName = roundDefinition.IntentProfile != null ? roundDefinition.IntentProfile.name : "None";
                 string intentStopText = BuildIntentStopText(roundDefinition);
-                int requiredAverageImpact = Mathf.CeilToInt((float)roundDefinition.BuildRuleContext(0).OpponentMaxHP / roundDefinition.MaxAttempts);
-                string verdict = ResolveClearabilityVerdict(requiredAverageImpact, goodCastImpact, strongCastImpact);
-                RoundRuleContext ruleContext = roundDefinition.BuildRuleContext(0);
 
-                builder.AppendLine($"{RoundPrefix} Path={info.AssetPath} RoundId={roundDefinition.RoundId} DisplayName={roundDefinition.DisplayName} OpponentMaxHP={ruleContext.OpponentMaxHP} MaxAttempts={roundDefinition.MaxAttempts} ImpactCap={roundDefinition.ImpactCap} OpeningIntent={openingIntentName} IntentProfile={intentProfileName} IntentStops={intentStopText}");
-                builder.AppendLine($"{VerdictPrefix} RoundId={roundDefinition.RoundId} RequiredAverageImpact={requiredAverageImpact} GoodCastImpact={goodCastImpact} StrongCastImpact={strongCastImpact} Evaluation={verdict}");
+                RoundRuleContext ruleContext = roundDefinition.BuildRuleContext(0);
+                int requiredAverageImpact = Mathf.CeilToInt((float)ruleContext.OpponentMaxHP / ruleContext.MaxAttempts);
+                string verdict = ResolveClearabilityVerdict(requiredAverageImpact, goodCastImpact, strongCastImpact);
+                int baseRollsPerAttempt = ruleContext.BaseRollsPerAttempt;
+
+                builder.AppendLine($"{RoundPrefix} Path={info.AssetPath} RoundId={roundDefinition.RoundId} DisplayName={roundDefinition.DisplayName} OpponentMaxHP={ruleContext.OpponentMaxHP} MaxAttempts={ruleContext.MaxAttempts} BaseRollsPerAttempt={baseRollsPerAttempt} StartingExtraRollCharge=0 ImpactCap={ruleContext.ImpactCap} OpeningIntent={openingIntentName} IntentProfile={intentProfileName} IntentStops={intentStopText}");
+                builder.AppendLine($"{VerdictPrefix} RoundId={roundDefinition.RoundId} RequiredAverageImpact={requiredAverageImpact} GoodCastImpact={goodCastImpact} StrongCastImpact={strongCastImpact} BaseRollsPerAttempt={baseRollsPerAttempt} StartingExtraRollCharge=0 Evaluation={verdict}");
             }
         }
 
@@ -154,8 +208,8 @@ namespace Tessera.Editor
                 : (rawCastScore + definition.FlatBonus) * definition.BaseForce + definition.TruePower;
 
             return definition.BaseImpact +
-                   ImpactDamageCalculator.CalculatePowerTierBonusForDebug(castPower) +
-                   ImpactDamageCalculator.CalculateMarginTierBonusForDebug(margin);
+                    ImpactDamageCalculator.CalculatePowerTierBonusForDebug(castPower) +
+                    ImpactDamageCalculator.CalculateMarginTierBonusForDebug(margin);
         }
 
         /// <summary>AssetDatabase에서 Stage 1 또는 Tutorial RoundDefinition 에셋을 우선 검색한다.</summary>
@@ -191,8 +245,8 @@ namespace Tessera.Editor
         {
             string haystack = $"{assetPath} {roundDefinition.name} {roundDefinition.RoundId} {roundDefinition.DisplayName}";
             return haystack.IndexOf("Stage01", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   haystack.IndexOf("Stage 1", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   haystack.IndexOf("Tutorial", StringComparison.OrdinalIgnoreCase) >= 0;
+                    haystack.IndexOf("Stage 1", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    haystack.IndexOf("Tutorial", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         /// <summary>RoundDefinition 에셋 정보를 경로 기준으로 정렬한다.</summary>

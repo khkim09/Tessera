@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_FaceUpgrade_CrackedFace
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.face.cracked_face
-  displayName: Cracked Face
-  description: Treated as 6 but increases incoming damage by 10% when losing a Clash.
-  icon: {fileID: 0}
   productType: 23
-  tier: 1
-  baseMoneyPrice: 2
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 0}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 11400000, guid: 348ae13d61605524dada0a33b8451d81, type: 2}

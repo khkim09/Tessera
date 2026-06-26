@@ -13,14 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_FaceUpgrade_GuardMark
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.face.guard_mark
-  displayName: Guard Mark
-  description: Reduces incoming damage by 5 when this face is included in a lost
-    Clash.
-  icon: {fileID: 0}
   productType: 23
-  tier: 2
-  baseMoneyPrice: 5
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 0}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 11400000, guid: c91b57c55679e764ba46cd3deb82908c, type: 2}

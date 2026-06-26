@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_Device_FlatScorer
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.device.flat_scorer
-  displayName: Flat Scorer
-  description: Legacy flat score device. Currently mapped to any dice condition.
-  icon: {fileID: 0}
   productType: 10
-  tier: 1
-  baseMoneyPrice: 4
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: 5911742ee3f7e5c49b2e7b0be9bd80cc, type: 2}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 0}

@@ -49,6 +49,12 @@ namespace Tessera.Data
         [Header("True Power")]
         [SerializeField] private int truePowerValue;
 
+        [Header("Impact Damage")]
+        [Tooltip("RawImpactDamage에 더해질 일반 ImpactDamage 보너스다.")]
+        [SerializeField] private int deviceImpactBonus;
+        [Tooltip("RawImpactDamage에 더해질 고정 ImpactDamage 값이다.")]
+        [SerializeField] private int trueImpactDamage;
+
         public string DeviceId => deviceId;
         public string DisplayName => displayName;
         public string Description => description;
@@ -78,6 +84,12 @@ namespace Tessera.Data
         public int RequiredStageThreatLevel => Mathf.Max(0, requiredStageThreatLevel);
         public int TruePowerValue => Mathf.Max(0, truePowerValue);
 
+        /// <summary>Device가 제공하는 일반 ImpactDamage 보너스다.</summary>
+        public int DeviceImpactBonus => Mathf.Max(0, deviceImpactBonus);
+
+        /// <summary>Device가 제공하는 고정 ImpactDamage 값이다.</summary>
+        public int TrueImpactDamage => Mathf.Max(0, trueImpactDamage);
+
         /// <summary>Device SO를 현재 Core 계산용 정의로 변환한다.</summary>
         public SlotPairDeviceDefinition ToCoreDefinition()
         {
@@ -99,6 +111,29 @@ namespace Tessera.Data
 
             if (deviceType == SlotPairDeviceType.AddScoreIfCastType)
                 return SlotPairDeviceDefinition.AddScoreIfCastType(requiredPatternType, GetSafeIntValue(1));
+
+            // ImpactDamage 계열 Device는 DeviceImpactBonus/TrueImpactDamage를 포함한 전체 생성자를 사용한다.
+            if (deviceType == SlotPairDeviceType.AddDeviceImpactBonusIfSlotActive ||
+                deviceType == SlotPairDeviceType.AddDeviceImpactBonusIfDiceValueAtLeast ||
+                deviceType == SlotPairDeviceType.AddTrueImpactDamageIfCastPowerAtLeast)
+            {
+                return new SlotPairDeviceDefinition(
+                    deviceType,
+                    GetSafeIntValue(0),
+                    GetSafeFloatValue(1f),
+                    Mathf.Max(0f, forceThreshold),
+                    requiredPatternType,
+                    secondaryPatternType,
+                    requiredParity,
+                    RequiredMinDiceValue,
+                    RequiredMaxDiceValue,
+                    requiredSlotIndex,
+                    RequiredStageThreatLevel,
+                    TruePowerValue,
+                    DeviceImpactBonus,
+                    TrueImpactDamage,
+                    description);
+            }
 
             return SlotPairDeviceDefinition.Create(
                 deviceType,

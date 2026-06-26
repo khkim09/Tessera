@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_Device_FrontLoader
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.device.front_loader
-  displayName: Front Loader
-  description: Adds Score +18 if this is slot index 1.
-  icon: {fileID: 0}
   productType: 10
-  tier: 1
-  baseMoneyPrice: 4
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: 8f698dace80eaf54d9be8f4fde99409d, type: 2}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 0}

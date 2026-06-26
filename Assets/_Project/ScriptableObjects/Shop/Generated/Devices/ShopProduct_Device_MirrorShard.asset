@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_Device_MirrorShard
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.device.mirror_shard
-  displayName: Mirror Shard
-  description: Adds Force +2 if the mirror slot has the same dice value.
-  icon: {fileID: 0}
   productType: 10
-  tier: 2
-  baseMoneyPrice: 8
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: 829dd39f94d756c4780d2125f11ad2ed, type: 2}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 0}

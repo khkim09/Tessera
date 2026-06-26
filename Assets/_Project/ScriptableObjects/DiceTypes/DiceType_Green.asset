@@ -23,6 +23,8 @@ MonoBehaviour:
   intrinsicEffectType: 21
   intValue: 2
   floatValue: 0
+  tier: 1
   rarity: 1
   unlockStage: 1
   baseMoneyPrice: 5
+  baseOverchargePrice: 0

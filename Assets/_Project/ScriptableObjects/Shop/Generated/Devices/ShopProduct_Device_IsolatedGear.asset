@@ -13,14 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_Device_IsolatedGear
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.device.isolated_gear
-  displayName: Isolated Gear
-  description: Adds Score +25 if both neighboring dice differ by at least 2 from
-    the current dice.
-  icon: {fileID: 0}
   productType: 10
-  tier: 2
-  baseMoneyPrice: 8
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: 56278f6e743be814ab99ebbcdd6c4300, type: 2}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 0}

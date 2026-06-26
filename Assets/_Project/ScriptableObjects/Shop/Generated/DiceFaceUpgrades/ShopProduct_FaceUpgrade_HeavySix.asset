@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_FaceUpgrade_HeavySix
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.face.heavy_six
-  displayName: Heavy Six
-  description: Treats this face as 6 and adds Score +2 when rolled.
-  icon: {fileID: 0}
   productType: 23
-  tier: 1
-  baseMoneyPrice: 4
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 0}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 11400000, guid: d2ec12a0480cac74182db6005c671e40, type: 2}

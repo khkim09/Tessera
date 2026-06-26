@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_Device_PressureGaugeLight
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.device.pressure_gauge_light
-  displayName: Light Pressure Gauge
-  description: Adds Score +10 if Stage Threat is at least 1.
-  icon: {fileID: 0}
   productType: 10
-  tier: 1
-  baseMoneyPrice: 4
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: c7c7f9245a128e54585da5715d126ff8, type: 2}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 0}

@@ -52,6 +52,8 @@ namespace Tessera.Core
                     currentScore,
                     currentForce,
                     currentTruePower,
+                    ref currentDeviceImpactBonus,
+                    ref currentTrueImpactDamage,
                     out currentScore,
                     out currentForce,
                     out currentTruePower);
@@ -90,6 +92,8 @@ namespace Tessera.Core
             int scoreBefore,
             float forceBefore,
             int truePowerBefore,
+            ref int deviceImpactBonusAccumulator,
+            ref int trueImpactDamageAccumulator,
             out int scoreAfter,
             out float forceAfter,
             out int truePowerAfter)
@@ -337,6 +341,33 @@ namespace Tessera.Core
 
                         forceAfter += device.IntValue;
                         return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Force +{device.IntValue}.");
+                    }
+
+                // ImpactDamage 계열 Device
+                case SlotPairDeviceType.AddDeviceImpactBonusIfSlotActive:
+                    {
+                        // 해당 Device 슬롯이 활성 상태이면 DeviceImpactBonus 증가
+                        // 이 Device는 항상 활성 슬롯에 장착되어 있으므로 조건 충족 시 적용된다.
+                        // 추가 조건이 필요하면 RequiredMinDiceValue 등을 활용한다.
+                        deviceImpactBonusAccumulator += device.DeviceImpactBonus;
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Device Impact Bonus +{device.DeviceImpactBonus}.");
+                    }
+
+                case SlotPairDeviceType.AddDeviceImpactBonusIfDiceValueAtLeast:
+                    {
+                        if (diceValue < device.RequiredMinDiceValue)
+                            return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "Dice value is too low for Impact bonus.");
+
+                        deviceImpactBonusAccumulator += device.DeviceImpactBonus;
+                        return CreateStep(slotIndex, diceIndex, diceValue, device.DeviceType, scoreBefore, scoreAfter, forceBefore, forceAfter, truePowerBefore, truePowerAfter, true, $"Device Impact Bonus +{device.DeviceImpactBonus}.");
+                    }
+
+                case SlotPairDeviceType.AddTrueImpactDamageIfCastPowerAtLeast:
+                    {
+                        // CastPower는 Device 계산 단계에서 아직 확정되지 않았으므로,
+                        // 이 Device 타입은 현재 단계에서 조건 평가가 불가능하다.
+                        // 보류: 추후 CastPower 조건 평가가 가능해지면 활성화한다.
+                        return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "CastPower condition not available at device step. (on hold)");
                     }
 
                 default:

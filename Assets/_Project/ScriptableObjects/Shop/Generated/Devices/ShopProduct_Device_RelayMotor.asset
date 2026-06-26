@@ -13,14 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_Device_RelayMotor
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.device.relay_motor
-  displayName: Relay Motor
-  description: Multiplies Force by 1.5 if the current dice is greater than the previous
-    slot dice.
-  icon: {fileID: 0}
   productType: 10
-  tier: 1
-  baseMoneyPrice: 6
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: 777bb7e83760b0e4a973f5bff4f72e89, type: 2}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 0}

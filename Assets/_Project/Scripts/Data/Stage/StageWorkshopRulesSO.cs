@@ -20,7 +20,6 @@ namespace Tessera.Data
         [SerializeField] private int tierIncreasePerUpgrade = 1;
 
         [Header("Shop Inventory")]
-        [SerializeField] private ShopProductDefinitionSO[] productPool;
         [SerializeField] private int productSlotCount = 3;
         [SerializeField] private bool allowDuplicateProducts;
 
@@ -44,9 +43,6 @@ namespace Tessera.Data
 
         /// <summary>업그레이드 1회당 증가하는 Workshop Tier.</summary>
         public int TierIncreasePerUpgrade => Mathf.Max(1, tierIncreasePerUpgrade);
-
-        /// <summary>이 Stage Workshop에서 등장 가능한 Shop 상품 후보 풀을 반환한다.</summary>
-        public IReadOnlyList<ShopProductDefinitionSO> ProductPool => productPool;
 
         /// <summary>Shop에 표시할 상품 슬롯 수를 반환한다.</summary>
         public int ProductSlotCount

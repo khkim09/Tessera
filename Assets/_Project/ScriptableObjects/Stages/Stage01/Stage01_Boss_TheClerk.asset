@@ -22,13 +22,13 @@ MonoBehaviour:
   intentDescription: Rolls after your Cast and strikes harder as the table gets dangerous.
   specialRuleDescription: Non-Aces Cast damage is reduced.
   baseRewardMoney: 25
-  bountyRank: 3
+  bountyRank: 4
   rewardOvercharge: 0
   rewardDescription: Stage clear reward.
-  playerMaxHP: 100
+  playerMaxHP: 20
   diceCount: 5
   maxAttempts: 4
-  roundRollPool: 8
+  baseRollsPerAttempt: 3
   impactCap: 20
   maxUsesPerCastPerRound: 1
   maxBrokenCastUsesPerRound: 3
@@ -41,19 +41,22 @@ MonoBehaviour:
   disableChance: 0
   disableBrokenCastReward: 0
   opponentDevicePool:
-  - {fileID: 11400000, guid: 6846570314fc2554bbed934f8f59b05e, type: 2}
-  - {fileID: 11400000, guid: d1178f2118f94fb4c8b07ea2c698e13f, type: 2}
-  - {fileID: 11400000, guid: 7ba54f2b344b77441a2fffa88404bf7e, type: 2}
-  - {fileID: 11400000, guid: 5911742ee3f7e5c49b2e7b0be9bd80cc, type: 2}
-  - {fileID: 11400000, guid: 522791ecf4c8de748859ea0f616fb3d8, type: 2}
-  minOpponentDeviceCount: 3
-  maxOpponentDeviceCount: 5
+  - {fileID: 11400000, guid: 4a39b7b1fb875434a98409bcfbb08169, type: 2}
+  - {fileID: 11400000, guid: cd158a00775c40b42888a2f1f1248190, type: 2}
+  - {fileID: 11400000, guid: 29d1f5389011e9f4db326f71338f031b, type: 2}
+  - {fileID: 11400000, guid: 1995962472d329c4d9c4a7639f61ceff, type: 2}
+  - {fileID: 11400000, guid: decc3716635bb3d49b607bba5035d555, type: 2}
+  - {fileID: 11400000, guid: 2ae96adb5dcf78547a459715022b165d, type: 2}
+  - {fileID: 11400000, guid: 89619187793e61e4c8e02504da6fdf6b, type: 2}
+  - {fileID: 11400000, guid: 5a1fe1a299ba8034980aa0e10a4ad648, type: 2}
+  - {fileID: 11400000, guid: cf796ec42769b7d47bd8514570bd43ad, type: 2}
+  - {fileID: 11400000, guid: bb78398b7d92bcf409c8f3c899b64d63, type: 2}
+  minOpponentDeviceCount: 2
+  maxOpponentDeviceCount: 4
   allowDuplicateOpponentDevices: 0
   opponentMaxHP: 48
   enemyStrikeDamage: 4
-  opponentDiceLoadout: {fileID: 11400000, guid: 04ede4506b708f64fb42aab4f8e9efc1, type: 2}
+  opponentDiceLoadout: {fileID: 11400000, guid: ca8c1e34ad648144990a299575cb0e66, type: 2}
   useOpeningIntentInitiativeAsRoundInitiative: 1
   roundInitiativeOwner: 1
-  openingIntent: {fileID: 11400000, guid: fa701230776878645b891973771fe3ba, type: 2}
-  intentDeck:
-  - {fileID: 11400000, guid: fa701230776878645b891973771fe3ba, type: 2}
+  intentProfile: {fileID: 11400000, guid: 70ba524e431baea479dfd90e4ed4c48b, type: 2}

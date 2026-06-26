@@ -22,8 +22,6 @@ namespace Tessera.Runtime
 
             if (HasSlotRules(rules))
                 GenerateBySlotRules(rules, currentWorkshopTier, random, result);
-            else
-                GenerateFromSharedPool(rules, currentWorkshopTier, random, result);
 
             return result;
         }
@@ -78,42 +76,6 @@ namespace Tessera.Runtime
             }
         }
 
-        /// <summary>기존 공통 ProductPool 방식으로 Shop 상품을 생성한다.</summary>
-        private static void GenerateFromSharedPool(
-            StageWorkshopRulesSO rules,
-            int currentWorkshopTier,
-            System.Random random,
-            List<ShopInventorySlot> result)
-        {
-            List<ShopProductDefinitionSO> candidates = BuildCandidateListFromPool(
-                rules.ProductPool,
-                rules.MinShopProductTier,
-                rules.ResolveAllowedProductMaxTier(currentWorkshopTier),
-                null,
-                null);
-
-            int slotCount = rules.ProductSlotCount;
-
-            for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
-            {
-                if (candidates.Count == 0)
-                    break;
-
-                int selectedIndex = random.Next(0, candidates.Count);
-                ShopProductDefinitionSO selectedProduct = candidates[selectedIndex];
-
-                result.Add(
-                    new ShopInventorySlot(
-                        slotIndex,
-                        selectedProduct,
-                        selectedProduct.BaseMoneyPrice,
-                        selectedProduct.BaseOverchargePrice));
-
-                if (!rules.AllowDuplicateProducts)
-                    candidates.RemoveAt(selectedIndex);
-            }
-        }
-
         /// <summary>특정 SlotRule 기준 후보 상품 목록을 만든다.</summary>
         private static List<ShopProductDefinitionSO> BuildCandidateListForSlot(
             StageWorkshopRulesSO rules,
@@ -122,9 +84,9 @@ namespace Tessera.Runtime
             List<ShopProductDefinitionSO> alreadySelectedProducts)
         {
             IReadOnlyList<ShopProductDefinitionSO> sourcePool =
-                slotRule != null && slotRule.ProductPool != null && slotRule.ProductPool.Length > 0
+                slotRule != null && slotRule.ProductPool != null
                     ? slotRule.ProductPool
-                    : rules.ProductPool;
+                    : null;
 
             int minTier = slotRule != null && slotRule.MinTierOverride > 0
                 ? slotRule.MinTierOverride

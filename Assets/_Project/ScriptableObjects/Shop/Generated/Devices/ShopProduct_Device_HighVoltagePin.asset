@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_Device_HighVoltagePin
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.device.high_voltage_pin
-  displayName: High Voltage Pin
-  description: Multiplies Force by 2 if the current slot dice is 6.
-  icon: {fileID: 0}
   productType: 10
-  tier: 2
-  baseMoneyPrice: 9
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: 3ad357b53f6e8db4ba9c1c6be8a5f1f0, type: 2}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 0}

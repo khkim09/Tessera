@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_DiceType_Broken
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.dice.broken
-  displayName: Broken Dice
-  description: Candidate for Overcharge compensation when submitting Broken Cast.
-  icon: {fileID: 0}
   productType: 20
-  tier: 1
-  baseMoneyPrice: 6
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 0}
   diceTypeDefinition: {fileID: 11400000, guid: 33f36446164f66747aa65b44a2adc951, type: 2}
   diceFaceUpgradeDefinition: {fileID: 0}

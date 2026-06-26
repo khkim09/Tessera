@@ -14,8 +14,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.SlotPairDeviceDefinitionSO
   deviceId: device.end_valve_light
   displayName: "\uC18C\uD615 \uC5D4\uB4DC \uBC38\uBE0C"
-  description: "5\uBC88 \uC2AC\uB86F\uC774\uBA74 True Damage +15."
+  description: "5\uBC88 \uC2AC\uB86F\uC774\uBA74 True Power +15."
+  tier: 1
   icon: {fileID: 0}
+  equippedViewPrefab: {fileID: 0}
+  rarity: 1
+  unlockStage: 1
+  baseMoneyPrice: 4
+  baseOverchargePrice: 0
   deviceType: 31
   intValue: 0
   floatValue: 1
@@ -27,4 +33,6 @@ MonoBehaviour:
   requiredMaxDiceValue: 6
   requiredSlotIndex: 4
   requiredStageThreatLevel: 0
-  trueDamageValue: 15
+  truePowerValue: 15
+  deviceImpactBonus: 0
+  trueImpactDamage: 0

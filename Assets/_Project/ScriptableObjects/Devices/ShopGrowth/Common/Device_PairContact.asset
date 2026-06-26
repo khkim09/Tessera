@@ -16,7 +16,13 @@ MonoBehaviour:
   displayName: "\uC811\uC810 \uB2E8\uC790"
   description: "\uD604\uC7AC \uC8FC\uC0AC\uC704\uAC00 Cast \uACC4\uC0B0\uAC12\uC5D0
     \uD3EC\uD568\uB418\uBA74 Force +1."
+  tier: 1
   icon: {fileID: 0}
+  equippedViewPrefab: {fileID: 0}
+  rarity: 1
+  unlockStage: 1
+  baseMoneyPrice: 4
+  baseOverchargePrice: 0
   deviceType: 2
   intValue: 1
   floatValue: 1
@@ -28,4 +34,6 @@ MonoBehaviour:
   requiredMaxDiceValue: 6
   requiredSlotIndex: -1
   requiredStageThreatLevel: 0
-  trueDamageValue: 0
+  truePowerValue: 0
+  deviceImpactBonus: 0
+  trueImpactDamage: 0

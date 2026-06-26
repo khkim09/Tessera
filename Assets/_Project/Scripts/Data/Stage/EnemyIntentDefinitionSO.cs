@@ -56,9 +56,6 @@ namespace Tessera.Data
         /// <summary>상대가 가능한 Cast 중 최종 제출 Cast를 고르는 정책이다.</summary>
         public OpponentCastSelectionPolicy CastSelectionPolicy => castSelectionPolicy;
 
-        /// <summary>구버전 bool 설정을 신규 정책으로 해석한 호환 값이다.</summary>
-        public bool ChooseBestAvailableCast => castSelectionPolicy != OpponentCastSelectionPolicy.DebugFirstValid;
-
         /// <summary>레거시 호환용 상대 Roll 횟수이며 현재 전투 플로우는 Attempt당 기본 3 Roll을 사용한다.</summary>
         public int OpponentRollCount => Mathf.Max(1, opponentRollCount);
 

@@ -10,9 +10,20 @@ namespace Tessera.Editor
     {
         private const string MenuPath = "Tools/Tessera/Configure Stage 1 Workshop Slot Rules";
 
-        // --- Device 상품 경로 ---
+        // --- Device 상품 경로 (Stage01 Tier 1 중심) ---
         private static readonly string[] DevicePaths =
         {
+            // Stage01 Tier 1 기본 Device 6종
+            "Assets/_Project/ScriptableObjects/Shop/Generated/Devices/ShopProduct_Device_AdderChip.asset",
+            "Assets/_Project/ScriptableObjects/Shop/Generated/Devices/ShopProduct_Device_OddAmplifier.asset",
+            "Assets/_Project/ScriptableObjects/Shop/Generated/Devices/ShopProduct_Device_EvenAmplifier.asset",
+            "Assets/_Project/ScriptableObjects/Shop/Generated/Devices/ShopProduct_Device_LeftBooster.asset",
+            "Assets/_Project/ScriptableObjects/Shop/Generated/Devices/ShopProduct_Device_RightBooster.asset",
+            "Assets/_Project/ScriptableObjects/Shop/Generated/Devices/ShopProduct_Device_ForceSpring.asset",
+            // Stage01 Tier 1 Impact Device 2종
+            "Assets/_Project/ScriptableObjects/Shop/Generated/Devices/ShopProduct_Device_ImpactNail.asset",
+            "Assets/_Project/ScriptableObjects/Shop/Generated/Devices/ShopProduct_Device_HeavyHammer.asset",
+            // 기존 Common Device 12종
             "Assets/_Project/ScriptableObjects/Shop/Generated/Devices/ShopProduct_Device_SafetyPin.asset",
             "Assets/_Project/ScriptableObjects/Shop/Generated/Devices/ShopProduct_Device_UnstableFuse.asset",
             "Assets/_Project/ScriptableObjects/Shop/Generated/Devices/ShopProduct_Device_FrontLoader.asset",
@@ -25,25 +36,18 @@ namespace Tessera.Editor
             "Assets/_Project/ScriptableObjects/Shop/Generated/Devices/ShopProduct_Device_StagePressureMeter.asset",
         };
 
-        // --- DiceType 상품 경로 ---
+        // --- DiceType 상품 경로 (Stage01: DiceType 효과 미구현이므로 제외) ---
         private static readonly string[] DiceTypePaths =
         {
-            "Assets/_Project/ScriptableObjects/Shop/Generated/DiceTypes/ShopProduct_DiceType_Red.asset",
-            "Assets/_Project/ScriptableObjects/Shop/Generated/DiceTypes/ShopProduct_DiceType_Blue.asset",
-            "Assets/_Project/ScriptableObjects/Shop/Generated/DiceTypes/ShopProduct_DiceType_Iron.asset",
-            "Assets/_Project/ScriptableObjects/Shop/Generated/DiceTypes/ShopProduct_DiceType_Broken.asset",
-            "Assets/_Project/ScriptableObjects/Shop/Generated/DiceTypes/ShopProduct_DiceType_Green.asset",
+            // DiceType 효과가 실제 전투 계산에 반영되지 않으므로 Stage01 풀에서 제외.
+            // 내부 placeholder는 유지하되 ShopProduct로 노출하지 않는다.
         };
 
-        // --- DiceFaceUpgrade 상품 경로 ---
+        // --- DiceFaceUpgrade 상품 경로 (Stage01: FaceUpgrade 효과 미구현이므로 제외) ---
         private static readonly string[] DiceFaceUpgradePaths =
         {
-            "Assets/_Project/ScriptableObjects/Shop/Generated/DiceFaceUpgrades/ShopProduct_FaceUpgrade_HeavySix.asset",
-            "Assets/_Project/ScriptableObjects/Shop/Generated/DiceFaceUpgrades/ShopProduct_FaceUpgrade_RedOddRune.asset",
-            "Assets/_Project/ScriptableObjects/Shop/Generated/DiceFaceUpgrades/ShopProduct_FaceUpgrade_BlueEvenRune.asset",
-            "Assets/_Project/ScriptableObjects/Shop/Generated/DiceFaceUpgrades/ShopProduct_FaceUpgrade_IronMark.asset",
-            "Assets/_Project/ScriptableObjects/Shop/Generated/DiceFaceUpgrades/ShopProduct_FaceUpgrade_OverchargeMark.asset",
-            "Assets/_Project/ScriptableObjects/Shop/Generated/DiceFaceUpgrades/ShopProduct_FaceUpgrade_GuardMark.asset",
+            // DiceFaceUpgrade 효과가 실제 전투 계산에 반영되지 않으므로 Stage01 풀에서 제외.
+            // 내부 placeholder는 유지하되 ShopProduct로 노출하지 않는다.
         };
 
         /// <summary>Stage01 WorkshopRules의 Slot Rule을 설정한다.</summary>

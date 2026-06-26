@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_Device_PairContact
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.device.pair_contact
-  displayName: Pair Contact
-  description: Adds Force +1 if the current dice is included in the Cast calculation.
-  icon: {fileID: 0}
   productType: 10
-  tier: 1
-  baseMoneyPrice: 5
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: 06ac599c54c4c8643b9d996fa4e915e0, type: 2}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 0}

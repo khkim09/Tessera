@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_Device_OverdriveChip
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.device.overdrive_chip
-  displayName: Overdrive Chip
-  description: Multiplies Force by 1.5 when submitting Tessera.
-  icon: {fileID: 0}
   productType: 10
-  tier: 2
-  baseMoneyPrice: 9
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: 4f78f9bf4601e934f899fec4d47e2062, type: 2}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 0}

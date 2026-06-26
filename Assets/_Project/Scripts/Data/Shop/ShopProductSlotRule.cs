@@ -9,7 +9,7 @@ namespace Tessera.Data
     {
         [SerializeField] private string displayName = "Shop Slot";
         [SerializeField] private ShopProductType[] allowedProductTypes; // 슬롯에 허용되는 상품 타입 목록
-        [SerializeField] private ShopProductDefinitionSO[] productPool; // 슬롯 전용 상품 풀. 비어있으면 Workshop 전체 풀에서 추출한다.
+        [SerializeField] private ShopProductDefinitionSO[] productPool; // 슬롯 전용 상품 풀. 비어있으면 이 슬롯은 후보를 생성하지 않는다.
 
         [SerializeField] private int minTierOverride;
         [SerializeField] private int maxTierOverride;

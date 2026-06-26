@@ -13,14 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_DiceType_Green
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.dice.green
-  displayName: Green Dice
-  description: Candidate for adding Score +2 when a result of 3 or lower is used
-    in SlotPair calculation.
-  icon: {fileID: 0}
   productType: 20
-  tier: 1
-  baseMoneyPrice: 5
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 0}
   diceTypeDefinition: {fileID: 11400000, guid: b51523f90d9723a4c973fb14cf6e8a41, type: 2}
   diceFaceUpgradeDefinition: {fileID: 0}

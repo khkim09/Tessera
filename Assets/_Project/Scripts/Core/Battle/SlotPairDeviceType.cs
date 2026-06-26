@@ -38,6 +38,11 @@
         AddScoreIfStageThreatAtLeast = 70,
         AddForceIfStageThreatAtLeast = 71,
 
+        // ImpactDamage 계열
+        AddDeviceImpactBonusIfSlotActive = 80, // 해당 Device 슬롯이 활성 상태이면 DeviceImpactBonus 증가
+        AddDeviceImpactBonusIfDiceValueAtLeast = 81, // 주사위 값이 기준 이상이면 DeviceImpactBonus 증가
+        AddTrueImpactDamageIfCastPowerAtLeast = 82, // CastPower가 기준 이상이면 TrueImpactDamage 증가
+
         // 1차 계산기 적용 보류. BrokenCast/Clash 후처리 단계에서 별도 처리한다.
         AddOverchargeOnBrokenCast = 200,
         ReduceIncomingDamageOnBrokenCast = 201

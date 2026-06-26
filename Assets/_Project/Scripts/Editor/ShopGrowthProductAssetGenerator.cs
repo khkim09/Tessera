@@ -928,233 +928,195 @@ namespace Tessera.Editor
         {
             // ── Device ShopProduct 20종 ──
             CreateShopProductDevice(ShopDevicesPath + "/ShopProduct_Device_SafetyPin.asset",
-                "shop.device.safety_pin", "Safety Pin",
-                "Adds Score +12 if the current slot dice is even.",
-                ShopProductType.Device, 1, 4, 0,
+                "shop.device.safety_pin",
+                ShopProductType.Device,
                 DevicesCommonPath + "/Device_SafetyPin.asset");
 
             CreateShopProductDevice(ShopDevicesPath + "/ShopProduct_Device_UnstableFuse.asset",
-                "shop.device.unstable_fuse", "Unstable Fuse",
-                "Adds Force +1 if the current slot dice is odd.",
-                ShopProductType.Device, 1, 4, 0,
+                "shop.device.unstable_fuse",
+                ShopProductType.Device,
                 DevicesCommonPath + "/Device_UnstableFuse.asset");
 
             CreateShopProductDevice(ShopDevicesPath + "/ShopProduct_Device_LeadWeight.asset",
-                "shop.device.lead_weight", "Lead Weight",
-                "Adds Score +15 if the current slot dice is 5 or higher.",
-                ShopProductType.Device, 1, 5, 0,
+                "shop.device.lead_weight",
+                ShopProductType.Device,
                 DevicesCommonPath + "/Device_LeadWeight.asset");
 
             CreateShopProductDevice(ShopDevicesPath + "/ShopProduct_Device_LowGear.asset",
-                "shop.device.low_gear", "Low Gear",
-                "Adds Force +1 if the current slot dice is 2 or lower.",
-                ShopProductType.Device, 1, 4, 0,
+                "shop.device.low_gear",
+                ShopProductType.Device,
                 DevicesCommonPath + "/Device_LowGear.asset");
 
             CreateShopProductDevice(ShopDevicesPath + "/ShopProduct_Device_CastStampAces.asset",
-                "shop.device.cast_stamp_aces", "Aces Stamp",
-                "Adds Score +20 when submitting Aces.",
-                ShopProductType.Device, 1, 4, 0,
+                "shop.device.cast_stamp_aces",
+                ShopProductType.Device,
                 DevicesCommonPath + "/Device_CastStampAces.asset");
 
             CreateShopProductDevice(ShopDevicesPath + "/ShopProduct_Device_CastStampChance.asset",
-                "shop.device.cast_stamp_chance", "Chance Stamp",
-                "Adds Score +15 when submitting Chance.",
-                ShopProductType.Device, 1, 4, 0,
+                "shop.device.cast_stamp_chance",
+                ShopProductType.Device,
                 DevicesCommonPath + "/Device_CastStampChance.asset");
 
             CreateShopProductDevice(ShopDevicesPath + "/ShopProduct_Device_PairContact.asset",
-                "shop.device.pair_contact", "Pair Contact",
-                "Adds Force +1 if the current dice is included in the Cast calculation.",
-                ShopProductType.Device, 1, 5, 0,
+                "shop.device.pair_contact",
+                ShopProductType.Device,
                 DevicesCommonPath + "/Device_PairContact.asset");
 
             CreateShopProductDevice(ShopDevicesPath + "/ShopProduct_Device_LeftCoupler.asset",
-                "shop.device.left_coupler", "Left Coupler",
-                "Adds Force +1 if the current dice matches the previous slot dice.",
-                ShopProductType.Device, 1, 5, 0,
+                "shop.device.left_coupler",
+                ShopProductType.Device,
                 DevicesCommonPath + "/Device_LeftCoupler.asset");
 
             CreateShopProductDevice(ShopDevicesPath + "/ShopProduct_Device_RelayMotor.asset",
-                "shop.device.relay_motor", "Relay Motor",
-                "Multiplies Force by 1.5 if the current dice is greater than the previous slot dice.",
-                ShopProductType.Device, 1, 6, 0,
+                "shop.device.relay_motor",
+                ShopProductType.Device,
                 DevicesCommonPath + "/Device_RelayMotor.asset");
 
             CreateShopProductDevice(ShopDevicesPath + "/ShopProduct_Device_FrontLoader.asset",
-                "shop.device.front_loader", "Front Loader",
-                "Adds Score +18 if this is slot index 1.",
-                ShopProductType.Device, 1, 4, 0,
+                "shop.device.front_loader",
+                ShopProductType.Device,
                 DevicesCommonPath + "/Device_FrontLoader.asset");
 
             CreateShopProductDevice(ShopDevicesPath + "/ShopProduct_Device_EndValveLight.asset",
-                "shop.device.end_valve_light", "Light End Valve",
-                "Adds True Power +15 if this is slot index 5.",
-                ShopProductType.Device, 1, 5, 0,
+                "shop.device.end_valve_light",
+                ShopProductType.Device,
                 DevicesCommonPath + "/Device_EndValveLight.asset");
 
             CreateShopProductDevice(ShopDevicesPath + "/ShopProduct_Device_PressureGaugeLight.asset",
-                "shop.device.pressure_gauge_light", "Light Pressure Gauge",
-                "Adds Score +10 if Stage Threat is at least 1.",
-                ShopProductType.Device, 1, 4, 0,
+                "shop.device.pressure_gauge_light",
+                ShopProductType.Device,
                 DevicesCommonPath + "/Device_PressureGaugeLight.asset");
 
             CreateShopProductDevice(ShopDevicesPath + "/ShopProduct_Device_MirrorShard.asset",
-                "shop.device.mirror_shard", "Mirror Shard",
-                "Adds Force +2 if the mirror slot has the same dice value.",
-                ShopProductType.Device, 2, 8, 0,
+                "shop.device.mirror_shard",
+                ShopProductType.Device,
                 DevicesRarePath + "/Device_MirrorShard.asset");
 
             CreateShopProductDevice(ShopDevicesPath + "/ShopProduct_Device_IsolatedGear.asset",
-                "shop.device.isolated_gear", "Isolated Gear",
-                "Adds Score +25 if both neighboring dice differ by at least 2 from the current dice.",
-                ShopProductType.Device, 2, 8, 0,
+                "shop.device.isolated_gear",
+                ShopProductType.Device,
                 DevicesRarePath + "/Device_IsolatedGear.asset");
 
             CreateShopProductDevice(ShopDevicesPath + "/ShopProduct_Device_OverdriveChip.asset",
-                "shop.device.overdrive_chip", "Overdrive Chip",
-                "Multiplies Force by 1.5 when submitting Tessera.",
-                ShopProductType.Device, 2, 9, 0,
+                "shop.device.overdrive_chip",
+                ShopProductType.Device,
                 DevicesRarePath + "/Device_OverdriveChip.asset");
 
             CreateShopProductDevice(ShopDevicesPath + "/ShopProduct_Device_FullHouseBracket.asset",
-                "shop.device.fullhouse_bracket", "Full House Bracket",
-                "Adds Score +30 when submitting Full House.",
-                ShopProductType.Device, 2, 8, 0,
+                "shop.device.fullhouse_bracket",
+                ShopProductType.Device,
                 DevicesRarePath + "/Device_FullHouseBracket.asset");
 
             CreateShopProductDevice(ShopDevicesPath + "/ShopProduct_Device_StraightRail.asset",
-                "shop.device.straight_rail", "Straight Rail",
-                "Adds Force +1 when submitting Small Straight or Large Straight.",
-                ShopProductType.Device, 2, 8, 0,
+                "shop.device.straight_rail",
+                ShopProductType.Device,
                 DevicesRarePath + "/Device_StraightRail.asset");
 
             CreateShopProductDevice(ShopDevicesPath + "/ShopProduct_Device_HighVoltagePin.asset",
-                "shop.device.high_voltage_pin", "High Voltage Pin",
-                "Multiplies Force by 2 if the current slot dice is 6.",
-                ShopProductType.Device, 2, 9, 0,
+                "shop.device.high_voltage_pin",
+                ShopProductType.Device,
                 DevicesRarePath + "/Device_HighVoltagePin.asset");
 
             CreateShopProductDevice(ShopDevicesPath + "/ShopProduct_Device_EndValve.asset",
-                "shop.device.end_valve", "End Valve",
-                "Adds True Power +35 if the sum of previous slots is at least 20.",
-                ShopProductType.Device, 2, 9, 0,
+                "shop.device.end_valve",
+                ShopProductType.Device,
                 DevicesRarePath + "/Device_EndValve.asset");
 
             CreateShopProductDevice(ShopDevicesPath + "/ShopProduct_Device_StagePressureMeter.asset",
-                "shop.device.stage_pressure_meter", "Stage Pressure Meter",
-                "Adds Force +1 if Stage Threat is at least 2.",
-                ShopProductType.Device, 2, 8, 0,
+                "shop.device.stage_pressure_meter",
+                ShopProductType.Device,
                 DevicesRarePath + "/Device_StagePressureMeter.asset");
 
             // ── DiceType ShopProduct 7종 ──
             CreateShopProductDiceType(ShopDiceTypesPath + "/ShopProduct_DiceType_Red.asset",
-                "shop.dice.red", "Red Dice",
-                "Adds Score +2 when an odd result is used in SlotPair calculation.",
-                ShopProductType.DiceSet, 1, 5, 0,
+                "shop.dice.red",
+                ShopProductType.DiceSet,
                 DiceTypesPath + "/DiceType_Red.asset");
 
             CreateShopProductDiceType(ShopDiceTypesPath + "/ShopProduct_DiceType_Blue.asset",
-                "shop.dice.blue", "Blue Dice",
-                "Adds Force +0.2 when an even result is used in SlotPair calculation.",
-                ShopProductType.DiceSet, 1, 5, 0,
+                "shop.dice.blue",
+                ShopProductType.DiceSet,
                 DiceTypesPath + "/DiceType_Blue.asset");
 
             CreateShopProductDiceType(ShopDiceTypesPath + "/ShopProduct_DiceType_Iron.asset",
-                "shop.dice.iron", "Iron Dice",
-                "Adds Score +3 when a result of 5 or higher is used in SlotPair calculation.",
-                ShopProductType.DiceSet, 1, 5, 0,
+                "shop.dice.iron",
+                ShopProductType.DiceSet,
                 DiceTypesPath + "/DiceType_Iron.asset");
 
             CreateShopProductDiceType(ShopDiceTypesPath + "/ShopProduct_DiceType_Broken.asset",
-                "shop.dice.broken", "Broken Dice",
-                "Candidate for Overcharge compensation when submitting Broken Cast.",
-                ShopProductType.DiceSet, 1, 6, 0,
+                "shop.dice.broken",
+                ShopProductType.DiceSet,
                 DiceTypesPath + "/DiceType_Broken.asset");
 
             CreateShopProductDiceType(ShopDiceTypesPath + "/ShopProduct_DiceType_Gold.asset",
-                "shop.dice.gold", "Gold Dice",
-                "Candidate for earning Money +1 when winning a Round with this dice in the Cast.",
-                ShopProductType.DiceSet, 2, 7, 0,
+                "shop.dice.gold",
+                ShopProductType.DiceSet,
                 DiceTypesPath + "/DiceType_Gold.asset");
 
             CreateShopProductDiceType(ShopDiceTypesPath + "/ShopProduct_DiceType_Green.asset",
-                "shop.dice.green", "Green Dice",
-                "Candidate for adding Score +2 when a result of 3 or lower is used in SlotPair calculation.",
-                ShopProductType.DiceSet, 1, 5, 0,
+                "shop.dice.green",
+                ShopProductType.DiceSet,
                 DiceTypesPath + "/DiceType_Green.asset");
 
             CreateShopProductDiceType(ShopDiceTypesPath + "/ShopProduct_DiceType_Void.asset",
-                "shop.dice.void", "Void Dice",
-                "Candidate for reducing incoming damage when this dice is included in a lost Clash.",
-                ShopProductType.DiceSet, 2, 7, 0,
+                "shop.dice.void",
+                ShopProductType.DiceSet,
                 DiceTypesPath + "/DiceType_Void.asset");
 
             // ── DiceFaceUpgrade ShopProduct 11종 ──
             CreateShopProductFaceUpgrade(ShopDiceFaceUpgradesPath + "/ShopProduct_FaceUpgrade_HeavySix.asset",
-                "shop.face.heavy_six", "Heavy Six",
-                "Treats this face as 6 and adds Score +2 when rolled.",
-                ShopProductType.DiceFaceUpgrade, 1, 4, 0,
+                "shop.face.heavy_six",
+                ShopProductType.DiceFaceUpgrade,
                 DiceFaceUpgradesPath + "/FaceUpgrade_HeavySix.asset");
 
             CreateShopProductFaceUpgrade(ShopDiceFaceUpgradesPath + "/ShopProduct_FaceUpgrade_RedOddRune.asset",
-                "shop.face.red_odd_rune", "Red Odd Rune",
-                "Adds Score +2 when rolled if the face value is odd.",
-                ShopProductType.DiceFaceUpgrade, 1, 3, 0,
+                "shop.face.red_odd_rune",
+                ShopProductType.DiceFaceUpgrade,
                 DiceFaceUpgradesPath + "/FaceUpgrade_RedOddRune.asset");
 
             CreateShopProductFaceUpgrade(ShopDiceFaceUpgradesPath + "/ShopProduct_FaceUpgrade_BlueEvenRune.asset",
-                "shop.face.blue_even_rune", "Blue Even Rune",
-                "Adds Force +0.2 when rolled if the face value is even.",
-                ShopProductType.DiceFaceUpgrade, 1, 3, 0,
+                "shop.face.blue_even_rune",
+                ShopProductType.DiceFaceUpgrade,
                 DiceFaceUpgradesPath + "/FaceUpgrade_BlueEvenRune.asset");
 
             CreateShopProductFaceUpgrade(ShopDiceFaceUpgradesPath + "/ShopProduct_FaceUpgrade_IronMark.asset",
-                "shop.face.iron_mark", "Iron Mark",
-                "Adds Score +3 when rolled if the face value is 5 or higher.",
-                ShopProductType.DiceFaceUpgrade, 1, 4, 0,
+                "shop.face.iron_mark",
+                ShopProductType.DiceFaceUpgrade,
                 DiceFaceUpgradesPath + "/FaceUpgrade_IronMark.asset");
 
             CreateShopProductFaceUpgrade(ShopDiceFaceUpgradesPath + "/ShopProduct_FaceUpgrade_OverchargeMark.asset",
-                "shop.face.overcharge_mark", "Overcharge Mark",
-                "Adds Overcharge +1 when this face is included in a submitted Cast. Limited to once per round.",
-                ShopProductType.DiceFaceUpgrade, 2, 5, 0,
+                "shop.face.overcharge_mark",
+                ShopProductType.DiceFaceUpgrade,
                 DiceFaceUpgradesPath + "/FaceUpgrade_OverchargeMark.asset");
 
             CreateShopProductFaceUpgrade(ShopDiceFaceUpgradesPath + "/ShopProduct_FaceUpgrade_GuardMark.asset",
-                "shop.face.guard_mark", "Guard Mark",
-                "Reduces incoming damage by 5 when this face is included in a lost Clash.",
-                ShopProductType.DiceFaceUpgrade, 2, 5, 0,
+                "shop.face.guard_mark",
+                ShopProductType.DiceFaceUpgrade,
                 DiceFaceUpgradesPath + "/FaceUpgrade_GuardMark.asset");
 
             CreateShopProductFaceUpgrade(ShopDiceFaceUpgradesPath + "/ShopProduct_FaceUpgrade_CoinMark.asset",
-                "shop.face.coin_mark", "Coin Mark",
-                "Earns Money +1 when winning a Round with this face included.",
-                ShopProductType.DiceFaceUpgrade, 2, 5, 0,
+                "shop.face.coin_mark",
+                ShopProductType.DiceFaceUpgrade,
                 DiceFaceUpgradesPath + "/FaceUpgrade_CoinMark.asset");
 
             CreateShopProductFaceUpgrade(ShopDiceFaceUpgradesPath + "/ShopProduct_FaceUpgrade_CrackedFace.asset",
-                "shop.face.cracked_face", "Cracked Face",
-                "Treated as 6 but increases incoming damage by 10% when losing a Clash.",
-                ShopProductType.DiceFaceUpgrade, 1, 2, 0,
+                "shop.face.cracked_face",
+                ShopProductType.DiceFaceUpgrade,
                 DiceFaceUpgradesPath + "/FaceUpgrade_CrackedFace.asset");
 
             CreateShopProductFaceUpgrade(ShopDiceFaceUpgradesPath + "/ShopProduct_FaceUpgrade_BlankFace.asset",
-                "shop.face.blank_face", "Blank Face",
-                "Does not contribute to patterns. Device effect on this slot is doubled. Currently not implemented / on hold.",
-                ShopProductType.DiceFaceUpgrade, 3, 6, 0,
+                "shop.face.blank_face",
+                ShopProductType.DiceFaceUpgrade,
                 DiceFaceUpgradesPath + "/FaceUpgrade_BlankFace.asset");
 
             CreateShopProductFaceUpgrade(ShopDiceFaceUpgradesPath + "/ShopProduct_FaceUpgrade_WildFace.asset",
-                "shop.face.wild_face", "Wild Face",
-                "Treated as the most favorable number from 1 to 6. Currently not implemented / on hold.",
-                ShopProductType.DiceFaceUpgrade, 3, 8, 0,
+                "shop.face.wild_face",
+                ShopProductType.DiceFaceUpgrade,
                 DiceFaceUpgradesPath + "/FaceUpgrade_WildFace.asset");
 
             CreateShopProductFaceUpgrade(ShopDiceFaceUpgradesPath + "/ShopProduct_FaceUpgrade_MirrorFace.asset",
-                "shop.face.mirror_face", "Mirror Face",
-                "Copies the current value of the left dice. Currently not implemented / on hold.",
-                ShopProductType.DiceFaceUpgrade, 3, 8, 0,
+                "shop.face.mirror_face",
+                ShopProductType.DiceFaceUpgrade,
                 DiceFaceUpgradesPath + "/FaceUpgrade_MirrorFace.asset");
         }
 
@@ -1162,18 +1124,12 @@ namespace Tessera.Editor
         private static void CreateShopProductDevice(
             string path,
             string productId,
-            string displayName,
-            string description,
             ShopProductType productType,
-            int tier,
-            int baseMoneyPrice,
-            int baseOverchargePrice,
             string deviceAssetPath)
         {
             ShopProductDefinitionSO asset = LoadOrCreateAsset<ShopProductDefinitionSO>(path);
             SlotPairDeviceDefinitionSO deviceRef = AssetDatabase.LoadAssetAtPath<SlotPairDeviceDefinitionSO>(deviceAssetPath);
-            ApplyShopProductFields(asset, productId, displayName, description,
-                productType, tier, baseMoneyPrice, baseOverchargePrice,
+            ApplyShopProductFields(asset, productId, productType,
                 deviceRef, null, null);
         }
 
@@ -1181,18 +1137,12 @@ namespace Tessera.Editor
         private static void CreateShopProductDiceType(
             string path,
             string productId,
-            string displayName,
-            string description,
             ShopProductType productType,
-            int tier,
-            int baseMoneyPrice,
-            int baseOverchargePrice,
             string diceTypeAssetPath)
         {
             ShopProductDefinitionSO asset = LoadOrCreateAsset<ShopProductDefinitionSO>(path);
             DiceTypeDefinitionSO diceTypeRef = AssetDatabase.LoadAssetAtPath<DiceTypeDefinitionSO>(diceTypeAssetPath);
-            ApplyShopProductFields(asset, productId, displayName, description,
-                productType, tier, baseMoneyPrice, baseOverchargePrice,
+            ApplyShopProductFields(asset, productId, productType,
                 null, diceTypeRef, null);
         }
 
@@ -1200,18 +1150,12 @@ namespace Tessera.Editor
         private static void CreateShopProductFaceUpgrade(
             string path,
             string productId,
-            string displayName,
-            string description,
             ShopProductType productType,
-            int tier,
-            int baseMoneyPrice,
-            int baseOverchargePrice,
             string faceUpgradeAssetPath)
         {
             ShopProductDefinitionSO asset = LoadOrCreateAsset<ShopProductDefinitionSO>(path);
             DiceFaceUpgradeDefinitionSO faceUpgradeRef = AssetDatabase.LoadAssetAtPath<DiceFaceUpgradeDefinitionSO>(faceUpgradeAssetPath);
-            ApplyShopProductFields(asset, productId, displayName, description,
-                productType, tier, baseMoneyPrice, baseOverchargePrice,
+            ApplyShopProductFields(asset, productId, productType,
                 null, null, faceUpgradeRef);
         }
 
@@ -1219,12 +1163,7 @@ namespace Tessera.Editor
         private static void ApplyShopProductFields(
             ScriptableObject asset,
             string productId,
-            string displayName,
-            string description,
             ShopProductType productType,
-            int tier,
-            int baseMoneyPrice,
-            int baseOverchargePrice,
             SlotPairDeviceDefinitionSO deviceDefinition,
             DiceTypeDefinitionSO diceTypeDefinition,
             DiceFaceUpgradeDefinitionSO diceFaceUpgradeDefinition)
@@ -1233,12 +1172,7 @@ namespace Tessera.Editor
             bool allOk = true;
 
             allOk &= SetString(so, "productId", productId);
-            allOk &= SetString(so, "displayName", displayName);
-            allOk &= SetString(so, "description", description);
             allOk &= SetEnum(so, "productType", productType);
-            allOk &= SetInt(so, "tier", tier);
-            allOk &= SetInt(so, "baseMoneyPrice", baseMoneyPrice);
-            allOk &= SetInt(so, "baseOverchargePrice", baseOverchargePrice);
             allOk &= SetObject(so, "deviceDefinition", deviceDefinition);
             allOk &= SetObject(so, "diceTypeDefinition", diceTypeDefinition);
             allOk &= SetObject(so, "diceFaceUpgradeDefinition", diceFaceUpgradeDefinition);
@@ -1259,23 +1193,20 @@ namespace Tessera.Editor
         {
             // 1. ShopProduct_Device_DiceValueDoubler -> SlotPairDevice_AddScore_DiceValueX2
             RestoreShopProductDevice(LegacyShopA,
-                "shop.device.dice_value_doubler", "Dice Value Doubler",
-                "Adds current dice value x2 to Score.",
-                ShopProductType.Device, 1, 6, 0,
+                "shop.device.dice_value_doubler",
+                ShopProductType.Device,
                 LegacyDeviceA);
 
             // 2. ShopProduct_Device_FlatScorer -> SlotPairDevice_AddScore_Flat4
             RestoreShopProductDevice(LegacyShopB,
-                "shop.device.flat_scorer", "Flat Scorer",
-                "Legacy flat score device. Currently mapped to any dice condition.",
-                ShopProductType.Device, 1, 4, 0,
+                "shop.device.flat_scorer",
+                ShopProductType.Device,
                 LegacyDeviceC);
 
             // 3. ShopProduct_Device_ForceCell -> SlotPairDevice_AddForce_Flat1
             RestoreShopProductDevice(LegacyShopC,
-                "shop.device.force_cell", "Force Cell",
-                "Legacy flat force device. Currently mapped to included dice condition.",
-                ShopProductType.Device, 1, 4, 0,
+                "shop.device.force_cell",
+                ShopProductType.Device,
                 LegacyDeviceB);
         }
 
@@ -1283,18 +1214,12 @@ namespace Tessera.Editor
         private static void RestoreShopProductDevice(
             string path,
             string productId,
-            string displayName,
-            string description,
             ShopProductType productType,
-            int tier,
-            int baseMoneyPrice,
-            int baseOverchargePrice,
             string deviceAssetPath)
         {
             ShopProductDefinitionSO asset = LoadOrCreateAsset<ShopProductDefinitionSO>(path);
             SlotPairDeviceDefinitionSO deviceRef = AssetDatabase.LoadAssetAtPath<SlotPairDeviceDefinitionSO>(deviceAssetPath);
-            ApplyShopProductFields(asset, productId, displayName, description,
-                productType, tier, baseMoneyPrice, baseOverchargePrice,
+            ApplyShopProductFields(asset, productId, productType,
                 deviceRef, null, null);
         }
 

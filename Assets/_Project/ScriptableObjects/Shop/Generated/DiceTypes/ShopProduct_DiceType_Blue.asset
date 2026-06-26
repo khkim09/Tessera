@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_DiceType_Blue
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.dice.blue
-  displayName: Blue Dice
-  description: Adds Force +0.2 when an even result is used in SlotPair calculation.
-  icon: {fileID: 0}
   productType: 20
-  tier: 1
-  baseMoneyPrice: 5
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 0}
   diceTypeDefinition: {fileID: 11400000, guid: 97685ba9dfc83394894d063dac877cbe, type: 2}
   diceFaceUpgradeDefinition: {fileID: 0}

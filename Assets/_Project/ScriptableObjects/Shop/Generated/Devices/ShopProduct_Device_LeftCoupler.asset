@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_Device_LeftCoupler
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.device.left_coupler
-  displayName: Left Coupler
-  description: Adds Force +1 if the current dice matches the previous slot dice.
-  icon: {fileID: 0}
   productType: 10
-  tier: 1
-  baseMoneyPrice: 5
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: c476c08ebd2c8ab4c871481acdbdb28b, type: 2}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 0}

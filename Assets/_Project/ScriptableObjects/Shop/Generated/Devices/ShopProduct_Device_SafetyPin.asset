@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_Device_SafetyPin
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.device.safety_pin
-  displayName: Safety Pin
-  description: Adds Score +12 if the current slot dice is even.
-  icon: {fileID: 0}
   productType: 10
-  tier: 1
-  baseMoneyPrice: 4
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: 4a39b7b1fb875434a98409bcfbb08169, type: 2}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 0}

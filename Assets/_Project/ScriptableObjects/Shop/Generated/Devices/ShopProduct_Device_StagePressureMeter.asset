@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_Device_StagePressureMeter
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.device.stage_pressure_meter
-  displayName: Stage Pressure Meter
-  description: Adds Force +1 if Stage Threat is at least 2.
-  icon: {fileID: 0}
   productType: 10
-  tier: 2
-  baseMoneyPrice: 8
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: 905e305d73605f7439922214e0ce769d, type: 2}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 0}

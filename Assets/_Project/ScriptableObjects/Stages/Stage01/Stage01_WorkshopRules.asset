@@ -18,10 +18,6 @@ MonoBehaviour:
   tierUpgradeOverchargeCost: 1
   maxTierUpgradePerVisit: 1
   tierIncreasePerUpgrade: 1
-  productPool:
-  - {fileID: 11400000, guid: b460e13c1f7e92847bc26e8335111d44, type: 2}
-  - {fileID: 11400000, guid: 3d69a13f39c34574d9ce69a5b207adfe, type: 2}
-  - {fileID: 11400000, guid: dc68400ce9cf6b3429b806b3388d4eda, type: 2}
   productSlotCount: 6
   allowDuplicateProducts: 0
   productSlotRules:
@@ -56,43 +52,21 @@ MonoBehaviour:
     maxTierOverride: 2
   - displayName: Left Dice Type
     allowedProductTypes: 140000001400000015000000
-    productPool:
-    - {fileID: 11400000, guid: 1458f90925a2d5e4cbdf06672af59290, type: 2}
-    - {fileID: 11400000, guid: 34e845144ce38de4694b47438bd63d34, type: 2}
-    - {fileID: 11400000, guid: 9b85060d01ee91845adce4a725a2b1de, type: 2}
-    - {fileID: 11400000, guid: 33deb9329ff9c0247b02c4f5ce65ec49, type: 2}
-    - {fileID: 11400000, guid: 132801be29bacd64ab3fb1da817b2f07, type: 2}
+    productPool: []
     minTierOverride: 1
     maxTierOverride: 1
   - displayName: Right Dice Type
     allowedProductTypes: 140000001400000015000000
-    productPool:
-    - {fileID: 11400000, guid: 1458f90925a2d5e4cbdf06672af59290, type: 2}
-    - {fileID: 11400000, guid: 34e845144ce38de4694b47438bd63d34, type: 2}
-    - {fileID: 11400000, guid: 9b85060d01ee91845adce4a725a2b1de, type: 2}
-    - {fileID: 11400000, guid: 33deb9329ff9c0247b02c4f5ce65ec49, type: 2}
-    - {fileID: 11400000, guid: 132801be29bacd64ab3fb1da817b2f07, type: 2}
+    productPool: []
     minTierOverride: 1
     maxTierOverride: 2
   - displayName: Left Face Upgrade
-    allowedProductTypes: 17000000
-    productPool:
-    - {fileID: 11400000, guid: 36f64c93d32d6ee4c86e627a7abe7214, type: 2}
-    - {fileID: 11400000, guid: e5579def875ff9a4f8e09305721703c4, type: 2}
-    - {fileID: 11400000, guid: b2b959a5ac75bc040bbcda194cf64e1c, type: 2}
-    - {fileID: 11400000, guid: 68ebb23608774e845ac1621429e607b0, type: 2}
-    - {fileID: 11400000, guid: 333bec0e5cca9844b945e47e7ae03700, type: 2}
-    - {fileID: 11400000, guid: da6d5b750ad18fc41a06f83813422792, type: 2}
+    allowedProductTypes: 16000000
+    productPool: []
     minTierOverride: 1
     maxTierOverride: 1
   - displayName: Right Face Upgrade
-    allowedProductTypes: 17000000
-    productPool:
-    - {fileID: 11400000, guid: 36f64c93d32d6ee4c86e627a7abe7214, type: 2}
-    - {fileID: 11400000, guid: e5579def875ff9a4f8e09305721703c4, type: 2}
-    - {fileID: 11400000, guid: b2b959a5ac75bc040bbcda194cf64e1c, type: 2}
-    - {fileID: 11400000, guid: 68ebb23608774e845ac1621429e607b0, type: 2}
-    - {fileID: 11400000, guid: 333bec0e5cca9844b945e47e7ae03700, type: 2}
-    - {fileID: 11400000, guid: da6d5b750ad18fc41a06f83813422792, type: 2}
+    allowedProductTypes: 16000000
+    productPool: []
     minTierOverride: 1
     maxTierOverride: 2

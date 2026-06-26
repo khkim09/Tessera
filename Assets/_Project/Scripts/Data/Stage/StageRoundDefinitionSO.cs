@@ -35,7 +35,7 @@ namespace Tessera.Data
         [SerializeField] private int playerMaxHP = 100;
         [SerializeField] private int diceCount = 5;
         [SerializeField] private int maxAttempts = 3;
-        [SerializeField] private int roundRollPool = 8;
+        [SerializeField] private int baseRollsPerAttempt = 3;
         [SerializeField] private int impactCap;
         [SerializeField] private int maxUsesPerCastPerRound = 1;
         [SerializeField] private int maxBrokenCastUsesPerRound = 3;
@@ -71,80 +71,95 @@ namespace Tessera.Data
 
         [Header("Enemy Intent")]
         [SerializeField] private EnemyIntentProfileSO intentProfile;
-        [SerializeField] private EnemyIntentDefinitionSO openingIntent;
-        [SerializeField] private EnemyIntentDefinitionSO[] intentDeck;
+
+        #region Getter
 
         /// <summary>라운드 고유 ID.</summary>
         public string RoundId => string.IsNullOrWhiteSpace(roundId) ? name : roundId;
-
         /// <summary>표시 이름.</summary>
         public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? name : displayName;
-
         /// <summary>라운드 타입.</summary>
         public StageRoundType RoundType => roundType;
-
         /// <summary>Stage 진입 직후 강제 튜토리얼 라운드인지 여부.</summary>
         public bool TutorialForcedRound => tutorialForcedRound;
-
         /// <summary>초기 선택 가능 여부.</summary>
         public bool InitiallyAvailable => initiallyAvailable;
 
         /// <summary>수배지 카드에 표시할 간단 설명.</summary>
         public string BountyDescription => bountyDescription ?? string.Empty;
-
         /// <summary>수배지 카드에 표시할 상대 Intent 설명.</summary>
         public string IntentDescription => intentDescription ?? string.Empty;
-
         /// <summary>수배지 카드에 표시할 특수 규칙 설명.</summary>
         public string SpecialRuleDescription => specialRuleDescription ?? string.Empty;
 
         /// <summary>수배지 승리 시 PendingMoneyReward에 들어갈 기본 Money 보상.</summary>
         public int BaseRewardMoney => Mathf.Max(0, baseRewardMoney);
-
         /// <summary>수배지 기본 난이도 랭크.</summary>
         public int BountyRank => Mathf.Max(1, bountyRank);
-
-        /// <summary>최대 Attempt 수.</summary>
-        public int MaxAttempts => Mathf.Max(1, maxAttempts);
-
         /// <summary>기존 Pending Overcharge 보상 호환용 접근자다. 신규 Bounty 보상 흐름에서는 사용하지 않는다.</summary>
         public int RewardOvercharge => Mathf.Max(0, rewardOvercharge);
-
         /// <summary>보상 설명.</summary>
         public string RewardDescription => rewardDescription ?? string.Empty;
 
+        /// <summary>Round 시작 기준 플레이어 최대 HP다.</summary>
+        public int PlayerMaxHP => Mathf.Max(1, playerMaxHP);
+        /// <summary>Round에서 굴릴 주사위 개수다.</summary>
+        public int DiceCount => Mathf.Max(1, diceCount);
+        /// <summary>최대 Attempt 수.</summary>
+        public int MaxAttempts => Mathf.Max(1, maxAttempts);
+        /// <summary>Attempt마다 기본으로 제공되는 Roll 횟수다.</summary>
+        public int BaseRollsPerAttempt => Mathf.Max(1, baseRollsPerAttempt);
+        /// <summary>0보다 크면 적용되는 선택적 Impact 상한이며 0 이하면 비활성화된다.</summary>
+        public int ImpactCap => Mathf.Max(0, impactCap);
+        /// <summary>같은 Cast를 Round 안에서 사용할 수 있는 횟수다.</summary>
+        public int MaxUsesPerCastPerRound => Mathf.Max(1, maxUsesPerCastPerRound);
+        /// <summary>Broken Cast를 Round 안에서 사용할 수 있는 횟수다.</summary>
+        public int MaxBrokenCastUsesPerRound => Mathf.Max(1, maxBrokenCastUsesPerRound);
+
+        /// <summary>Broken Cast가 지급하는 Overcharge 양이다.</summary>
+        public int BrokenCastOverchargeAmount => Mathf.Max(0, brokenCastOverchargeAmount);
+        /// <summary>Broken Cast가 지급하는 다음 Attempt 무료 Roll 토큰 수다.</summary>
+        public int BrokenCastFreeRerollTokenAmount => Mathf.Max(0, brokenCastFreeRerollTokenAmount);
+
+        /// <summary>Aces 외 CastPower 보정을 적용할지 여부다.</summary>
+        public bool ApplyNonAcesCastPowerPenalty => applyNonAcesCastPowerPenalty;
+        /// <summary>Aces 외 CastPower 보정 비율이다.</summary>
+        public int NonAcesCastPowerPercent => Mathf.Clamp(nonAcesCastPowerPercent, 0, 100);
+        /// <summary>Chance Cast를 비활성화할지 여부다.</summary>
+        public bool DisableChance => disableChance;
+        /// <summary>Broken Cast 보상을 비활성화할지 여부다.</summary>
+        public bool DisableBrokenCastReward => disableBrokenCastReward;
+
         /// <summary>상대 Device 후보 풀.</summary>
         public IReadOnlyList<SlotPairDeviceDefinitionSO> OpponentDevicePool => opponentDevicePool;
-
         /// <summary>상대가 장착할 최소 Device 수.</summary>
         public int MinOpponentDeviceCount => Mathf.Clamp(minOpponentDeviceCount, 0, SlotPairDamageCalculator.SlotPairCount);
-
         /// <summary>상대가 장착할 최대 Device 수.</summary>
         public int MaxOpponentDeviceCount => Mathf.Clamp(
             maxOpponentDeviceCount,
             MinOpponentDeviceCount,
             SlotPairDamageCalculator.SlotPairCount);
-
         /// <summary>상대 Device 중복 장착 허용 여부.</summary>
         public bool AllowDuplicateOpponentDevices => allowDuplicateOpponentDevices;
 
-        /// <summary>Round 시작 Attempt에서 사용할 기본 상대 Intent 정의.</summary>
-        public EnemyIntentDefinitionSO OpeningIntent => intentProfile != null && intentProfile.OpeningIntent != null ? intentProfile.OpeningIntent : openingIntent;
-
-        /// <summary>Round 중 선택될 수 있는 상대 Intent 후보 목록.</summary>
-        public IReadOnlyList<EnemyIntentDefinitionSO> IntentDeck => intentProfile != null && intentProfile.IntentPool.Count > 0 ? intentProfile.IntentPool : intentDeck ?? Array.Empty<EnemyIntentDefinitionSO>();
-
-        /// <summary>이 Bounty가 사용할 Intent 프로필이다.</summary>
-        public EnemyIntentProfileSO IntentProfile => intentProfile;
+        /// <summary>상대 최대 HP다.</summary>
+        public int OpponentMaxHP => Mathf.Max(1, opponentMaxHP);
+        /// <summary>상대 기본 Strike 피해량이다.</summary>
+        public int EnemyStrikeDamage => Mathf.Max(0, enemyStrikeDamage);
 
         /// <summary>상대 Dice 로드아웃 정의. null이면 기본 D6 세트를 사용한다.</summary>
         public EnemyDiceLoadoutDefinitionSO OpponentDiceLoadout => opponentDiceLoadout;
-
         /// <summary>OpeningIntent의 Initiative를 Round 고정 Initiative로 사용할지 여부.</summary>
         public bool UseOpeningIntentInitiativeAsRoundInitiative => useOpeningIntentInitiativeAsRoundInitiative;
 
-        /// <summary>0보다 크면 적용되는 선택적 Impact 상한이며 0 이하면 비활성화된다.</summary>
-        public int ImpactCap => Mathf.Max(0, impactCap);
+        /// <summary>Round 시작 Attempt에서 사용할 기본 상대 Intent 정의.</summary>
+        public EnemyIntentDefinitionSO OpeningIntent => intentProfile != null ? intentProfile.OpeningIntent : null;
+        /// <summary>Round 중 선택될 수 있는 상대 Intent 후보 목록.</summary>
+        public IReadOnlyList<EnemyIntentDefinitionSO> IntentDeck => intentProfile != null ? intentProfile.IntentPool : Array.Empty<EnemyIntentDefinitionSO>();
+        /// <summary>이 Bounty가 사용할 Intent 프로필이다.</summary>
+        public EnemyIntentProfileSO IntentProfile => intentProfile;
+
+        #endregion
 
         /// <summary>Round 전체에서 고정 사용할 선공권을 반환한다.</summary>
         public InitiativeOwnerType ResolveRoundInitiativeOwner()
@@ -171,43 +186,43 @@ namespace Tessera.Data
         {
             List<TableRule> tableRules = new List<TableRule>();
 
-            if (applyNonAcesCastPowerPenalty)
-                tableRules.Add(TableRule.NonAcesCastPowerPercent(Mathf.Clamp(nonAcesCastPowerPercent, 0, 100)));
+            if (ApplyNonAcesCastPowerPenalty)
+                tableRules.Add(TableRule.NonAcesCastPowerPercent(NonAcesCastPowerPercent));
 
-            if (disableChance)
+            if (DisableChance)
                 tableRules.Add(TableRule.DisableChance());
 
-            if (disableBrokenCastReward)
+            if (DisableBrokenCastReward)
                 tableRules.Add(TableRule.DisableBrokenCastReward());
 
-            int resolvedPlayerMaxHP = runPlayerMaxHP > 0 ? runPlayerMaxHP : playerMaxHP;
+            int resolvedPlayerMaxHP = runPlayerMaxHP > 0 ? runPlayerMaxHP : PlayerMaxHP;
             int resolvedStageThreatLevel = Mathf.Max(0, stageThreatLevel);
-            int resolvedEnemyStrikeDamage = Mathf.Max(0, enemyStrikeDamage);
-            int resolvedRoundRollPool = Mathf.Max(1, roundRollPool);
-            int resolvedOpponentMaxHP = Mathf.Max(1, opponentMaxHP);
+            int resolvedEnemyStrikeDamage = EnemyStrikeDamage;
+            int resolvedBaseRollsPerAttempt = BaseRollsPerAttempt;
+            int resolvedOpponentMaxHP = OpponentMaxHP;
 
             if (resolvedStageThreatLevel >= 1)
                 resolvedEnemyStrikeDamage += 1;
 
             if (resolvedStageThreatLevel >= 2)
-                resolvedRoundRollPool = Mathf.Max(1, resolvedRoundRollPool - 1);
+                resolvedBaseRollsPerAttempt = Mathf.Max(1, resolvedBaseRollsPerAttempt - 1);
 
             if (resolvedStageThreatLevel >= 3)
                 resolvedOpponentMaxHP += resolvedStageThreatLevel * 5;
 
             return new RoundRuleContext(
-                diceCount: Mathf.Max(1, diceCount),
-                maxAttempts: Mathf.Max(1, maxAttempts),
-                roundRollPool: resolvedRoundRollPool,
+                diceCount: DiceCount,
+                maxAttempts: MaxAttempts,
+                baseRollsPerAttempt: resolvedBaseRollsPerAttempt,
                 playerMaxHP: Mathf.Max(1, resolvedPlayerMaxHP),
                 opponentMaxHP: resolvedOpponentMaxHP,
-                maxUsesPerCastPerRound: Mathf.Max(1, maxUsesPerCastPerRound),
-                maxBrokenCastUsesPerRound: Mathf.Max(1, maxBrokenCastUsesPerRound),
+                maxUsesPerCastPerRound: MaxUsesPerCastPerRound,
+                maxBrokenCastUsesPerRound: MaxBrokenCastUsesPerRound,
                 enemyStrikeDamage: resolvedEnemyStrikeDamage,
                 brokenCastGrantsOvercharge: brokenCastGrantsOvercharge,
-                brokenCastOverchargeAmount: Mathf.Max(0, brokenCastOverchargeAmount),
+                brokenCastOverchargeAmount: BrokenCastOverchargeAmount,
                 brokenCastGrantsNextAttemptFreeReroll: brokenCastGrantsNextAttemptFreeReroll,
-                brokenCastFreeRerollTokenAmount: Mathf.Max(0, brokenCastFreeRerollTokenAmount),
+                brokenCastFreeRerollTokenAmount: BrokenCastFreeRerollTokenAmount,
                 tableRules: tableRules,
                 stageThreatLevel: resolvedStageThreatLevel,
                 impactCap: ImpactCap);

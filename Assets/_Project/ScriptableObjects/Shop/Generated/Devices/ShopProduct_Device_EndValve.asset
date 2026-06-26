@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_Device_EndValve
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.device.end_valve
-  displayName: End Valve
-  description: Adds True Damage +35 if the sum of previous slots is at least 20.
-  icon: {fileID: 0}
   productType: 10
-  tier: 2
-  baseMoneyPrice: 9
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: 9b1a3b18a290eb14dbae415fb9ae4f70, type: 2}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 0}

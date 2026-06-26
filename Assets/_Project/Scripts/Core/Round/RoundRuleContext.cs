@@ -14,8 +14,8 @@ namespace Tessera.Core
         /// <summary>Round에서 사용할 수 있는 최대 Attempt 수.</summary>
         public int MaxAttempts { get; }
 
-        /// <summary>Round 전체에서 사용할 수 있는 Roll 총량.</summary>
-        public int RoundRollPool { get; }
+        /// <summary>Attempt마다 기본으로 제공되는 Roll 횟수다.</summary>
+        public int BaseRollsPerAttempt { get; }
 
         /// <summary>플레이어 최대 HP.</summary>
         public int PlayerMaxHP { get; }
@@ -57,7 +57,7 @@ namespace Tessera.Core
         public RoundRuleContext(
             int diceCount,
             int maxAttempts,
-            int roundRollPool,
+            int baseRollsPerAttempt,
             int playerMaxHP,
             int opponentMaxHP,
             int maxUsesPerCastPerRound,
@@ -77,8 +77,8 @@ namespace Tessera.Core
             if (maxAttempts <= 0)
                 throw new ArgumentOutOfRangeException(nameof(maxAttempts), "최대 Attempt 수는 1 이상이어야 합니다.");
 
-            if (roundRollPool <= 0)
-                throw new ArgumentOutOfRangeException(nameof(roundRollPool), "Round Roll Pool은 1 이상이어야 합니다.");
+            if (baseRollsPerAttempt <= 0)
+                throw new ArgumentOutOfRangeException(nameof(baseRollsPerAttempt), "Base Rolls Per Attempt는 1 이상이어야 합니다.");
 
             if (playerMaxHP <= 0)
                 throw new ArgumentOutOfRangeException(nameof(playerMaxHP), "플레이어 최대 HP는 1 이상이어야 합니다.");
@@ -106,7 +106,7 @@ namespace Tessera.Core
 
             DiceCount = diceCount;
             MaxAttempts = maxAttempts;
-            RoundRollPool = roundRollPool;
+            BaseRollsPerAttempt = baseRollsPerAttempt;
             PlayerMaxHP = playerMaxHP;
             OpponentMaxHP = opponentMaxHP;
             MaxUsesPerCastPerRound = maxUsesPerCastPerRound;
@@ -121,15 +121,15 @@ namespace Tessera.Core
             ImpactCap = Math.Max(0, impactCap);
         }
 
-        /// <summary>초기 Core 테스트용 기본 Round 규칙을 생성한다.</summary>
+        /// <summary>SO 없이 Core 테스트를 실행할 때 사용할 기본 Round 규칙을 생성한다.</summary>
         public static RoundRuleContext CreateDefault()
         {
             return new RoundRuleContext(
                 diceCount: 5,
                 maxAttempts: 3,
-                roundRollPool: 8,
-                playerMaxHP: 24,
-                opponentMaxHP: 80,
+                baseRollsPerAttempt: 3,
+                playerMaxHP: 20,
+                opponentMaxHP: 18,
                 maxUsesPerCastPerRound: 1,
                 maxBrokenCastUsesPerRound: 3,
                 enemyStrikeDamage: 3,
@@ -139,59 +139,6 @@ namespace Tessera.Core
                 brokenCastFreeRerollTokenAmount: 1,
                 stageThreatLevel: 0,
                 impactCap: 0);
-        }
-
-        /// <summary>Aces 이외 Cast 피해를 반감하는 Boss Round 테스트 규칙을 생성한다.</summary>
-        public static RoundRuleContext CreateDebugAcesBoss()
-        {
-            List<TableRule> tableRules = new List<TableRule>
-            {
-                TableRule.NonAcesCastPowerPercent(50)
-            };
-
-            return new RoundRuleContext(
-                diceCount: 5,
-                maxAttempts: 3,
-                roundRollPool: 8,
-                playerMaxHP: 24,
-                opponentMaxHP: 80,
-                maxUsesPerCastPerRound: 1,
-                maxBrokenCastUsesPerRound: 3,
-                enemyStrikeDamage: 4,
-                brokenCastGrantsOvercharge: true,
-                brokenCastOverchargeAmount: 1,
-                brokenCastGrantsNextAttemptFreeReroll: true,
-                brokenCastFreeRerollTokenAmount: 1,
-                tableRules: tableRules,
-                stageThreatLevel: 0,
-                impactCap: 20);
-        }
-
-        /// <summary>Chance와 Broken Cast 보상을 막는 Boss Round 테스트 규칙을 생성한다.</summary>
-        public static RoundRuleContext CreateDebugStrictBoss()
-        {
-            List<TableRule> tableRules = new List<TableRule>
-            {
-                TableRule.DisableChance(),
-                TableRule.DisableBrokenCastReward()
-            };
-
-            return new RoundRuleContext(
-                diceCount: 5,
-                maxAttempts: 3,
-                roundRollPool: 8,
-                playerMaxHP: 24,
-                opponentMaxHP: 80,
-                maxUsesPerCastPerRound: 1,
-                maxBrokenCastUsesPerRound: 3,
-                enemyStrikeDamage: 4,
-                brokenCastGrantsOvercharge: true,
-                brokenCastOverchargeAmount: 1,
-                brokenCastGrantsNextAttemptFreeReroll: true,
-                brokenCastFreeRerollTokenAmount: 1,
-                tableRules: tableRules,
-                stageThreatLevel: 0,
-                impactCap: 20);
         }
     }
 }

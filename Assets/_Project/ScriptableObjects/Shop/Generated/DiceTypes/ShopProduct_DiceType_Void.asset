@@ -13,14 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_DiceType_Void
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.dice.void
-  displayName: Void Dice
-  description: Candidate for reducing incoming damage when this dice is included
-    in a lost Clash.
-  icon: {fileID: 0}
   productType: 20
-  tier: 2
-  baseMoneyPrice: 7
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 0}
   diceTypeDefinition: {fileID: 11400000, guid: ccd25abb9d214324ea777eebcf466330, type: 2}
   diceFaceUpgradeDefinition: {fileID: 0}

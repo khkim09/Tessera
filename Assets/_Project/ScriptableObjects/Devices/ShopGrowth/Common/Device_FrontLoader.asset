@@ -15,7 +15,13 @@ MonoBehaviour:
   deviceId: device.front_loader
   displayName: "\uC804\uBC29 \uC7A5\uC804\uAE30"
   description: "1\uBC88 \uC2AC\uB86F\uC774\uBA74 Score +18."
+  tier: 1
   icon: {fileID: 0}
+  equippedViewPrefab: {fileID: 0}
+  rarity: 1
+  unlockStage: 1
+  baseMoneyPrice: 4
+  baseOverchargePrice: 0
   deviceType: 30
   intValue: 18
   floatValue: 1
@@ -27,4 +33,6 @@ MonoBehaviour:
   requiredMaxDiceValue: 6
   requiredSlotIndex: 0
   requiredStageThreatLevel: 0
-  trueDamageValue: 0
+  truePowerValue: 0
+  deviceImpactBonus: 0
+  trueImpactDamage: 0

@@ -13,14 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_DiceType_Gold
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.dice.gold
-  displayName: Gold Dice
-  description: Candidate for earning Money +1 when winning a Round with this dice
-    in the Cast.
-  icon: {fileID: 0}
   productType: 20
-  tier: 2
-  baseMoneyPrice: 7
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 0}
   diceTypeDefinition: {fileID: 11400000, guid: f088d1bf0fb3d4741af50c2324bd0ac1, type: 2}
   diceFaceUpgradeDefinition: {fileID: 0}

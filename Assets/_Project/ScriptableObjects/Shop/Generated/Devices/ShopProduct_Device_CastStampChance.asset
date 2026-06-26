@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_Device_CastStampChance
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.device.cast_stamp_chance
-  displayName: Chance Stamp
-  description: Adds Score +15 when submitting Chance.
-  icon: {fileID: 0}
   productType: 10
-  tier: 1
-  baseMoneyPrice: 4
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: b3fe30f594f8e3c459e7af49693f23d4, type: 2}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 0}

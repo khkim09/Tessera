@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_FaceUpgrade_BlueEvenRune
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.face.blue_even_rune
-  displayName: Blue Even Rune
-  description: Adds Force +0.2 when rolled if the face value is even.
-  icon: {fileID: 0}
   productType: 23
-  tier: 1
-  baseMoneyPrice: 3
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 0}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 11400000, guid: da62040bee8a3ee4c80db567a83d33a8, type: 2}

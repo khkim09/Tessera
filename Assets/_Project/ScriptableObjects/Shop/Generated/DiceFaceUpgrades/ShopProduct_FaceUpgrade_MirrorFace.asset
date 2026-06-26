@@ -13,14 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_FaceUpgrade_MirrorFace
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.face.mirror_face
-  displayName: Mirror Face
-  description: Copies the current value of the left dice. Currently not implemented
-    / on hold.
-  icon: {fileID: 0}
   productType: 23
-  tier: 3
-  baseMoneyPrice: 8
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 0}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 11400000, guid: 96dbde0a7698a28478c3540a2471a690, type: 2}

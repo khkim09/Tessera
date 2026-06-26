@@ -35,12 +35,9 @@ namespace Tessera.UI
         #region Serialized Fields
 
         [Header("Round Simulator")]
-        /// <summary>전투 난수를 디버그 고정 Seed로 실행할지 여부이다.</summary>
         [Tooltip("디버그 고정")]
         [SerializeField] private bool useDeterministicCombatSeed = false; // true면 출시용 난수 대신 debugCombatSeed를 사용한다.
-        /// <summary>디버그 고정 전투 난수 Seed 값이다.</summary>
         [SerializeField] private int debugCombatSeed = 12345; // useDeterministicCombatSeed가 켜졌을 때 재현용으로 쓰는 Seed다.
-        /// <summary>전투 시작 시 실제 적용된 Seed를 로그로 남길지 여부이다.</summary>
         [SerializeField] private bool logCombatSeed; // true면 전투마다 activeCombatSeed를 Console에 출력한다.
         [SerializeField] private bool useFixedSeed = true;
         [SerializeField] private int seed = 12345;
@@ -3098,7 +3095,10 @@ namespace Tessera.UI
         /// <summary>상대가 현재 Attempt에서 사용할 수 있는 기본 Roll 횟수를 반환한다.</summary>
         private int ResolveOpponentRollCount()
         {
-            return RoundState.BaseRollsPerAttempt;
+            if (roundState != null && roundState.RuleContext != null)
+                return roundState.RuleContext.BaseRollsPerAttempt;
+
+            return RoundState.DefaultBaseRollsPerAttempt;
         }
 
         /// <summary>현재 Intent 기준 상대 Cast 선택 방식을 반환한다.</summary>

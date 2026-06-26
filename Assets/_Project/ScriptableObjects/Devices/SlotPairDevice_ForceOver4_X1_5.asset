@@ -15,7 +15,13 @@ MonoBehaviour:
   deviceId: device.force_over_4_x1_5
   displayName: StageThreat Amplifier
   description: Multiplies Force by 1.5 if current Force is at least 4.
+  tier: 1
   icon: {fileID: 0}
+  equippedViewPrefab: {fileID: 0}
+  rarity: 1
+  unlockStage: 1
+  baseMoneyPrice: 4
+  baseOverchargePrice: 0
   deviceType: 4
   intValue: 0
   floatValue: 1.5
@@ -27,4 +33,6 @@ MonoBehaviour:
   requiredMaxDiceValue: 6
   requiredSlotIndex: -1
   requiredStageThreatLevel: 0
-  trueDamageValue: 0
+  truePowerValue: 0
+  deviceImpactBonus: 0
+  trueImpactDamage: 0

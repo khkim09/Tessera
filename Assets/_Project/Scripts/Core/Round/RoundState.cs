@@ -9,10 +9,9 @@ namespace Tessera.Core
         private readonly List<DiceInstance> _dice;
         private readonly List<CastSubmitResult> _submitResults;
         private readonly Dictionary<RollPatternType, int> _patternUseCounts;
-        /// <summary>Attempt마다 기본으로 제공되는 Roll 횟수다.</summary>
-        public const int BaseRollsPerAttempt = 3;
-        /// <summary>Attempt마다 사용할 수 있는 최대 추가 Roll 횟수다.</summary>
-        public const int MaxExtraRollsPerAttempt = 1;
+
+        /// <summary>SO가 없을 때 사용할 기본 Attempt Roll 횟수다.</summary>
+        public const int DefaultBaseRollsPerAttempt = 3;
 
         /// <summary>이 Round에 적용 중인 규칙 정보.</summary>
         public RoundRuleContext RuleContext { get; }
@@ -47,11 +46,16 @@ namespace Tessera.Core
         /// <summary>호환용으로 현재 Attempt에서 남은 전체 Roll 횟수를 반환한다.</summary>
         public int RemainingRoundRolls => RemainingRollsThisAttempt;
 
+        /// <summary>현재 Round 규칙에서 가져온 Attempt 기본 Roll 횟수다.</summary>
+        public int BaseRollsPerAttempt => RuleContext != null
+            ? RuleContext.BaseRollsPerAttempt
+            : DefaultBaseRollsPerAttempt;
+
         /// <summary>현재 Attempt에서 남은 기본 Roll 횟수다.</summary>
         public int RemainingBaseRollsThisAttempt => Math.Max(0, BaseRollsPerAttempt - RollsUsedThisAttempt);
 
         /// <summary>현재 Attempt에서 남은 추가 Roll 횟수다.</summary>
-        public int RemainingExtraRollsThisAttempt => Math.Min(ExtraRollCharge, Math.Max(0, MaxExtraRollsPerAttempt - ExtraRollsUsedThisAttempt));
+        public int RemainingExtraRollsThisAttempt => Math.Max(0, ExtraRollCharge);
 
         /// <summary>현재 Attempt에서 남은 기본 및 추가 Roll 합계다.</summary>
         public int RemainingRollsThisAttempt => RemainingBaseRollsThisAttempt + RemainingExtraRollsThisAttempt;
@@ -59,11 +63,11 @@ namespace Tessera.Core
         /// <summary>현재 Attempt에서 표시할 최대 Roll 횟수다.</summary>
         public int MaxRollsThisAttempt => BaseRollsPerAttempt + ExtraRollsUsedThisAttempt + RemainingExtraRollsThisAttempt;
 
-        /// <summary>현재 Attempt에서 첫 Roll을 아직 사용하지 않았는지 확인한다.</summary>
-        public bool IsFirstRollThisAttempt => RollsUsedThisAttempt <= 0;
-
         /// <summary>현재 Attempt에서 추가 Roll을 사용할 수 있는지 확인한다.</summary>
         public bool CanUseExtraRollThisAttempt => RemainingExtraRollsThisAttempt > 0;
+
+        /// <summary>현재 Attempt에서 첫 Roll을 아직 사용하지 않았는지 확인한다.</summary>
+        public bool IsFirstRollThisAttempt => RollsUsedThisAttempt <= 0;
 
         /// <summary>현재 상대 Intent.</summary>
         public EnemyIntent CurrentEnemyIntent { get; private set; }

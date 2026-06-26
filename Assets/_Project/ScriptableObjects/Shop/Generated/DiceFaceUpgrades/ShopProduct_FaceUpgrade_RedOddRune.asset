@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_FaceUpgrade_RedOddRune
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.face.red_odd_rune
-  displayName: Red Odd Rune
-  description: Adds Score +2 when rolled if the face value is odd.
-  icon: {fileID: 0}
   productType: 23
-  tier: 1
-  baseMoneyPrice: 3
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 0}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 11400000, guid: 0bd2ba3c8a6fe00409b5e37725059fda, type: 2}

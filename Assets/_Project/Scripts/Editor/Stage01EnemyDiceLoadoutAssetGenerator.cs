@@ -15,10 +15,10 @@ namespace Tessera.Editor
         private const string StagesFolderPath = "Assets/_Project/ScriptableObjects/Stages/Stage01";
 
         // ── Dice Loadout 에셋 경로 ─────────────────────────────────────────
-        private const string LoadoutPath_StandardD6 = DiceLoadoutsFolderPath + "/Loadout_StandardD6.asset";
-        private const string LoadoutPath_HighDamage = DiceLoadoutsFolderPath + "/Loadout_HighDamage.asset";
-        private const string LoadoutPath_Balanced = DiceLoadoutsFolderPath + "/Loadout_Balanced.asset";
-        private const string LoadoutPath_BossRigged = DiceLoadoutsFolderPath + "/Loadout_BossRigged.asset";
+        private const string LoadoutPath_TutorialLow = DiceLoadoutsFolderPath + "/Loadout_TutorialLow.asset";
+        private const string LoadoutPath_Stage01Balanced = DiceLoadoutsFolderPath + "/Loadout_Stage01Balanced.asset";
+        private const string LoadoutPath_Stage01Aggressive = DiceLoadoutsFolderPath + "/Loadout_Stage01Aggressive.asset";
+        private const string LoadoutPath_Stage01Boss = DiceLoadoutsFolderPath + "/Loadout_Stage01Boss.asset";
 
         // ── Stage Round 에셋 경로 ─────────────────────────────────────────
         private const string RoundPath_TutorialTarget = StagesFolderPath + "/Stage01_TutorialTarget.asset";
@@ -30,13 +30,19 @@ namespace Tessera.Editor
         [MenuItem("Tools/Tessera/Generate Stage 1 Enemy Dice Loadout Assets")]
         private static void Generate()
         {
+            InvokeGenerate();
+        }
+
+        /// <summary>Stage01AssetGenerator에서 호출하는 public 진입점이다.</summary>
+        public static void InvokeGenerate()
+        {
             EnsureFolderExists(DiceLoadoutsFolderPath, "Assets/_Project/ScriptableObjects/Enemies", "DiceLoadouts");
 
             // 1. EnemyDiceLoadoutDefinitionSO 에셋 4개 생성/업데이트
-            EnemyDiceLoadoutDefinitionSO loadoutStandardD6 = CreateOrUpdateLoadout(
-                LoadoutPath_StandardD6,
-                "loadout_standard_d6",
-                "Standard D6",
+            EnemyDiceLoadoutDefinitionSO loadoutTutorialLow = CreateOrUpdateLoadout(
+                LoadoutPath_TutorialLow,
+                "loadout_tutorial_low",
+                "Tutorial Low",
                 new int[][]
                 {
                     new int[] { 1, 2, 3, 4, 5, 6 },
@@ -46,23 +52,23 @@ namespace Tessera.Editor
                     new int[] { 1, 2, 3, 4, 5, 6 }
                 });
 
-            EnemyDiceLoadoutDefinitionSO loadoutHighDamage = CreateOrUpdateLoadout(
-                LoadoutPath_HighDamage,
-                "loadout_high_damage",
-                "High Damage",
+            EnemyDiceLoadoutDefinitionSO loadoutStage01Balanced = CreateOrUpdateLoadout(
+                LoadoutPath_Stage01Balanced,
+                "loadout_stage01_balanced",
+                "Stage01 Balanced",
                 new int[][]
                 {
-                    new int[] { 6, 6, 6, 5, 5, 4 },
-                    new int[] { 6, 6, 6, 5, 5, 4 },
-                    new int[] { 6, 6, 6, 5, 5, 4 },
-                    new int[] { 6, 6, 6, 5, 5, 4 },
-                    new int[] { 6, 6, 6, 5, 5, 4 }
+                    new int[] { 1, 2, 3, 4, 5, 6 },
+                    new int[] { 1, 2, 3, 4, 5, 6 },
+                    new int[] { 1, 2, 3, 4, 5, 6 },
+                    new int[] { 1, 2, 3, 4, 5, 6 },
+                    new int[] { 1, 2, 3, 4, 5, 6 }
                 });
 
-            EnemyDiceLoadoutDefinitionSO loadoutBalanced = CreateOrUpdateLoadout(
-                LoadoutPath_Balanced,
-                "loadout_balanced",
-                "Balanced",
+            EnemyDiceLoadoutDefinitionSO loadoutStage01Aggressive = CreateOrUpdateLoadout(
+                LoadoutPath_Stage01Aggressive,
+                "loadout_stage01_aggressive",
+                "Stage01 Aggressive",
                 new int[][]
                 {
                     new int[] { 1, 2, 3, 4, 5, 6 },
@@ -72,32 +78,32 @@ namespace Tessera.Editor
                     new int[] { 1, 2, 3, 4, 5, 6 }
                 });
 
-            EnemyDiceLoadoutDefinitionSO loadoutBossRigged = CreateOrUpdateLoadout(
-                LoadoutPath_BossRigged,
-                "loadout_boss_rigged",
-                "Boss Rigged",
+            EnemyDiceLoadoutDefinitionSO loadoutStage01Boss = CreateOrUpdateLoadout(
+                LoadoutPath_Stage01Boss,
+                "loadout_stage01_boss",
+                "Stage01 Boss",
                 new int[][]
                 {
-                    new int[] { 6, 6, 6, 6, 6, 6 },
-                    new int[] { 6, 6, 6, 6, 6, 6 },
-                    new int[] { 6, 6, 6, 6, 6, 6 },
-                    new int[] { 6, 6, 6, 6, 6, 6 },
-                    new int[] { 6, 6, 6, 6, 6, 6 }
+                    new int[] { 2, 3, 4, 5, 6, 6 },
+                    new int[] { 2, 3, 4, 5, 6, 6 },
+                    new int[] { 1, 2, 3, 4, 5, 6 },
+                    new int[] { 2, 3, 4, 5, 6, 6 },
+                    new int[] { 1, 2, 3, 4, 5, 6 }
                 });
 
             AssetDatabase.SaveAssets();
 
             // 2. Stage Round SO에 opponentDiceLoadout 연결
-            ConnectStageRound_TutorialTarget(loadoutStandardD6);
-            ConnectStageRound_Round01(loadoutBalanced);
-            ConnectStageRound_Round02(loadoutHighDamage);
-            ConnectStageRound_Boss(loadoutBossRigged);
+            ConnectStageRound_TutorialTarget(loadoutTutorialLow);
+            ConnectStageRound_Round01(loadoutStage01Balanced);
+            ConnectStageRound_Round02(loadoutStage01Aggressive);
+            ConnectStageRound_Boss(loadoutStage01Boss);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
             Debug.Log($"[Stage01EnemyDiceLoadoutAssetGenerator] Generation complete.\n" +
-                      $"  Loadouts: {LoadoutPath_StandardD6}, {LoadoutPath_HighDamage}, {LoadoutPath_Balanced}, {LoadoutPath_BossRigged}\n" +
+                      $"  Loadouts: {LoadoutPath_TutorialLow}, {LoadoutPath_Stage01Balanced}, {LoadoutPath_Stage01Aggressive}, {LoadoutPath_Stage01Boss}\n" +
                       $"  Rounds: {RoundPath_TutorialTarget}, {RoundPath_Round01}, {RoundPath_Round02}, {RoundPath_Boss}");
         }
 

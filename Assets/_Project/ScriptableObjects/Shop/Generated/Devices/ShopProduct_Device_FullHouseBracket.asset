@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_Device_FullHouseBracket
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.device.fullhouse_bracket
-  displayName: Full House Bracket
-  description: Adds Score +30 when submitting Full House.
-  icon: {fileID: 0}
   productType: 10
-  tier: 2
-  baseMoneyPrice: 8
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: 7c45807a9161ee244bc81fbbf51d6545, type: 2}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 0}

@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_DiceType_Red
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.dice.red
-  displayName: Red Dice
-  description: Adds Score +2 when an odd result is used in SlotPair calculation.
-  icon: {fileID: 0}
   productType: 20
-  tier: 1
-  baseMoneyPrice: 5
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 0}
   diceTypeDefinition: {fileID: 11400000, guid: ea9713ee41e79914d8a2280361030cc4, type: 2}
   diceFaceUpgradeDefinition: {fileID: 0}

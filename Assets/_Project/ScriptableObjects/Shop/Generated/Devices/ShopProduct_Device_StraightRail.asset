@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_Device_StraightRail
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.device.straight_rail
-  displayName: Straight Rail
-  description: Adds Force +1 when submitting Small Straight or Large Straight.
-  icon: {fileID: 0}
   productType: 10
-  tier: 2
-  baseMoneyPrice: 8
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: 96f90fb1a79fb74469a16f29335aef9f, type: 2}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 0}

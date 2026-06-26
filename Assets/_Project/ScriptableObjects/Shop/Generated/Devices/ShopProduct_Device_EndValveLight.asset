@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_Device_EndValveLight
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.device.end_valve_light
-  displayName: Light End Valve
-  description: Adds True Damage +15 if this is slot index 5.
-  icon: {fileID: 0}
   productType: 10
-  tier: 1
-  baseMoneyPrice: 5
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: 77d6dc63c5762014f8c2043908cb34e0, type: 2}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 0}

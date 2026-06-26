@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1a2b3c4d5e6f4789abcdeffedcba9876, type: 3}
+  m_Name: Profile_Stage01_PlayerOpening
+  m_EditorClassIdentifier: Tessera.Data::Tessera.Data.EnemyIntentProfileSO
+  openingIntent: {fileID: 11400000, guid: dcdeb841f72a5b14f8e419d2684eb221, type: 2}
+  intentPool:
+  - {fileID: 11400000, guid: dcdeb841f72a5b14f8e419d2684eb221, type: 2}
+  - {fileID: 11400000, guid: e23dde1366f78d147bc0914d58f824ad, type: 2}

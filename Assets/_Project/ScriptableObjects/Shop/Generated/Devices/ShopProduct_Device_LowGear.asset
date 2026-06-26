@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_Device_LowGear
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.device.low_gear
-  displayName: Low Gear
-  description: Adds Force +1 if the current slot dice is 2 or lower.
-  icon: {fileID: 0}
   productType: 10
-  tier: 1
-  baseMoneyPrice: 4
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: 29d1f5389011e9f4db326f71338f031b, type: 2}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 0}

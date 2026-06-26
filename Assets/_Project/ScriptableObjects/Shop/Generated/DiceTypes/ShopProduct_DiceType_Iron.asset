@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_DiceType_Iron
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.dice.iron
-  displayName: Iron Dice
-  description: Adds Score +3 when a result of 5 or higher is used in SlotPair calculation.
-  icon: {fileID: 0}
   productType: 20
-  tier: 1
-  baseMoneyPrice: 5
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 0}
   diceTypeDefinition: {fileID: 11400000, guid: 8c9932b2214ccaf44aafb2a724affb4f, type: 2}
   diceFaceUpgradeDefinition: {fileID: 0}

@@ -13,14 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_Device_UnstableFuse
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.device.unstable_fuse
-  displayName: Unstable Fuse
-  description: "\uD604\uC7AC \uC2AC\uB86F \uC8FC\uC0AC\uC704\uAC00 \uD640\uC218\uBA74
-    Force +1."
-  icon: {fileID: 0}
   productType: 10
-  tier: 1
-  baseMoneyPrice: 4
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: 1995962472d329c4d9c4a7639f61ceff, type: 2}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 0}

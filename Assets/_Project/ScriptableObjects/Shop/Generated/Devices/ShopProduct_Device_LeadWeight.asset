@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_Device_LeadWeight
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.device.lead_weight
-  displayName: Lead Weight
-  description: Adds Score +15 if the current slot dice is 5 or higher.
-  icon: {fileID: 0}
   productType: 10
-  tier: 1
-  baseMoneyPrice: 5
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: cd158a00775c40b42888a2f1f1248190, type: 2}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 0}

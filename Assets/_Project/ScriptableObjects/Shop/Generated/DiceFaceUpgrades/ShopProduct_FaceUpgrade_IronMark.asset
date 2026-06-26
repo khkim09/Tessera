@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_FaceUpgrade_IronMark
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.face.iron_mark
-  displayName: Iron Mark
-  description: Adds Score +3 when rolled if the face value is 5 or higher.
-  icon: {fileID: 0}
   productType: 23
-  tier: 1
-  baseMoneyPrice: 4
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 0}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 11400000, guid: e10442c271c71374cb3603a3d27b80a3, type: 2}

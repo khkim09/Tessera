@@ -24,5 +24,8 @@ MonoBehaviour:
   effectType: 0
   intValue: 0
   floatValue: 0
+  tier: 1
   rarity: 3
+  unlockStage: 1
   baseMoneyPrice: 6
+  baseOverchargePrice: 0

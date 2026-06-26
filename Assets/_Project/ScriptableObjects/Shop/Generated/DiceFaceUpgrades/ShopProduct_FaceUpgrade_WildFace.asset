@@ -13,14 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_FaceUpgrade_WildFace
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.face.wild_face
-  displayName: Wild Face
-  description: Treated as the most favorable number from 1 to 6. Currently not implemented
-    / on hold.
-  icon: {fileID: 0}
   productType: 23
-  tier: 3
-  baseMoneyPrice: 8
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 0}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 11400000, guid: 88785974282e5cd4492894f6deebc62c, type: 2}

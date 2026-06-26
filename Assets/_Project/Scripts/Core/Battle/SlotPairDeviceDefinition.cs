@@ -25,6 +25,12 @@ namespace Tessera.Core
         /// <summary>Device가 제공하는 고정 CastPower 값이다.</summary>
         public int TruePowerValue { get; }
 
+        /// <summary>Device가 제공하는 일반 ImpactDamage 보너스다.</summary>
+        public int DeviceImpactBonus { get; }
+
+        /// <summary>Device가 제공하는 고정 ImpactDamage 값이다.</summary>
+        public int TrueImpactDamage { get; }
+
         public string Description { get; }
 
         public SlotPairDeviceDefinition(
@@ -54,6 +60,43 @@ namespace Tessera.Core
             RequiredSlotIndex = requiredSlotIndex;
             RequiredStageThreatLevel = requiredStageThreatLevel;
             TruePowerValue = truePowerValue;
+            DeviceImpactBonus = 0;
+            TrueImpactDamage = 0;
+            Description = description ?? string.Empty;
+        }
+
+        /// <summary>DeviceImpactBonus와 TrueImpactDamage를 포함한 전체 생성자다.</summary>
+        public SlotPairDeviceDefinition(
+            SlotPairDeviceType deviceType,
+            int intValue,
+            float floatValue,
+            float forceThreshold,
+            RollPatternType requiredPatternType,
+            RollPatternType secondaryPatternType,
+            DiceValueParity requiredParity,
+            int requiredMinDiceValue,
+            int requiredMaxDiceValue,
+            int requiredSlotIndex,
+            int requiredStageThreatLevel,
+            int truePowerValue,
+            int deviceImpactBonus,
+            int trueImpactDamage,
+            string description)
+        {
+            DeviceType = deviceType;
+            IntValue = intValue;
+            FloatValue = floatValue;
+            ForceThreshold = forceThreshold;
+            RequiredPatternType = requiredPatternType;
+            SecondaryPatternType = secondaryPatternType;
+            RequiredParity = requiredParity;
+            RequiredMinDiceValue = requiredMinDiceValue;
+            RequiredMaxDiceValue = requiredMaxDiceValue;
+            RequiredSlotIndex = requiredSlotIndex;
+            RequiredStageThreatLevel = requiredStageThreatLevel;
+            TruePowerValue = truePowerValue;
+            DeviceImpactBonus = Math.Max(0, deviceImpactBonus);
+            TrueImpactDamage = Math.Max(0, trueImpactDamage);
             Description = description ?? string.Empty;
         }
 

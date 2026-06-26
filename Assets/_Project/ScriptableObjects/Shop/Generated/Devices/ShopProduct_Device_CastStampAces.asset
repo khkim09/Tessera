@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_Device_CastStampAces
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.device.cast_stamp_aces
-  displayName: Aces Stamp
-  description: Adds Score +20 when submitting Aces.
-  icon: {fileID: 0}
   productType: 10
-  tier: 1
-  baseMoneyPrice: 4
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 11400000, guid: 2a0a1c6e2d36c494f98b69a0d6cd5a53, type: 2}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 0}

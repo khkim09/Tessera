@@ -16,7 +16,13 @@ MonoBehaviour:
   displayName: "\uACE0\uB9BD\uB41C \uD1B1\uB2C8"
   description: "\uC591\uC606 \uC2AC\uB86F \uC8FC\uC0AC\uC704\uC640 \uD604\uC7AC \uC8FC\uC0AC\uC704\uC758
     \uCC28\uC774\uAC00 \uAC01\uAC01 2 \uC774\uC0C1\uC774\uBA74 Score +25."
+  tier: 1
   icon: {fileID: 0}
+  equippedViewPrefab: {fileID: 0}
+  rarity: 1
+  unlockStage: 1
+  baseMoneyPrice: 4
+  baseOverchargePrice: 0
   deviceType: 43
   intValue: 25
   floatValue: 1
@@ -28,4 +34,6 @@ MonoBehaviour:
   requiredMaxDiceValue: 6
   requiredSlotIndex: -1
   requiredStageThreatLevel: 0
-  trueDamageValue: 0
+  truePowerValue: 0
+  deviceImpactBonus: 0
+  trueImpactDamage: 0

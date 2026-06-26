@@ -15,7 +15,13 @@ MonoBehaviour:
   deviceId: device.pressure_gauge_light
   displayName: "\uC18C\uD615 \uC555\uB825\uACC4"
   description: "StageThreat 1 \uC774\uC0C1\uC774\uBA74 Score +10."
+  tier: 1
   icon: {fileID: 0}
+  equippedViewPrefab: {fileID: 0}
+  rarity: 1
+  unlockStage: 1
+  baseMoneyPrice: 4
+  baseOverchargePrice: 0
   deviceType: 70
   intValue: 10
   floatValue: 1
@@ -27,4 +33,6 @@ MonoBehaviour:
   requiredMaxDiceValue: 6
   requiredSlotIndex: -1
   requiredStageThreatLevel: 1
-  trueDamageValue: 0
+  truePowerValue: 0
+  deviceImpactBonus: 0
+  trueImpactDamage: 0

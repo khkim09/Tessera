@@ -950,7 +950,7 @@ namespace Tessera.Runtime
             return Mathf.Max(1, Mathf.FloorToInt(basePrice * 0.5f));
         }
 
-        /// <summary>현재 Workshop 규칙에서 지정 Device를 판매하는 ShopProduct를 찾는다.</summary>
+        /// <summary>현재 Workshop 슬롯 규칙에서 지정 Device를 판매하는 ShopProduct를 찾는다.</summary>
         private ShopProductDefinitionSO FindShopProductByDevice(SlotPairDeviceDefinitionSO device)
         {
             if (device == null)
@@ -958,24 +958,51 @@ namespace Tessera.Runtime
 
             StageWorkshopRulesSO rules = ResolveCurrentWorkshopRules();
 
-            if (rules == null || rules.ProductPool == null)
+            if (rules == null)
                 return null;
 
-            for (int i = 0; i < rules.ProductPool.Count; i++)
+            return FindShopProductByDeviceInSlotRules(rules, device);
+        }
+
+        /// <summary>SlotRules 기반 상품 풀에서 지정 Device 상품을 찾는다.</summary>
+        private static ShopProductDefinitionSO FindShopProductByDeviceInSlotRules(
+            StageWorkshopRulesSO rules,
+            SlotPairDeviceDefinitionSO device)
+        {
+            if (rules.ProductSlotRules == null)
+                return null;
+
+            for (int i = 0; i < rules.ProductSlotRules.Count; i++)
             {
-                ShopProductDefinitionSO product = rules.ProductPool[i];
+                ShopProductSlotRule slotRule = rules.ProductSlotRules[i];
 
-                if (product == null)
+                if (slotRule == null || slotRule.ProductPool == null)
                     continue;
 
-                if (product.ProductType != ShopProductType.Device)
-                    continue;
+                for (int j = 0; j < slotRule.ProductPool.Length; j++)
+                {
+                    ShopProductDefinitionSO product = slotRule.ProductPool[j];
 
-                if (product.DeviceDefinition == device)
-                    return product;
+                    if (IsMatchingDeviceProduct(product, device))
+                        return product;
+                }
             }
 
             return null;
+        }
+
+        /// <summary>지정 상품이 대상 Device와 연결된 Device 상품인지 확인한다.</summary>
+        private static bool IsMatchingDeviceProduct(
+            ShopProductDefinitionSO product,
+            SlotPairDeviceDefinitionSO device)
+        {
+            if (product == null)
+                return false;
+
+            if (product.ProductType != ShopProductType.Device)
+                return false;
+
+            return product.DeviceDefinition == device;
         }
 
         /// <summary>현재 Workshop Tier 기준으로 Shop 상품 목록을 재생성한다.</summary>

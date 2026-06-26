@@ -13,14 +13,7 @@ MonoBehaviour:
   m_Name: ShopProduct_FaceUpgrade_OverchargeMark
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.ShopProductDefinitionSO
   productId: shop.face.overcharge_mark
-  displayName: Overcharge Mark
-  description: Adds Overcharge +1 when this face is included in a submitted Cast.
-    Limited to once per round.
-  icon: {fileID: 0}
   productType: 23
-  tier: 2
-  baseMoneyPrice: 5
-  baseOverchargePrice: 0
   deviceDefinition: {fileID: 0}
   diceTypeDefinition: {fileID: 0}
   diceFaceUpgradeDefinition: {fileID: 11400000, guid: 2dfcb08426e425942890d59cdd25707f, type: 2}
