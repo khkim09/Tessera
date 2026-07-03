@@ -292,7 +292,8 @@ namespace Tessera.Runtime
                     node.Definition.DisplayName,
                     opponentDevices,
                     node.Definition,
-                    openingIntent));
+                    openingIntent,
+                    runSession.EquippedDiceTypes));
 
             PublishStageEconomyChanged($"Bounty started: {node.Definition.DisplayName}");
         }
@@ -333,7 +334,7 @@ namespace Tessera.Runtime
             runSession.SetPlayerCurrentHP(gameEvent.PlayerHPAfterRound);
 
             int remainingAttempts = ResolveRemainingAttempts(completedNode, gameEvent.Result);
-            currentStageState.CompleteCurrentNode(remainingAttempts);
+            currentStageState.CompleteCurrentNode(remainingAttempts, gameEvent.Result != null ? gameEvent.Result.MoneyOnRoundWinBonusFromDiceType : 0);
             SyncRunSessionStageState();
 
             if (currentStageState.IsStageCleared)

@@ -27,6 +27,12 @@
         /// <summary>상대 HP에 최종 적용된 ImpactDamage 값이다.</summary>
         public int AppliedImpactDamageToOpponent { get; }
 
+        /// <summary>DiceType 효과로 감소한 플레이어 수신 피해량이다.</summary>
+        public int IncomingDamageReductionFromDiceType { get; }
+
+        /// <summary>DiceType 효과로 Round 승리 보상에 더할 Money 값이다.</summary>
+        public int MoneyOnRoundWinBonusFromDiceType { get; }
+
         /// <summary>플레이어 Broken Cast 방어가 발동했는지 여부다.</summary>
         public bool PlayerUsedBrokenCastDefense { get; }
 
@@ -64,7 +70,9 @@
             int grantedNextAttemptFreeRerollTokens,
             RoundOutcomeType outcomeType,
             bool canStartNextAttempt,
-            string message)
+            string message,
+            int incomingDamageReductionFromDiceType = 0,
+            int moneyOnRoundWinBonusFromDiceType = 0)
         {
             AttemptNumber = attemptNumber;
             PlayerResult = playerResult;
@@ -74,6 +82,8 @@
             OpponentImpactDamage = opponentImpactDamage ?? ImpactDamageBreakdown.Zero(0);
             AppliedImpactDamageToPlayer = appliedImpactDamageToPlayer;
             AppliedImpactDamageToOpponent = appliedImpactDamageToOpponent;
+            IncomingDamageReductionFromDiceType = System.Math.Max(0, incomingDamageReductionFromDiceType);
+            MoneyOnRoundWinBonusFromDiceType = System.Math.Max(0, moneyOnRoundWinBonusFromDiceType);
             PlayerUsedBrokenCastDefense = playerUsedBrokenCastDefense;
             DidGrantOvercharge = didGrantOvercharge;
             GrantedOverchargeAmount = grantedOverchargeAmount;

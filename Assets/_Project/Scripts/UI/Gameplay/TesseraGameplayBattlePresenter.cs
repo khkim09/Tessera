@@ -293,7 +293,8 @@ namespace Tessera.UI
             string roundDisplayName,
             SlotPairDeviceDefinitionSO[] roundOpponentSlotPairDevices,
             StageRoundDefinitionSO roundDefinition,
-            EnemyIntent openingIntent)
+            EnemyIntent openingIntent,
+            System.Collections.Generic.IReadOnlyList<Tessera.Data.DiceTypeDefinitionSO> equippedDiceTypes = null)
         {
             if (ruleContext == null)
             {
@@ -309,7 +310,7 @@ namespace Tessera.UI
 
             activeCombatSeed = ResolveCombatSeed();
             simulator = new CoreRoundSimulator(activeCombatSeed);
-            roundState = simulator.StartRound(ruleContext, carriedPlayerHP, stageOverchargeState);
+            roundState = simulator.StartRound(ruleContext, carriedPlayerHP, stageOverchargeState, equippedDiceTypes);
             currentRoundDefinition = roundDefinition;
             currentEnemyIntentDefinition = currentRoundDefinition != null
                 ? currentRoundDefinition.SelectIntentDefinitionForAttempt(1, activeCombatSeed)
@@ -1034,7 +1035,8 @@ namespace Tessera.UI
         }
 
         /// <summary>Round 시작 시점의 Initiative를 저장한다.</summary>
-        private void ResolveAndStoreRoundInitiativeOwner(EnemyIntent openingIntent)
+        private void ResolveAndStoreRoundInitiativeOwner(EnemyIntent openingIntent,
+            System.Collections.Generic.IReadOnlyList<Tessera.Data.DiceTypeDefinitionSO> equippedDiceTypes = null)
         {
             if (currentRoundDefinition != null)
             {
@@ -1096,7 +1098,8 @@ namespace Tessera.UI
         }
 
         /// <summary>Opening EnemyIntent를 현재 Attempt Initiative에 반영한다.</summary>
-        private void ApplyOpeningIntentToCurrentAttempt(EnemyIntent openingIntent)
+        private void ApplyOpeningIntentToCurrentAttempt(EnemyIntent openingIntent,
+            System.Collections.Generic.IReadOnlyList<Tessera.Data.DiceTypeDefinitionSO> equippedDiceTypes = null)
         {
             if (roundState == null)
                 return;

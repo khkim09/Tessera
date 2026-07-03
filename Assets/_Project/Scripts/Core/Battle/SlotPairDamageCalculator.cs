@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using Tessera.Data;
+using UnityEngine;
 
 namespace Tessera.Core
 {
@@ -7,6 +9,9 @@ namespace Tessera.Core
     public class SlotPairDamageCalculator
     {
         public const int SlotPairCount = 5;
+
+        /// <summary>SlotPair 계산 중 DiceType 고유 효과를 평가하는 계산기다.</summary>
+        private readonly DiceTypeIntrinsicEvaluator diceTypeIntrinsicEvaluator = new DiceTypeIntrinsicEvaluator();
 
         public SlotPairDamagePreview Calculate(
             PatternResult patternResult,
@@ -58,6 +63,40 @@ namespace Tessera.Core
                     out currentForce,
                     out currentTruePower);
 
+                DiceTypeDefinitionSO diceType = calculationContext.GetDiceType(diceIndex);
+                DiceTypeIntrinsicResult intrinsicResult = diceTypeIntrinsicEvaluator.EvaluateSlotPair(
+                    slotIndex,
+                    diceValue,
+                    patternResult.PatternType,
+                    diceIndex >= 0 && IsDiceValueIncluded(patternResult, diceValue),
+                    diceType);
+
+                if (intrinsicResult.HasBattleAdjustment)
+                {
+                    int scoreBeforeIntrinsic = currentScore;
+                    float forceBeforeIntrinsic = currentForce;
+
+                    currentScore += intrinsicResult.ScoreBonus;
+                    currentForce += intrinsicResult.ForceAdd;
+                    currentForce *= intrinsicResult.ForceMultiplier;
+
+                    step = new SlotPairDamageStep(
+                        step.SlotIndex,
+                        step.DiceIndex,
+                        step.DiceValue,
+                        step.DeviceType,
+                        step.ScoreBefore,
+                        currentScore,
+                        step.ForceBefore,
+                        currentForce,
+                        step.TruePowerBefore,
+                        step.TruePowerAfter,
+                        true,
+                        string.IsNullOrEmpty(step.Message) ? intrinsicResult.Message : step.Message + " DiceType " + intrinsicResult.Message + ".");
+
+                    LogDiceTypeIntrinsic(slotIndex, diceType, diceValue, scoreBeforeIntrinsic, currentScore, forceBeforeIntrinsic, currentForce);
+                }
+
                 steps.Add(step);
             }
 
@@ -78,6 +117,28 @@ namespace Tessera.Core
                 currentDeviceImpactBonus,
                 currentTrueImpactDamage,
                 steps);
+        }
+
+        /// <summary>Editor 또는 Development Build에서 DiceType 고유 효과 적용 로그를 출력한다.</summary>
+        private static void LogDiceTypeIntrinsic(
+            int slotIndex,
+            DiceTypeDefinitionSO diceType,
+            int diceValue,
+            int scoreBefore,
+            int scoreAfter,
+            float forceBefore,
+            float forceAfter)
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (diceType == null)
+                return;
+
+            int scoreDelta = scoreAfter - scoreBefore;
+            float forceDelta = forceAfter - forceBefore;
+            string scoreText = scoreDelta != 0 ? $" Score+{scoreDelta}" : string.Empty;
+            string forceText = Mathf.Abs(forceDelta) > 0.001f ? $" Force+{forceDelta:0.##}" : string.Empty;
+            Debug.Log($"[DiceTypeIntrinsic] Slot={slotIndex + 1} DiceType={diceType.DisplayName} Value={diceValue}{scoreText}{forceText}");
+#endif
         }
 
         private SlotPairDamageStep ApplyDevice(

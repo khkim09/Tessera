@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Tessera.Data;
 
 namespace Tessera.Core
 {
@@ -7,6 +8,8 @@ namespace Tessera.Core
     public class RoundState
     {
         private readonly List<DiceInstance> _dice;
+        /// <summary>DiceIndex별 DiceType 상태를 보관한다.</summary>
+        private readonly List<DiceTypeDefinitionSO> _diceTypes;
         private readonly List<CastSubmitResult> _submitResults;
         private readonly Dictionary<RollPatternType, int> _patternUseCounts;
 
@@ -24,6 +27,9 @@ namespace Tessera.Core
 
         /// <summary>현재 Round의 주사위 목록.</summary>
         public IReadOnlyList<DiceInstance> Dice => _dice;
+
+        /// <summary>DiceIndex별 현재 DiceType 목록이다.</summary>
+        public IReadOnlyList<DiceTypeDefinitionSO> DiceTypes => _diceTypes;
 
         /// <summary>현재 Attempt 상태.</summary>
         public AttemptState CurrentAttempt { get; private set; }
@@ -101,7 +107,8 @@ namespace Tessera.Core
             OverchargeState overcharge,
             IReadOnlyList<DiceInstance> initialDice,
             AttemptState firstAttempt,
-            EnemyIntent initialEnemyIntent)
+            EnemyIntent initialEnemyIntent,
+            IReadOnlyList<DiceTypeDefinitionSO> initialDiceTypes = null)
         {
             RuleContext = ruleContext ?? throw new ArgumentNullException(nameof(ruleContext));
             Encounter = encounter ?? throw new ArgumentNullException(nameof(encounter));
@@ -116,6 +123,9 @@ namespace Tessera.Core
             ExtraRollCharge = 0;
             ExtraRollsUsedThisAttempt = 0;
             _dice = new List<DiceInstance>(initialDice);
+            _diceTypes = new List<DiceTypeDefinitionSO>(_dice.Count);
+            for (int i = 0; i < _dice.Count; i++)
+                _diceTypes.Add(initialDiceTypes != null && i < initialDiceTypes.Count ? initialDiceTypes[i] : null);
             _submitResults = new List<CastSubmitResult>();
             _patternUseCounts = new Dictionary<RollPatternType, int>();
             IsRoundEnded = false;
@@ -127,6 +137,15 @@ namespace Tessera.Core
         public bool IsLastAttempt()
         {
             return CurrentAttempt.AttemptNumber >= RuleContext.MaxAttempts;
+        }
+
+        /// <summary>지정한 인덱스의 주사위를 반환한다.</summary>
+        public DiceTypeDefinitionSO GetDiceType(int index)
+        {
+            if (index < 0 || index >= _diceTypes.Count)
+                return null;
+
+            return _diceTypes[index];
         }
 
         /// <summary>지정한 인덱스의 주사위를 반환한다.</summary>
