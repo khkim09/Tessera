@@ -653,7 +653,7 @@ namespace Tessera.Runtime
                 return;
             }
 
-            if (!TryApplyPurchasedShopProduct(product, out string applyMessage, out bool playerDevicesChanged))
+            if (!TryApplyPurchasedShopProduct(product, out string applyMessage, out bool playerDevicesChanged, out bool playerDiceTypesChanged))
             {
                 RefundShopProductCost(slot);
                 ShowShop(currentShopReasonType, applyMessage, false);
@@ -676,8 +676,15 @@ namespace Tessera.Runtime
                         purchaseMessage));
             }
 
-            PublishOverchargeDisplayRefresh(string.Empty);
+            if (playerDiceTypesChanged)
+            {
+                TesseraEventBus.Publish(
+                    new StageShopPlayerDiceTypesChangedEvent(
+                        runSession,
+                        purchaseMessage));
+            }
 
+            PublishOverchargeDisplayRefresh(string.Empty);
             ShowShop(currentShopReasonType, purchaseMessage, false);
         }
 
@@ -704,6 +711,12 @@ namespace Tessera.Runtime
             if (product.ProductType == ShopProductType.Device && !runSession.HasEmptyDeviceSlot())
             {
                 failureMessage = "Device slots are full. Sell an equipped Device before buying a new one.";
+                return false;
+            }
+
+            if (RequiresDiceTypeSlotSelection(product.ProductType))
+            {
+                failureMessage = "Individual DiceType assignment UI is not implemented yet.";
                 return false;
             }
 
@@ -768,10 +781,12 @@ namespace Tessera.Runtime
         private bool TryApplyPurchasedShopProduct(
             ShopProductDefinitionSO product,
             out string applyMessage,
-            out bool playerDevicesChanged)
+            out bool playerDevicesChanged,
+            out bool playerDiceTypesChanged)
         {
             applyMessage = string.Empty;
             playerDevicesChanged = false;
+            playerDiceTypesChanged = false;
 
             if (product == null)
             {
@@ -779,31 +794,79 @@ namespace Tessera.Runtime
                 return false;
             }
 
-            if (product.ProductType == ShopProductType.Device)
+            switch (product.ProductType)
             {
-                if (!runSession.TryEquipDeviceToFirstEmptySlot(product.DeviceDefinition, out int equippedSlotIndex))
-                {
-                    applyMessage = "Device slots are full. Sell an equipped Device before buying a new one.";
+                case ShopProductType.Device:
+                    return TryApplyPurchasedDeviceProduct(product, out applyMessage, out playerDevicesChanged);
+
+                case ShopProductType.DiceSet:
+                    return TryApplyPurchasedDiceSetProduct(product, out applyMessage, out playerDiceTypesChanged);
+
+                case ShopProductType.SingleDice:
+                case ShopProductType.DiceTypeUpgrade:
+                    applyMessage = "Individual DiceType assignment UI is not implemented yet.";
                     return false;
-                }
 
-                playerDevicesChanged = true;
-                applyMessage = $"Equipped to DeviceSlot {equippedSlotIndex + 1}.";
-                return true;
+                case ShopProductType.DiceFaceUpgrade:
+                    Debug.Log(
+                        $"[Tessera][ShopProductPurchase] DiceFaceUpgrade product purchased as prototype placeholder. " +
+                        $"Type={product.ProductType}, Product={product.DisplayName}. Effect application pending.");
+
+                    applyMessage = "FaceUpgrade application pending. Card removed for prototype verification.";
+                    return true;
+
+                default:
+                    applyMessage = $"Product type {product.ProductType} purchase effect is not implemented.";
+                    return false;
             }
+        }
 
-            if (IsDiceProductType(product.ProductType))
+        /// <summary>구매한 Device 상품을 첫 빈 Device 슬롯에 장착한다.</summary>
+        private bool TryApplyPurchasedDeviceProduct(
+            ShopProductDefinitionSO product,
+            out string applyMessage,
+            out bool playerDevicesChanged)
+        {
+            applyMessage = string.Empty;
+            playerDevicesChanged = false;
+
+            if (!runSession.TryEquipDeviceToFirstEmptySlot(product.DeviceDefinition, out int equippedSlotIndex))
             {
-                Debug.Log(
-                    $"[Tessera][ShopProductPurchase] Dice product purchased as prototype placeholder. " +
-                    $"Type={product.ProductType}, Product={product.DisplayName}. Effect application pending.");
-
-                applyMessage = "Effect application pending. Card removed for prototype verification.";
-                return true;
+                applyMessage = "Device slots are full. Sell an equipped Device before buying a new one.";
+                return false;
             }
 
-            applyMessage = $"Product type {product.ProductType} purchase effect is not implemented.";
-            return false;
+            playerDevicesChanged = true;
+            applyMessage = $"Equipped to DeviceSlot {equippedSlotIndex + 1}.";
+            return true;
+        }
+
+        /// <summary>구매한 DiceSet 상품을 5개 플레이어 주사위 전체에 적용한다.</summary>
+        private bool TryApplyPurchasedDiceSetProduct(
+            ShopProductDefinitionSO product,
+            out string applyMessage,
+            out bool playerDiceTypesChanged)
+        {
+            applyMessage = string.Empty;
+            playerDiceTypesChanged = false;
+
+            DiceTypeDefinitionSO diceType = product.DiceTypeDefinition;
+
+            if (diceType == null)
+            {
+                applyMessage = "DiceType definition is missing.";
+                return false;
+            }
+
+            if (!runSession.SetDiceSetType(diceType))
+            {
+                applyMessage = "Failed to apply DiceSet.";
+                return false;
+            }
+
+            playerDiceTypesChanged = true;
+            applyMessage = $"All player dice changed to {diceType.DisplayName}.";
+            return true;
         }
 
         /// <summary>상품 타입이 Dice 관련 상품인지 확인한다.</summary>
@@ -813,6 +876,13 @@ namespace Tessera.Runtime
                     || productType == ShopProductType.SingleDice
                     || productType == ShopProductType.DiceTypeUpgrade
                     || productType == ShopProductType.DiceFaceUpgrade;
+        }
+
+        /// <summary>구매 시 대상 DiceIndex 선택이 필요한 DiceType 상품인지 확인한다.</summary>
+        private static bool RequiresDiceTypeSlotSelection(ShopProductType productType)
+        {
+            return productType == ShopProductType.SingleDice
+                    || productType == ShopProductType.DiceTypeUpgrade;
         }
 
         /// <summary>구매 완료 메시지를 생성한다.</summary>

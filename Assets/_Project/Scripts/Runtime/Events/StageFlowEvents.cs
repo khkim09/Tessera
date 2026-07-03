@@ -297,6 +297,19 @@ namespace Tessera.Runtime
         }
     }
 
+    /// <summary>Shop에서 Player DiceType 장착 상태가 변경되었음을 알리는 이벤트다.</summary>
+    public readonly struct StageShopPlayerDiceTypesChangedEvent
+    {
+        public TesseraRunSession RunSession { get; }
+        public string Reason { get; }
+
+        public StageShopPlayerDiceTypesChangedEvent(TesseraRunSession runSession, string reason)
+        {
+            RunSession = runSession;
+            Reason = reason ?? string.Empty;
+        }
+    }
+
     /// <summary>Gameplay Presenter가 Round 승리를 Runtime으로 전달하는 이벤트다.</summary>
     public readonly struct GameplayRoundWonEvent
     {

@@ -16,6 +16,14 @@ namespace Tessera.Runtime
         private readonly DiceTypeDefinitionSO[] equippedDiceTypes = new DiceTypeDefinitionSO[PlayerDiceCount];
         private readonly DiceFaceUpgradeDefinitionSO[,] equippedDiceFaceUpgrades = new DiceFaceUpgradeDefinitionSO[PlayerDiceCount, DiceFaceCount];
 
+        /// <summary>개별 DiceType 변경 기능이 해금되었는지 나타낸다.</summary>
+        private bool individualDiceTypeUpgradeUnlocked;
+
+        /// <summary>마지막으로 전체 적용된 DiceSet 타입이다.</summary>
+        private DiceTypeDefinitionSO currentDiceSetType;
+
+        #region Public Getter
+
         /// <summary>현재 Stage 인덱스.</summary>
         public int CurrentStageIndex { get; private set; }
 
@@ -54,6 +62,14 @@ namespace Tessera.Runtime
 
         /// <summary>현재 장착된 DiceType 배열.</summary>
         public IReadOnlyDiceTypeListWrapper EquippedDiceTypes => new IReadOnlyDiceTypeListWrapper(equippedDiceTypes);
+
+        /// <summary>개별 DiceType 변경 기능이 해금되었는지 반환한다.</summary>
+        public bool IsIndividualDiceTypeUpgradeUnlocked => individualDiceTypeUpgradeUnlocked;
+
+        /// <summary>마지막으로 전체 적용된 DiceSet 타입을 반환한다.</summary>
+        public DiceTypeDefinitionSO CurrentDiceSetType => currentDiceSetType;
+
+        #endregion
 
         /// <summary>RunSession을 생성한다.</summary>
         public TesseraRunSession(int startMoney = 0, int playerMaxHP = 100)
@@ -361,7 +377,19 @@ namespace Tessera.Runtime
             CurrentWorkshopTier = Mathf.Max(1, tier);
         }
 
-        /// <summary>지정 DiceIndex의 DiceType을 설정한다.</summary>
+        /// <summary>개별 DiceType 변경 기능을 해금한다.</summary>
+        public void UnlockIndividualDiceTypeUpgrade()
+        {
+            individualDiceTypeUpgradeUnlocked = true;
+        }
+
+        /// <summary>개별 DiceType 변경 기능을 잠근다.</summary>
+        public void LockIndividualDiceTypeUpgrade()
+        {
+            individualDiceTypeUpgradeUnlocked = false;
+        }
+
+        /// <summary>지정 DiceIndex의 DiceType을 강제로 설정한다.</summary>
         public bool SetEquippedDiceType(int diceIndex, DiceTypeDefinitionSO diceType)
         {
             if (!IsValidDiceIndex(diceIndex))
@@ -377,9 +405,33 @@ namespace Tessera.Runtime
             if (diceType == null)
                 return false;
 
+            currentDiceSetType = diceType;
+
             for (int i = 0; i < equippedDiceTypes.Length; i++)
                 equippedDiceTypes[i] = diceType;
 
+            return true;
+        }
+
+        /// <summary>DiceSet 상품 구매용으로 전체 DiceType을 교체한다.</summary>
+        public bool SetDiceSetType(DiceTypeDefinitionSO diceType)
+        {
+            return SetAllEquippedDiceTypes(diceType);
+        }
+
+        /// <summary>개별 DiceType 변경 해금 상태에서 특정 DiceIndex의 DiceType 변경을 시도한다.</summary>
+        public bool TrySetDiceTypeForSlot(int diceIndex, DiceTypeDefinitionSO diceType)
+        {
+            if (!individualDiceTypeUpgradeUnlocked)
+                return false;
+
+            if (!IsValidDiceIndex(diceIndex))
+                return false;
+
+            if (diceType == null)
+                return false;
+
+            equippedDiceTypes[diceIndex] = diceType;
             return true;
         }
 
@@ -390,6 +442,12 @@ namespace Tessera.Runtime
                 return null;
 
             return equippedDiceTypes[diceIndex];
+        }
+
+        /// <summary>지정 DiceIndex의 현재 DiceType을 반환한다.</summary>
+        public DiceTypeDefinitionSO GetDiceTypeForSlot(int diceIndex)
+        {
+            return GetEquippedDiceType(diceIndex);
         }
 
         /// <summary>특정 Dice의 특정 FaceIndex에 FaceUpgrade를 장착한다.</summary>
