@@ -31,6 +31,12 @@ namespace Tessera.Runtime
         [Header("Fallback Workshop Rules")]
         [SerializeField] private StageWorkshopRulesSO fallbackWorkshopRules;
 
+        [Header("Debug Cheat")]
+        [SerializeField] private bool enableDebugShopCheat = true;
+        [SerializeField] private KeyCode debugShopCheatKey = KeyCode.Alpha1;
+        [SerializeField] private int debugShopCheatMoney = 99;
+        [SerializeField] private int debugShopCheatOvercharge = 9;
+
         private TesseraRunSession runSession;
         private StageBountyBoardState currentStageState;
         private StageShopReasonType currentShopReasonType;
@@ -99,6 +105,12 @@ namespace Tessera.Runtime
         private void OnDestroy()
         {
             DisposeSubscriptions();
+        }
+
+        /// <summary>디버그용 Workshop 즉시 진입 치트키를 처리한다.</summary>
+        private void Update()
+        {
+            HandleDebugShopCheatInput();
         }
 
         /// <summary>Runtime 이벤트 구독을 해제한다.</summary>
@@ -236,6 +248,72 @@ namespace Tessera.Runtime
                     "Shop view refreshed."));
 
             PublishStageEconomyChanged(message);
+        }
+
+        /// <summary>디버그 치트키 입력 시 Money/Overcharge를 충분히 지급하고 즉시 Workshop으로 진입한다.</summary>
+        private void HandleDebugShopCheatInput()
+        {
+            if (!enableDebugShopCheat)
+                return;
+
+            if (!Application.isEditor && !Debug.isDebugBuild)
+                return;
+
+            if (!Input.GetKeyDown(debugShopCheatKey))
+                return;
+
+            if (runSession == null)
+            {
+                Debug.LogWarning("[Tessera][DebugShopCheat] RunSession is null.");
+                return;
+            }
+
+            if (!EnsureStageStateForDebugShop())
+                return;
+
+            int money = Mathf.Max(0, debugShopCheatMoney);
+            int overcharge = Mathf.Max(0, debugShopCheatOvercharge);
+
+            if (money > 0)
+                runSession.AddMoney(money);
+
+            if (overcharge > 0)
+                runSession.AddOvercharge(overcharge);
+
+            runSession.UnlockIndividualDiceTypeUpgrade();
+
+            string message = $"Debug Shop Cheat: Money +{money}, Overcharge +{overcharge}, Individual DiceType unlocked. Workshop opened.";
+            Debug.Log($"[Tessera][DebugShopCheat] {message}");
+            ShowShop(StageShopReasonType.Tutorial, message, true);
+        }
+
+        /// <summary>디버그 Shop 진입에 필요한 Stage 상태를 보장한다.</summary>
+        private bool EnsureStageStateForDebugShop()
+        {
+            if (currentStageState != null)
+                return true;
+
+            if (stageDefinitions == null || stageDefinitions.Length == 0)
+            {
+                Debug.LogWarning("[Tessera][DebugShopCheat] Stage definitions are empty.");
+                return false;
+            }
+
+            int stageIndex = runSession != null
+                ? Mathf.Clamp(runSession.CurrentStageIndex, 0, stageDefinitions.Length - 1)
+                : 0;
+            StageDefinitionSO stageDefinition = stageDefinitions[stageIndex];
+
+            if (stageDefinition == null || !stageDefinition.IsValidDefinition())
+            {
+                Debug.LogWarning("[Tessera][DebugShopCheat] Invalid stage definition.");
+                return false;
+            }
+
+            currentStageIndex = stageIndex;
+            currentStageState = new StageBountyBoardState(stageDefinition);
+            currentShopInventorySlots.Clear();
+            return true;
         }
 
         /// <summary>Workshop 진입 시 1회성 제한값을 초기화한다.</summary>
@@ -715,12 +793,6 @@ namespace Tessera.Runtime
                 return false;
             }
 
-            if (RequiresDiceTypeSlotSelection(product.ProductType))
-            {
-                failureMessage = "Individual DiceType assignment UI is not implemented yet.";
-                return false;
-            }
-
             if (runSession.Money < slot.MoneyPrice)
             {
                 failureMessage = "Not enough Money.";
@@ -805,16 +877,10 @@ namespace Tessera.Runtime
 
                 case ShopProductType.SingleDice:
                 case ShopProductType.DiceTypeUpgrade:
-                    applyMessage = "Individual DiceType assignment UI is not implemented yet.";
-                    return false;
+                    return TryApplyPurchasedIndividualDiceTypeProduct(product, out applyMessage, out playerDiceTypesChanged);
 
                 case ShopProductType.DiceFaceUpgrade:
-                    Debug.Log(
-                        $"[Tessera][ShopProductPurchase] DiceFaceUpgrade product purchased as prototype placeholder. " +
-                        $"Type={product.ProductType}, Product={product.DisplayName}. Effect application pending.");
-
-                    applyMessage = "FaceUpgrade application pending. Card removed for prototype verification.";
-                    return true;
+                    return TryApplyPurchasedDiceFaceUpgradeProduct(product, out applyMessage);
 
                 default:
                     applyMessage = $"Product type {product.ProductType} purchase effect is not implemented.";
@@ -870,6 +936,65 @@ namespace Tessera.Runtime
             return true;
         }
 
+        /// <summary>구매한 개별 DiceType 상품을 자동 선택된 첫 번째 대상 Dice 슬롯에 적용한다.</summary>
+        private bool TryApplyPurchasedIndividualDiceTypeProduct(
+            ShopProductDefinitionSO product,
+            out string applyMessage,
+            out bool playerDiceTypesChanged)
+        {
+            applyMessage = string.Empty;
+            playerDiceTypesChanged = false;
+
+            DiceTypeDefinitionSO diceType = product.DiceTypeDefinition;
+
+            if (diceType == null)
+            {
+                applyMessage = "DiceType definition is missing.";
+                return false;
+            }
+
+            if (!runSession.TryApplyPurchasedIndividualDiceType(diceType, out int appliedDiceIndex, out DiceTypeDefinitionSO previousDiceType))
+            {
+                applyMessage = "Failed to apply individual DiceType.";
+                return false;
+            }
+
+            playerDiceTypesChanged = true;
+            string previousName = previousDiceType != null ? previousDiceType.DisplayName : "None";
+            applyMessage = $"Dice {appliedDiceIndex + 1} changed from {previousName} to {diceType.DisplayName}.";
+            return true;
+        }
+
+        /// <summary>구매한 DiceFaceUpgrade 상품을 자동 선택된 첫 번째 대상 Dice/Face 슬롯에 장착한다.</summary>
+        private bool TryApplyPurchasedDiceFaceUpgradeProduct(
+            ShopProductDefinitionSO product,
+            out string applyMessage)
+        {
+            applyMessage = string.Empty;
+
+            DiceFaceUpgradeDefinitionSO upgradeDefinition = product.DiceFaceUpgradeDefinition;
+
+            if (upgradeDefinition == null)
+            {
+                applyMessage = "DiceFaceUpgrade definition is missing.";
+                return false;
+            }
+
+            if (!runSession.TryApplyPurchasedDiceFaceUpgrade(
+                    upgradeDefinition,
+                    out int appliedDiceIndex,
+                    out int appliedFaceIndex,
+                    out DiceFaceUpgradeDefinitionSO previousUpgrade))
+            {
+                applyMessage = "Failed to apply DiceFaceUpgrade.";
+                return false;
+            }
+
+            string previousName = previousUpgrade != null ? previousUpgrade.DisplayName : "None";
+            applyMessage = $"Dice {appliedDiceIndex + 1} Face {appliedFaceIndex + 1} changed from {previousName} to {upgradeDefinition.DisplayName}.";
+            return true;
+        }
+
         /// <summary>상품 타입이 Dice 관련 상품인지 확인한다.</summary>
         private static bool IsDiceProductType(ShopProductType productType)
         {
@@ -877,13 +1002,6 @@ namespace Tessera.Runtime
                     || productType == ShopProductType.SingleDice
                     || productType == ShopProductType.DiceTypeUpgrade
                     || productType == ShopProductType.DiceFaceUpgrade;
-        }
-
-        /// <summary>구매 시 대상 DiceIndex 선택이 필요한 DiceType 상품인지 확인한다.</summary>
-        private static bool RequiresDiceTypeSlotSelection(ShopProductType productType)
-        {
-            return productType == ShopProductType.SingleDice
-                    || productType == ShopProductType.DiceTypeUpgrade;
         }
 
         /// <summary>구매 완료 메시지를 생성한다.</summary>
