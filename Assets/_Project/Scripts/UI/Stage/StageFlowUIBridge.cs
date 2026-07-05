@@ -205,7 +205,8 @@ namespace Tessera.UI
                 gameEvent.RoundDisplayName,
                 gameEvent.OpponentSlotPairDevices,
                 gameEvent.RoundDefinition,
-                gameEvent.OpeningIntent);
+                gameEvent.OpeningIntent,
+                gameEvent.EquippedDiceTypes);
         }
 
         /// <summary>Bounty Board 표시 요청을 View에 전달한다.</summary>

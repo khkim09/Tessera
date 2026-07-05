@@ -69,6 +69,9 @@ namespace Tessera.Runtime
         /// <summary>마지막 클리어 수배지의 남은 Attempt 보너스.</summary>
         public int LastRemainingAttemptBonusMoney { get; private set; }
 
+        /// <summary>마지막 완료 수배지에 적용된 DiceType Money 보너스다.</summary>
+        public int LastDiceTypeBonusMoney { get; private set; }
+
         /// <summary>Stage 진행 상태를 생성한다.</summary>
         public StageBountyBoardState(StageDefinitionSO stageDefinition)
         {
@@ -125,6 +128,12 @@ namespace Tessera.Runtime
         /// <summary>현재 수배지를 승리 처리하고 PendingMoneyReward에 누적한다.</summary>
         public void CompleteCurrentNode(int remainingAttempts)
         {
+            CompleteCurrentNode(remainingAttempts, 0);
+        }
+
+        /// <summary>현재 수배지를 승리 처리하고 DiceType Money 보너스까지 PendingMoneyReward에 누적한다.</summary>
+        public void CompleteCurrentNode(int remainingAttempts, int diceTypeBonusMoney)
+        {
             if (CurrentNode == null)
                 throw new InvalidOperationException("완료할 현재 수배지가 없습니다.");
 
@@ -133,12 +142,14 @@ namespace Tessera.Runtime
             LastBountyRankBonusMoney = CurrentNode.Definition.BountyRank * 2;
             LastStageThreatBonusMoney = StageThreatLevel * 2;
             LastRemainingAttemptBonusMoney = Mathf.Max(0, remainingAttempts) * 2;
+            LastDiceTypeBonusMoney = Mathf.Max(0, diceTypeBonusMoney);
             LastCompletedRewardMoney =
                 LastBaseRewardMoney +
                 LastChainBonusMoney +
                 LastBountyRankBonusMoney +
                 LastStageThreatBonusMoney +
-                LastRemainingAttemptBonusMoney;
+                LastRemainingAttemptBonusMoney +
+                LastDiceTypeBonusMoney;
 
             CurrentNode.MarkCleared();
             PendingMoneyReward += Mathf.Max(0, LastCompletedRewardMoney);

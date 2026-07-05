@@ -51,6 +51,7 @@ namespace Tessera.Runtime
         public SlotPairDeviceDefinitionSO[] OpponentSlotPairDevices { get; }
         public StageRoundDefinitionSO RoundDefinition { get; }
         public EnemyIntent OpeningIntent { get; }
+        public IReadOnlyList<DiceTypeDefinitionSO> EquippedDiceTypes { get; }
 
         /// <summary>Gameplay Round 시작 요청 이벤트를 생성한다.</summary>
         public StageRoundStartRequestedEvent(
@@ -60,7 +61,8 @@ namespace Tessera.Runtime
             string roundDisplayName,
             SlotPairDeviceDefinitionSO[] opponentSlotPairDevices,
             StageRoundDefinitionSO roundDefinition,
-            EnemyIntent openingIntent)
+            EnemyIntent openingIntent,
+            IReadOnlyList<DiceTypeDefinitionSO> equippedDiceTypes = null)
         {
             RuleContext = ruleContext;
             PlayerHPAtStart = playerHPAtStart;
@@ -69,6 +71,7 @@ namespace Tessera.Runtime
             OpponentSlotPairDevices = opponentSlotPairDevices;
             RoundDefinition = roundDefinition;
             OpeningIntent = openingIntent ?? EnemyIntent.None();
+            EquippedDiceTypes = equippedDiceTypes;
         }
     }
 

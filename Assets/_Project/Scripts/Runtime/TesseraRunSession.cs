@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using Tessera.Core;
 using Tessera.Data;
 using UnityEngine;
@@ -550,17 +551,20 @@ namespace Tessera.Runtime
         }
 
         /// <summary>DiceType 배열 노출을 최소화하기 위한 읽기 전용 래퍼다.</summary>
-        public readonly struct IReadOnlyDiceTypeListWrapper
+        public readonly struct IReadOnlyDiceTypeListWrapper : IReadOnlyList<DiceTypeDefinitionSO>
         {
             private readonly DiceTypeDefinitionSO[] source;
 
+            /// <summary>DiceType 읽기 전용 래퍼를 생성한다.</summary>
             public IReadOnlyDiceTypeListWrapper(DiceTypeDefinitionSO[] source)
             {
                 this.source = source;
             }
 
+            /// <summary>DiceType 요소 개수를 반환한다.</summary>
             public int Count => source != null ? source.Length : 0;
 
+            /// <summary>지정 인덱스의 DiceType을 반환한다.</summary>
             public DiceTypeDefinitionSO this[int index]
             {
                 get
@@ -573,6 +577,18 @@ namespace Tessera.Runtime
 
                     return source[index];
                 }
+            }
+            /// <summary>DiceType 목록 순회를 위한 제네릭 열거자를 반환한다.</summary>
+            public IEnumerator<DiceTypeDefinitionSO> GetEnumerator()
+            {
+                for (int i = 0; i < Count; i++)
+                    yield return this[i];
+            }
+
+            /// <summary>DiceType 목록 순회를 위한 비제네릭 열거자를 반환한다.</summary>
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return GetEnumerator();
             }
         }
     }
