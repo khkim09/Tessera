@@ -3,7 +3,7 @@
   <Project Path="Tessera.UI.csproj" />
   <Project Path="Tessera.Core.csproj" />
   <Project Path="Tessera.Data.csproj" />
-  <Project Path="Tessera.Runtime.csproj" />
   <Project Path="Tessera.Editor.csproj" />
+  <Project Path="Tessera.Runtime.csproj" />
   <Project Path="Tessera.Infrastructure.csproj" />
 </Solution>
