@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using Tessera.Data;
 
 namespace Tessera.Core
 {
@@ -48,7 +47,7 @@ namespace Tessera.Core
             RoundRuleContext ruleContext,
             int playerCurrentHP,
             OverchargeState stageOverchargeState,
-            IReadOnlyList<DiceTypeDefinitionSO> equippedDiceTypes)
+            IReadOnlyList<IDiceTypeIntrinsicDefinition> equippedDiceTypes)
         {
             if (ruleContext == null)
                 throw new ArgumentNullException(nameof(ruleContext));
@@ -797,11 +796,10 @@ namespace Tessera.Core
             return diceIndexes;
         }
 
-        /// <summary>Clash 이후 승리/패배/진행 상태를 판정한다.</summary>
         /// <summary>제출 Cast에 포함된 DiceIndex를 DiceType 목록으로 변환한다.</summary>
-        private static List<DiceTypeDefinitionSO> CollectUsedDiceTypes(RoundState roundState, ClashCastResult playerResult)
+        private static List<IDiceTypeIntrinsicDefinition> CollectUsedDiceTypes(RoundState roundState, ClashCastResult playerResult)
         {
-            List<DiceTypeDefinitionSO> usedDiceTypes = new List<DiceTypeDefinitionSO>();
+            List<IDiceTypeIntrinsicDefinition> usedDiceTypes = new List<IDiceTypeIntrinsicDefinition>();
 
             if (roundState == null || playerResult == null || playerResult.LockSlotDiceIndexes == null)
                 return usedDiceTypes;
@@ -809,7 +807,7 @@ namespace Tessera.Core
             for (int i = 0; i < playerResult.LockSlotDiceIndexes.Count; i++)
             {
                 int diceIndex = playerResult.LockSlotDiceIndexes[i];
-                DiceTypeDefinitionSO diceType = roundState.GetDiceType(diceIndex);
+                IDiceTypeIntrinsicDefinition diceType = roundState.GetDiceType(diceIndex);
                 if (diceType != null)
                     usedDiceTypes.Add(diceType);
             }
@@ -817,6 +815,7 @@ namespace Tessera.Core
             return usedDiceTypes;
         }
 
+        /// <summary>Clash 이후 승리/패배/진행 상태를 판정한다.</summary>
         private static RoundOutcomeType ResolveRoundOutcomeAfterClash(RoundState roundState)
         {
             if (roundState == null)

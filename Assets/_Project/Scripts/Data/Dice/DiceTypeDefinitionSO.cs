@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using Tessera.Core;
+using UnityEngine;
 
 namespace Tessera.Data
 {
@@ -6,7 +7,7 @@ namespace Tessera.Data
     [CreateAssetMenu(
         fileName = "DiceType_",
         menuName = "Tessera/Dice/Dice Type Definition")]
-    public class DiceTypeDefinitionSO : ScriptableObject, IShopItemDefinition
+    public class DiceTypeDefinitionSO : ScriptableObject, IShopItemDefinition, IDiceTypeIntrinsicDefinition
     {
         [Header("Identity")]
         [SerializeField] private string diceTypeId = "dice.standard";

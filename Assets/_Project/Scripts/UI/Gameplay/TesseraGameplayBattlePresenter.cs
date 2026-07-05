@@ -223,6 +223,9 @@ namespace Tessera.UI
         /// <summary>Core 시뮬레이터와 ViewModel 빌더를 준비한다.</summary>
         private void Awake()
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            SlotPairDamageCalculator.DiceTypeIntrinsicLogSink = Debug.Log;
+#endif
             activeCombatSeed = ResolveCombatSeed();
             simulator = new CoreRoundSimulator(activeCombatSeed);
             castBoardModelBuilder = CastBoardModelBuilder.CreateDefault();
@@ -308,6 +311,9 @@ namespace Tessera.UI
                 return;
             }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            SlotPairDamageCalculator.DiceTypeIntrinsicLogSink = Debug.Log;
+#endif
             activeCombatSeed = ResolveCombatSeed();
             simulator = new CoreRoundSimulator(activeCombatSeed);
             roundState = simulator.StartRound(ruleContext, carriedPlayerHP, stageOverchargeState, equippedDiceTypes);

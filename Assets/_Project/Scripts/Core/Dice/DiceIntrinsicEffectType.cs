@@ -1,4 +1,4 @@
-﻿namespace Tessera.Data
+﻿namespace Tessera.Core
 {
     /// <summary>DiceType 자체가 가지는 고유 효과 타입이다.</summary>
     public enum DiceIntrinsicEffectType
