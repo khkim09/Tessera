@@ -30,7 +30,6 @@ namespace Tessera.UI
 
         [Header("Colors")]
         [SerializeField] private Color normalColor = new Color(0.85f, 0.85f, 0.82f, 1f);
-        [SerializeField] private Color lockedColor = new Color(0.30f, 0.48f, 0.88f, 1f);
         [SerializeField] private Color hoverColor = new Color(0.95f, 0.92f, 0.70f, 1f);
 
         private Material runtimeMaterial;
@@ -374,9 +373,6 @@ namespace Tessera.UI
         /// <summary>현재 상태 기준 기본 색상을 반환한다.</summary>
         private Color GetBaseColor()
         {
-            if (isLocked)
-                return lockedColor;
-
             return hasDiceTypeBaseColor ? diceTypeBaseColor : normalColor;
         }
 
