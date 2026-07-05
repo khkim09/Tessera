@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Tessera.Core
@@ -238,6 +238,7 @@ namespace Tessera.Core
                 tableRuleResult,
                 diceValues,
                 lockSlotDiceIndexes,
+                deviceDefinitions,
                 roundState.RuleContext,
                 impactDamageCalculator);
 
@@ -452,6 +453,7 @@ namespace Tessera.Core
 
             int appliedImpactDamageToPlayer = 0;
             int appliedImpactDamageToOpponent = 0;
+            int incomingDamageReductionFromDevice = 0;
             bool playerUsedBrokenCastDefense = false;
 
             if (playerCastPower > opponentCastPower)
@@ -490,6 +492,13 @@ namespace Tessera.Core
                     CollectUsedDiceTypes(roundState, playerResult));
                 if (incomingDamageReduction > 0)
                     appliedImpactDamageToPlayer = Math.Max(0, appliedImpactDamageToPlayer - incomingDamageReduction);
+
+                if (playerResult.IsBrokenCast)
+                {
+                    incomingDamageReductionFromDevice = CalculateBrokenCastIncomingDamageReduction(playerResult);
+                    if (incomingDamageReductionFromDevice > 0)
+                        appliedImpactDamageToPlayer = Math.Max(0, appliedImpactDamageToPlayer - incomingDamageReductionFromDevice);
+                }
             }
 
             if (appliedImpactDamageToOpponent > 0)
@@ -515,6 +524,14 @@ namespace Tessera.Core
                     out didGrantOvercharge,
                     out grantedOvercharge,
                     out grantedFreeRerollTokens);
+
+                int deviceOverchargeBonus = CalculateBrokenCastOverchargeBonus(playerResult);
+                if (deviceOverchargeBonus > 0)
+                {
+                    roundState.Overcharge.AddOvercharge(deviceOverchargeBonus);
+                    didGrantOvercharge = true;
+                    grantedOvercharge += deviceOverchargeBonus;
+                }
             }
 
             roundState.AddClashPatternUse(playerResult.PatternType);
@@ -550,7 +567,8 @@ namespace Tessera.Core
                 canStartNextAttempt,
                 message,
                 opponentCastPower > playerCastPower ? diceTypeIntrinsicEvaluator.CalculateIncomingDamageReduction(CollectUsedDiceTypes(roundState, playerResult)) : 0,
-                moneyOnRoundWinBonus);
+                moneyOnRoundWinBonus,
+                incomingDamageReductionFromDevice);
 
             roundState.CurrentAttempt.MarkClashResolved(result);
 
@@ -735,10 +753,50 @@ namespace Tessera.Core
                 tableRuleResult,
                 diceValues,
                 lockSlotDiceIndexes,
+                deviceDefinitions,
                 roundState.RuleContext,
                 impactDamageCalculator);
 
             return true;
+        }
+
+        /// <summary>Broken Cast 후처리 Device가 지급하는 추가 Overcharge를 계산한다.</summary>
+        private static int CalculateBrokenCastOverchargeBonus(ClashCastResult playerResult)
+        {
+            return SumPlayerPostProcessDeviceIntValue(playerResult, SlotPairDeviceType.AddOverchargeOnBrokenCast);
+        }
+
+        /// <summary>Broken Cast 후처리 Device가 감소시키는 IncomingDamage를 계산한다.</summary>
+        private static int CalculateBrokenCastIncomingDamageReduction(ClashCastResult playerResult)
+        {
+            return SumPlayerPostProcessDeviceIntValue(playerResult, SlotPairDeviceType.ReduceIncomingDamageOnBrokenCast);
+        }
+
+        /// <summary>Player가 사용한 SlotPair Device 중 지정 후처리 타입의 IntValue 합계를 계산한다.</summary>
+        private static int SumPlayerPostProcessDeviceIntValue(ClashCastResult playerResult, SlotPairDeviceType deviceType)
+        {
+            if (playerResult == null || playerResult.DeviceDefinitions == null)
+                return 0;
+
+            int total = 0;
+            IReadOnlyList<int> lockSlotDiceIndexes = playerResult.LockSlotDiceIndexes;
+            IReadOnlyList<int> diceValues = playerResult.DiceValues;
+
+            for (int slotIndex = 0; slotIndex < playerResult.DeviceDefinitions.Count; slotIndex++)
+            {
+                SlotPairDeviceDefinition device = playerResult.DeviceDefinitions[slotIndex];
+                if (device == null || device.DeviceType != deviceType)
+                    continue;
+
+                int diceIndex = GetDiceIndexOrEmpty(lockSlotDiceIndexes, slotIndex);
+                int diceValue = GetDiceValueOrZero(diceValues, diceIndex);
+                if (diceIndex < 0 || diceValue <= 0)
+                    continue;
+
+                total += Math.Max(0, device.IntValue);
+            }
+
+            return total;
         }
 
         private static AttemptState CreateAttempt(OverchargeState overcharge, int attemptNumber)
@@ -778,6 +836,22 @@ namespace Tessera.Core
                 roundState.Overcharge.AddNextAttemptFreeRerollTokens(rule.BrokenCastFreeRerollTokenAmount);
                 grantedFreeRerollTokens = rule.BrokenCastFreeRerollTokenAmount;
             }
+        }
+
+        private static int GetDiceIndexOrEmpty(IReadOnlyList<int> lockSlotDiceIndexes, int slotIndex)
+        {
+            if (lockSlotDiceIndexes == null || slotIndex < 0 || slotIndex >= lockSlotDiceIndexes.Count)
+                return -1;
+
+            return lockSlotDiceIndexes[slotIndex];
+        }
+
+        private static int GetDiceValueOrZero(IReadOnlyList<int> diceValues, int diceIndex)
+        {
+            if (diceValues == null || diceIndex < 0 || diceIndex >= diceValues.Count)
+                return 0;
+
+            return diceValues[diceIndex];
         }
 
         /// <summary>SlotPair 0~4에 DiceIndex 0~4를 순서대로 대응시킨다.</summary>

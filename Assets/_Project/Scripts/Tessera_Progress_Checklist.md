@@ -50,12 +50,14 @@
 - [x] `AddTrueImpactDamageIfCastPowerAtLeast` 활성화.
 - [x] Preview/Submit parity 검증 추가.
 - [ ] Unity Editor에서 Floating Text/전투 로그 표시 확인.
+  - 보류: CastPower 후처리 Device SO를 실제 Shop/전투에 노출한 뒤 시각 표시를 확인한다. 현재는 자동 검증 PASS까지만 확인.
 
 ## 5. BrokenCast / Clash 후처리 Device 효과 구현
 
-- [ ] BrokenCast 판정 후 Overcharge 가산 Hook 구현.
-- [ ] Clash 패배/피해 적용 직전 IncomingDamage 감소 Hook 구현.
-- [ ] 중복 적용/다중 장착 정책 검증.
+- [x] BrokenCast 판정 후 Overcharge 가산 Hook 구현.
+- [x] Clash 패배/피해 적용 직전 IncomingDamage 감소 Hook 구현.
+- [x] 중복 적용/다중 장착 정책 검증.
+  - 정책: BrokenCast 후처리 Device는 해당 Device 슬롯에 Dice가 배치된 경우 `IntValue`를 슬롯별 합산한다.
 - [ ] Unity Editor에서 BrokenCast/Clash 후처리 피드백 확인.
 
 ## 6. DiceSynergy 효과 enum 및 런타임 계산 연결
