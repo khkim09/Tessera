@@ -436,6 +436,31 @@ namespace Tessera.Runtime
             return true;
         }
 
+        /// <summary>
+        /// Shop의 SingleDice/DiceTypeUpgrade 상품 구매용으로 대상 선택 UI 없이 적용할 Dice 슬롯을 자동 선택한다.
+        /// 구매한 DiceType과 다른 첫 번째 슬롯을 우선 사용하고, 모두 동일하면 첫 번째 슬롯에 재적용한다.
+        /// </summary>
+        public bool TryApplyPurchasedIndividualDiceType(
+            DiceTypeDefinitionSO diceType,
+            out int appliedDiceIndex,
+            out DiceTypeDefinitionSO previousDiceType)
+        {
+            appliedDiceIndex = -1;
+            previousDiceType = null;
+
+            if (diceType == null)
+                return false;
+
+            int targetIndex = FindFirstDiceTypeMismatchIndex(diceType);
+            if (targetIndex < 0)
+                targetIndex = 0;
+
+            previousDiceType = equippedDiceTypes[targetIndex];
+            equippedDiceTypes[targetIndex] = diceType;
+            appliedDiceIndex = targetIndex;
+            return true;
+        }
+
         /// <summary>지정 DiceIndex의 DiceType을 반환한다.</summary>
         public DiceTypeDefinitionSO GetEquippedDiceType(int diceIndex)
         {
@@ -500,6 +525,21 @@ namespace Tessera.Runtime
         private static bool IsValidFaceIndex(int faceIndex)
         {
             return faceIndex >= 0 && faceIndex < DiceFaceCount;
+        }
+
+        /// <summary>지정 DiceType과 다른 첫 번째 Dice 슬롯 인덱스를 찾는다.</summary>
+        private int FindFirstDiceTypeMismatchIndex(DiceTypeDefinitionSO diceType)
+        {
+            if (diceType == null)
+                return -1;
+
+            for (int i = 0; i < equippedDiceTypes.Length; i++)
+            {
+                if (equippedDiceTypes[i] != diceType)
+                    return i;
+            }
+
+            return -1;
         }
 
         /// <summary>첫 번째 빈 Device 슬롯 인덱스를 찾는다.</summary>
