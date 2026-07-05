@@ -26,6 +26,7 @@ namespace Tessera.Editor.Validation
             ValidateSlotPairIntrinsic(diceTypes, ref failures);
             ValidatePreviewSubmitParity(diceTypes, ref failures);
             ValidatePostProcessHooks(diceTypes, ref failures);
+            ValidateVisualColorData(diceTypes, ref failures);
 
             if (failures > 0)
             {
@@ -93,10 +94,24 @@ namespace Tessera.Editor.Validation
         /// <summary>SlotPair 계산에서 주요 DiceType Score/Force 보정이 반영되는지 검증한다.</summary>
         private static void ValidateSlotPairIntrinsic(Dictionary<string, DiceTypeDefinitionSO> diceTypes, ref int failures)
         {
-            ValidateScoreBonus(diceTypes["Red"], 1, RollPatternType.Chance, ref failures, "Red Odd Score");
-            ValidateForceBonus(diceTypes["Blue"], 2, RollPatternType.Chance, ref failures, "Blue Even Force");
-            ValidateScoreBonus(diceTypes["Green"], 1, RollPatternType.Chance, ref failures, "Green AtMost Score");
-            ValidateScoreBonus(diceTypes["Iron"], 5, RollPatternType.Chance, ref failures, "Iron AtLeast Score");
+            ValidateScoreBonus(diceTypes["Red"], 1, RollPatternType.Chance, ref failures, "Red Odd Score 1");
+            ValidateScoreBonus(diceTypes["Red"], 3, RollPatternType.Chance, ref failures, "Red Odd Score 3");
+            ValidateScoreBonus(diceTypes["Red"], 5, RollPatternType.Chance, ref failures, "Red Odd Score 5");
+            ValidateNoScoreBonus(diceTypes["Red"], 2, RollPatternType.Chance, ref failures, "Red Even No Score");
+
+            ValidateForceBonus(diceTypes["Blue"], 2, RollPatternType.Chance, ref failures, "Blue Even Force 2");
+            ValidateForceBonus(diceTypes["Blue"], 4, RollPatternType.Chance, ref failures, "Blue Even Force 4");
+            ValidateForceBonus(diceTypes["Blue"], 6, RollPatternType.Chance, ref failures, "Blue Even Force 6");
+            ValidateNoForceBonus(diceTypes["Blue"], 1, RollPatternType.Chance, ref failures, "Blue Odd No Force");
+
+            ValidateScoreBonus(diceTypes["Green"], 1, RollPatternType.Chance, ref failures, "Green AtMost Score 1");
+            ValidateScoreBonus(diceTypes["Green"], 2, RollPatternType.Chance, ref failures, "Green AtMost Score 2");
+            ValidateScoreBonus(diceTypes["Green"], 3, RollPatternType.Chance, ref failures, "Green AtMost Score 3");
+            ValidateNoScoreBonus(diceTypes["Green"], 4, RollPatternType.Chance, ref failures, "Green Above Threshold No Score");
+
+            ValidateScoreBonus(diceTypes["Iron"], 5, RollPatternType.Chance, ref failures, "Iron AtLeast Score 5");
+            ValidateScoreBonus(diceTypes["Iron"], 6, RollPatternType.Chance, ref failures, "Iron AtLeast Score 6");
+            ValidateNoScoreBonus(diceTypes["Iron"], 4, RollPatternType.Chance, ref failures, "Iron Below Threshold No Score");
         }
 
         /// <summary>Score 보정 DiceType 시나리오의 최소 기대값을 검증한다.</summary>
@@ -117,6 +132,29 @@ namespace Tessera.Editor.Validation
             float expectedMinimum = 1f + (diceType.FloatValue > 0f ? diceType.FloatValue : diceType.IntValue);
             if (preview == null || preview.FinalForce + 0.001f < expectedMinimum)
                 Fail(ref failures, diceType.name, label, expectedMinimum.ToString("0.##"), preview != null ? preview.FinalForce.ToString("0.##") : "null");
+            else
+                Debug.Log($"[DiceTypeScenarioTest] PASS {label}");
+        }
+
+
+        /// <summary>Score 보정이 없어야 하는 DiceType 시나리오를 검증한다.</summary>
+        private static void ValidateNoScoreBonus(DiceTypeDefinitionSO diceType, int value, RollPatternType patternType, ref int failures, string label)
+        {
+            SlotPairDamagePreview preview = BuildPreview(diceType, value, patternType);
+            int expected = value;
+            if (preview == null || preview.FinalScore != expected)
+                Fail(ref failures, diceType.name, label, expected.ToString(), preview != null ? preview.FinalScore.ToString() : "null");
+            else
+                Debug.Log($"[DiceTypeScenarioTest] PASS {label}");
+        }
+
+        /// <summary>Force 보정이 없어야 하는 DiceType 시나리오를 검증한다.</summary>
+        private static void ValidateNoForceBonus(DiceTypeDefinitionSO diceType, int value, RollPatternType patternType, ref int failures, string label)
+        {
+            SlotPairDamagePreview preview = BuildPreview(diceType, value, patternType);
+            float expected = 1f;
+            if (preview == null || Mathf.Abs(preview.FinalForce - expected) > 0.001f)
+                Fail(ref failures, diceType.name, label, expected.ToString("0.##"), preview != null ? preview.FinalForce.ToString("0.##") : "null");
             else
                 Debug.Log($"[DiceTypeScenarioTest] PASS {label}");
         }
@@ -157,6 +195,25 @@ namespace Tessera.Editor.Validation
                 Fail(ref failures, "Void", "DamageReductionHook", diceTypes["Void"].IntValue.ToString(), voidReduction.ToString());
             else
                 Debug.Log("[DiceTypeScenarioTest] PASS Void Damage Hook");
+        }
+
+
+        /// <summary>DiceType별 시각 색상 데이터가 기본 흰색으로 비어 있지 않은지 검증한다.</summary>
+        private static void ValidateVisualColorData(Dictionary<string, DiceTypeDefinitionSO> diceTypes, ref int failures)
+        {
+            string[] names = { "Red", "Blue", "Green", "Iron", "Gold", "Void" };
+
+            for (int i = 0; i < names.Length; i++)
+            {
+                DiceTypeDefinitionSO diceType = diceTypes[names[i]];
+                Color color = diceType.VisualColor;
+                bool hasVisibleColor = color.a > 0.001f && (Mathf.Abs(color.r - 1f) > 0.001f || Mathf.Abs(color.g - 1f) > 0.001f || Mathf.Abs(color.b - 1f) > 0.001f);
+
+                if (!hasVisibleColor)
+                    Fail(ref failures, diceType.name, "VisualColor", "non-white visible color", color.ToString());
+                else
+                    Debug.Log($"[DiceTypeScenarioTest] PASS {names[i]} Visual Color");
+            }
         }
 
         /// <summary>실제 SlotPairDamageCalculator 경로로 단일 시나리오 Preview를 생성한다.</summary>

@@ -72,6 +72,29 @@ namespace Tessera.UI
             return diceView;
         }
 
+
+        /// <summary>지정 소유자의 DiceView에 DiceType 시각 색상을 적용한다.</summary>
+        public void SetDiceTypeVisualColors(DiceOwnerType owner, IReadOnlyList<Color> diceTypeColors)
+        {
+            Dice3DView[] diceViews = ResolveDiceViews(owner);
+
+            if (diceViews == null)
+                return;
+
+            for (int diceIndex = 0; diceIndex < diceViews.Length; diceIndex++)
+            {
+                Dice3DView diceView = diceViews[diceIndex];
+
+                if (diceView == null)
+                    continue;
+
+                if (TryGetDiceTypeColor(diceTypeColors, diceIndex, out Color color))
+                    diceView.SetDiceTypeVisualColor(true, color);
+                else
+                    diceView.SetDiceTypeVisualColor(false, Color.white);
+            }
+        }
+
         /// <summary>Player Core 주사위 값과 Lock 상태를 3D 주사위에 반영한다.</summary>
         public void SetDice(IReadOnlyList<int> diceValues, IReadOnlyList<bool> lockStates)
         {
@@ -651,6 +674,22 @@ namespace Tessera.UI
 
             position = dicePoints[diceIndex].position;
             rotation = dicePoints[diceIndex].rotation;
+            return true;
+        }
+
+
+        /// <summary>지정 DiceIndex에 적용할 DiceType 색상을 가져온다.</summary>
+        private static bool TryGetDiceTypeColor(IReadOnlyList<Color> diceTypeColors, int diceIndex, out Color color)
+        {
+            color = Color.white;
+
+            if (diceTypeColors == null)
+                return false;
+
+            if (diceIndex < 0 || diceIndex >= diceTypeColors.Count)
+                return false;
+
+            color = diceTypeColors[diceIndex];
             return true;
         }
 

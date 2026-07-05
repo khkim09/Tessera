@@ -271,6 +271,24 @@ namespace Tessera.UI
 
 
 
+
+        /// <summary>현재 RunSession의 DiceType 색상을 Player DiceView에 적용한다.</summary>
+        private void ApplyPlayerDiceTypeVisuals()
+        {
+            if (diceTray3DView == null || runSession == null)
+                return;
+
+            List<Color> colors = new List<Color>(TesseraRunSession.PlayerDiceCount);
+
+            for (int diceIndex = 0; diceIndex < TesseraRunSession.PlayerDiceCount; diceIndex++)
+            {
+                DiceTypeDefinitionSO diceType = runSession.GetEquippedDiceType(diceIndex);
+                colors.Add(diceType != null ? diceType.VisualColor : Color.white);
+            }
+
+            diceTray3DView.SetDiceTypeVisualColors(DiceOwnerType.Player, colors);
+        }
+
         /// <summary>Data 계층 DiceType SO 목록을 Core intrinsic 데이터 목록으로 변환한다.</summary>
         private static List<DiceTypeIntrinsicData> BuildDiceTypeIntrinsicData(IReadOnlyList<DiceTypeDefinitionSO> equippedDiceTypes)
         {
@@ -335,6 +353,7 @@ namespace Tessera.UI
                 carriedPlayerHP,
                 stageOverchargeState,
                 BuildDiceTypeIntrinsicData(equippedDiceTypes));
+            ApplyPlayerDiceTypeVisuals();
             currentRoundDefinition = roundDefinition;
             currentEnemyIntentDefinition = currentRoundDefinition != null
                 ? currentRoundDefinition.SelectIntentDefinitionForAttempt(1, activeCombatSeed)
@@ -396,6 +415,7 @@ namespace Tessera.UI
             this.runSession = runSession;
 
             SyncDevicesFromRunSession();
+            ApplyPlayerDiceTypeVisuals();
 
             if (roundState != null)
                 RefreshAll(null);
@@ -407,6 +427,7 @@ namespace Tessera.UI
         public void RefreshEquippedDevicesFromRunSession(string reason)
         {
             SyncDevicesFromRunSession();
+            ApplyPlayerDiceTypeVisuals();
 
             if (roundState != null)
             {
