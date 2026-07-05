@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Tessera.Core;
 using Tessera.Data;
 using UnityEditor;
 using UnityEngine;
@@ -33,8 +34,8 @@ namespace Tessera.Editor
             "FaceUpgrade_WildFace"
         };
 
-        // ── 보류(Pending) FaceUpgrade 이름 목록 ─────────────────────────
-        // effectType == None 이거나 PatternEvaluator 전 단계 개입이 필요한 상품
+        // ── 특수 FaceUpgrade 이름 목록 ─────────────────────────
+        // effectType은 None이지만 replacementFaceType 자체가 PatternEvaluator에서 처리되는 상품
         private static readonly HashSet<string> PendingFaceUpgradeNames = new HashSet<string>
         {
             "FaceUpgrade_MirrorFace",
@@ -204,6 +205,27 @@ namespace Tessera.Editor
             return effectTypeProp.intValue;
         }
 
+        /// <summary>DiceFaceUpgrade SO의 replacementFaceType 필드를 SerializedObject로 읽는다.</summary>
+        private static int ReadReplacementFaceType(DiceFaceUpgradeDefinitionSO upgrade)
+        {
+            SerializedObject so = new SerializedObject(upgrade);
+            SerializedProperty replacementFaceTypeProp = so.FindProperty("replacementFaceType");
+
+            if (replacementFaceTypeProp == null)
+                return (int)DiceFaceType.Number;
+
+            return replacementFaceTypeProp.intValue;
+        }
+
+        /// <summary>현재 런타임에서 구매 적용 가능한 FaceUpgrade인지 확인한다.</summary>
+        private static bool IsImplementedFaceUpgrade(DiceFaceUpgradeDefinitionSO upgrade)
+        {
+            if (upgrade == null)
+                return false;
+
+            return ReadEffectType(upgrade) != 0 || ReadReplacementFaceType(upgrade) != (int)DiceFaceType.Number;
+        }
+
         /// <summary>DiceFaceUpgrade SO의 tier 필드를 SerializedObject로 읽는다.</summary>
         private static int ReadFaceUpgradeTier(DiceFaceUpgradeDefinitionSO upgrade)
         {
@@ -363,11 +385,10 @@ namespace Tessera.Editor
                     continue;
                 }
 
-                // effectType None 상품은 제외
-                int effectType = ReadEffectType(faceUpgrade);
-                if (effectType == 0)
+                // 구현되지 않은 상품은 제외
+                if (!IsImplementedFaceUpgrade(faceUpgrade))
                 {
-                    Debug.Log($"[ShopProductDiceFaceUpgradeSOV44Generator] [PendingFaceUpgrade] {faceUpgrade.name}: effectType=None, PatternEvaluator 전 단계 개입 필요");
+                    Debug.Log($"[ShopProductDiceFaceUpgradeSOV44Generator] [PendingFaceUpgrade] {faceUpgrade.name}: 런타임 적용 경로 없음");
                     continue;
                 }
 
@@ -496,9 +517,8 @@ namespace Tessera.Editor
                     continue;
                 }
 
-                // effectType None인 DiceFaceUpgrade가 Stage01_WorkshopRules productPool에 들어가 있는지 확인
-                int effectType = ReadEffectType(faceUpgradeRef);
-                if (effectType == 0)
+                // 미구현 DiceFaceUpgrade가 Stage01_WorkshopRules productPool에 들어가 있는지 확인
+                if (!IsImplementedFaceUpgrade(faceUpgradeRef))
                 {
                     StageWorkshopRulesSO workshopRules = AssetDatabase.LoadAssetAtPath<StageWorkshopRulesSO>(WorkshopRulesPath);
                     if (workshopRules != null)
@@ -515,7 +535,7 @@ namespace Tessera.Editor
                                     {
                                         if (pool[pIdx] == product)
                                         {
-                                            Debug.Log($"[ShopProductDiceFaceUpgradeSOV44Generator] [LegacyCandidate] effectType None FaceUpgrade '{faceUpgradeName}'가 Stage01_WorkshopRules Slot {slotIdx} productPool에 있습니다: {path}");
+                                            Debug.Log($"[ShopProductDiceFaceUpgradeSOV44Generator] [LegacyCandidate] 미구현 FaceUpgrade '{faceUpgradeName}'가 Stage01_WorkshopRules Slot {slotIdx} productPool에 있습니다: {path}");
                                         }
                                     }
                                 }
@@ -690,7 +710,7 @@ namespace Tessera.Editor
                 }
             }
 
-            // 구현된 DiceFaceUpgrade 목록 수집 (effectType != None)
+            // 구현된 DiceFaceUpgrade 목록 수집 (수치 효과 또는 특수 replacementFaceType)
             List<ShopProductDefinitionSO> implementedTier1Products = new List<ShopProductDefinitionSO>();
             List<ShopProductDefinitionSO> implementedTier2Products = new List<ShopProductDefinitionSO>();
 
@@ -702,8 +722,7 @@ namespace Tessera.Editor
                 if (faceUpgrade == null)
                     continue;
 
-                int effectType = ReadEffectType(faceUpgrade);
-                if (effectType == 0)
+                if (!IsImplementedFaceUpgrade(faceUpgrade))
                     continue;
 
                 string shopProductFileName = "ShopProduct_" + faceUpgradeName + ".asset";
@@ -746,7 +765,7 @@ namespace Tessera.Editor
                     }
                 }
 
-                // effectType None 상품이 Slot 4에 없는지 확인
+                // 미구현 상품이 Slot 4에 없는지 확인
                 for (int i = 0; i < slot4Pool.Length; i++)
                 {
                     if (slot4Pool[i] == null)
@@ -755,10 +774,9 @@ namespace Tessera.Editor
                     DiceFaceUpgradeDefinitionSO linkedUpgrade = GetFaceUpgradeFromShopProduct(slot4Pool[i]);
                     if (linkedUpgrade != null)
                     {
-                        int effectType = ReadEffectType(linkedUpgrade);
-                        if (effectType == 0)
+                        if (!IsImplementedFaceUpgrade(linkedUpgrade))
                         {
-                            Debug.LogError($"[ShopProductDiceFaceUpgradeSOV44Generator] 검증 실패: Slot 4 productPool[{i}]에 effectType None 상품 '{linkedUpgrade.name}'이 있습니다.");
+                            Debug.LogError($"[ShopProductDiceFaceUpgradeSOV44Generator] 검증 실패: Slot 4 productPool[{i}]에 미구현 상품 '{linkedUpgrade.name}'이 있습니다.");
                             allPassed = false;
                         }
                     }
@@ -791,7 +809,7 @@ namespace Tessera.Editor
                     }
                 }
 
-                // effectType None 상품이 Slot 5에 없는지 확인
+                // 미구현 상품이 Slot 5에 없는지 확인
                 for (int i = 0; i < slot5Pool.Length; i++)
                 {
                     if (slot5Pool[i] == null)
@@ -800,10 +818,9 @@ namespace Tessera.Editor
                     DiceFaceUpgradeDefinitionSO linkedUpgrade = GetFaceUpgradeFromShopProduct(slot5Pool[i]);
                     if (linkedUpgrade != null)
                     {
-                        int effectType = ReadEffectType(linkedUpgrade);
-                        if (effectType == 0)
+                        if (!IsImplementedFaceUpgrade(linkedUpgrade))
                         {
-                            Debug.LogError($"[ShopProductDiceFaceUpgradeSOV44Generator] 검증 실패: Slot 5 productPool[{i}]에 effectType None 상품 '{linkedUpgrade.name}'이 있습니다.");
+                            Debug.LogError($"[ShopProductDiceFaceUpgradeSOV44Generator] 검증 실패: Slot 5 productPool[{i}]에 미구현 상품 '{linkedUpgrade.name}'이 있습니다.");
                             allPassed = false;
                         }
                     }

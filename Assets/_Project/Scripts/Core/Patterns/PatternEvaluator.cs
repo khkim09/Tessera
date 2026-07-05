@@ -42,6 +42,44 @@ namespace Tessera.Core
         public List<PatternResult> EvaluateAll(IReadOnlyList<int> diceValues)
         {
             ValidateDiceValues(diceValues);
+            return EvaluateAllResolvedValues(diceValues);
+        }
+
+        /// <summary>특수 Face(Mirror/Blank/Wild)를 평가용 숫자 목록으로 전처리해 선택 가능한 모든 Cast 카테고리를 판정한다.</summary>
+        public List<PatternResult> EvaluateAllFaces(IReadOnlyList<DiceFace> diceFaces)
+        {
+            ValidateDiceFaces(diceFaces);
+
+            List<PatternResult> mergedResults = new List<PatternResult>();
+            Dictionary<RollPatternType, PatternResult> bestByPattern = new Dictionary<RollPatternType, PatternResult>();
+            List<int[]> resolvedValueSets = ResolveSpecialFaceValueSets(diceFaces);
+
+            for (int i = 0; i < resolvedValueSets.Count; i++)
+            {
+                List<PatternResult> candidateResults = EvaluateAllResolvedValues(resolvedValueSets[i]);
+
+                for (int j = 0; j < candidateResults.Count; j++)
+                {
+                    PatternResult candidate = candidateResults[j];
+                    if (!bestByPattern.TryGetValue(candidate.PatternType, out PatternResult currentBest) ||
+                        IsBetterPatternResult(candidate, currentBest))
+                    {
+                        bestByPattern[candidate.PatternType] = candidate;
+                    }
+                }
+            }
+
+            foreach (KeyValuePair<RollPatternType, PatternResult> pair in bestByPattern)
+                mergedResults.Add(pair.Value);
+
+            SortByCastPowerDescending(mergedResults);
+            return mergedResults;
+        }
+
+        /// <summary>검증된 평가용 숫자 목록에서 선택 가능한 모든 Cast 카테고리를 판정한다. 0은 Blank로 취급해 패턴 기여에서 제외한다.</summary>
+        private List<PatternResult> EvaluateAllResolvedValues(IReadOnlyList<int> diceValues)
+        {
+            ValidateResolvedDiceValues(diceValues);
 
             List<PatternResult> results = new List<PatternResult>();
             int[] counts = BuildCounts(diceValues);
@@ -82,12 +120,39 @@ namespace Tessera.Core
             return FindBestNonBrokenResult(results);
         }
 
+        /// <summary>특수 Face(Mirror/Blank/Wild)를 포함한 눈금 목록에서 Broken Cast를 제외한 최고 피해 Cast를 판정한다.</summary>
+        public PatternResult EvaluateBestFaces(IReadOnlyList<DiceFace> diceFaces)
+        {
+            List<PatternResult> results = EvaluateAllFaces(diceFaces);
+            return FindBestNonBrokenResult(results);
+        }
+
         /// <summary>선택한 Cast 카테고리가 현재 주사위에서 제출 가능한지 확인하고 결과를 반환한다.</summary>
         public bool TryEvaluateSpecificPattern(IReadOnlyList<int> diceValues, RollPatternType requestedPatternType, out PatternResult result)
         {
             ValidateDiceValues(diceValues);
 
             List<PatternResult> results = EvaluateAll(diceValues);
+
+            for (int i = 0; i < results.Count; i++)
+            {
+                if (results[i].PatternType != requestedPatternType)
+                    continue;
+
+                result = results[i];
+                return true;
+            }
+
+            result = null;
+            return false;
+        }
+
+        /// <summary>특수 Face(Mirror/Blank/Wild)를 포함한 눈금 목록에서 선택한 Cast 카테고리가 제출 가능한지 확인하고 결과를 반환한다.</summary>
+        public bool TryEvaluateSpecificPatternFaces(IReadOnlyList<DiceFace> diceFaces, RollPatternType requestedPatternType, out PatternResult result)
+        {
+            ValidateDiceFaces(diceFaces);
+
+            List<PatternResult> results = EvaluateAllFaces(diceFaces);
 
             for (int i = 0; i < results.Count; i++)
             {
@@ -224,7 +289,10 @@ namespace Tessera.Core
             int[] counts = new int[7];
 
             for (int i = 0; i < diceValues.Count; i++)
-                counts[diceValues[i]]++;
+            {
+                if (diceValues[i] > 0)
+                    counts[diceValues[i]]++;
+            }
 
             return counts;
         }
@@ -267,12 +335,106 @@ namespace Tessera.Core
             }
         }
 
+        private static void ValidateResolvedDiceValues(IReadOnlyList<int> diceValues)
+        {
+            if (diceValues == null)
+                throw new ArgumentNullException(nameof(diceValues));
+
+            if (diceValues.Count != RequiredDiceCount)
+                throw new ArgumentException($"정확히 {RequiredDiceCount}개의 주사위 값이 필요합니다.", nameof(diceValues));
+
+            for (int i = 0; i < diceValues.Count; i++)
+            {
+                if (diceValues[i] < 0 || diceValues[i] > 6)
+                    throw new ArgumentOutOfRangeException(nameof(diceValues), $"평가용 주사위 값은 0~6 사이여야 합니다. Index: {i}");
+            }
+        }
+
+        private static void ValidateDiceFaces(IReadOnlyList<DiceFace> diceFaces)
+        {
+            if (diceFaces == null)
+                throw new ArgumentNullException(nameof(diceFaces));
+
+            if (diceFaces.Count != RequiredDiceCount)
+                throw new ArgumentException($"정확히 {RequiredDiceCount}개의 주사위 Face가 필요합니다.", nameof(diceFaces));
+        }
+
+        private static List<int[]> ResolveSpecialFaceValueSets(IReadOnlyList<DiceFace> diceFaces)
+        {
+            List<int[]> results = new List<int[]>();
+            int[] current = new int[diceFaces.Count];
+            ResolveSpecialFaceValueSetsRecursive(diceFaces, 0, current, results);
+            return results;
+        }
+
+        private static void ResolveSpecialFaceValueSetsRecursive(
+            IReadOnlyList<DiceFace> diceFaces,
+            int index,
+            int[] currentValues,
+            List<int[]> results)
+        {
+            if (index >= diceFaces.Count)
+            {
+                int[] copy = new int[currentValues.Length];
+                Array.Copy(currentValues, copy, currentValues.Length);
+                results.Add(copy);
+                return;
+            }
+
+            DiceFace face = diceFaces[index];
+
+            switch (face.Type)
+            {
+                case DiceFaceType.Number:
+                    currentValues[index] = face.NumberValue;
+                    ResolveSpecialFaceValueSetsRecursive(diceFaces, index + 1, currentValues, results);
+                    break;
+
+                case DiceFaceType.Blank:
+                    currentValues[index] = 0;
+                    ResolveSpecialFaceValueSetsRecursive(diceFaces, index + 1, currentValues, results);
+                    break;
+
+                case DiceFaceType.Mirror:
+                    currentValues[index] = index > 0 && currentValues[index - 1] > 0
+                        ? currentValues[index - 1]
+                        : 1;
+                    ResolveSpecialFaceValueSetsRecursive(diceFaces, index + 1, currentValues, results);
+                    break;
+
+                case DiceFaceType.Wild:
+                    for (int value = 1; value <= 6; value++)
+                    {
+                        currentValues[index] = value;
+                        ResolveSpecialFaceValueSetsRecursive(diceFaces, index + 1, currentValues, results);
+                    }
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(diceFaces), $"지원하지 않는 DiceFaceType입니다. Type: {face.Type}");
+            }
+        }
+
+        private static bool IsBetterPatternResult(PatternResult candidate, PatternResult currentBest)
+        {
+            if (candidate.CastPower != currentBest.CastPower)
+                return candidate.CastPower > currentBest.CastPower;
+
+            if (candidate.RawCastScore != currentBest.RawCastScore)
+                return candidate.RawCastScore > currentBest.RawCastScore;
+
+            return candidate.IncludedDiceSum > currentBest.IncludedDiceSum;
+        }
+
         private static int Sum(IReadOnlyList<int> values)
         {
             int sum = 0;
 
             for (int i = 0; i < values.Count; i++)
-                sum += values[i];
+            {
+                if (values[i] > 0)
+                    sum += values[i];
+            }
 
             return sum;
         }
