@@ -45,9 +45,10 @@
 
 ## 4. CastPower 조건 Device 후처리 연결
 
-- [ ] CastPower 확정 이후 Device 후처리 단계 설계.
-- [ ] `AddTrueImpactDamageIfCastPowerAtLeast` 활성화.
-- [ ] Preview/Submit parity 검증 추가.
+- [x] CastPower 확정 이후 Device 후처리 단계 설계.
+  - 정책: SlotPair Score/Force/TruePower 계산으로 확정된 TableRule 적용 전 CastPower를 기준으로 `AddTrueImpactDamageIfCastPowerAtLeast`를 후처리한다.
+- [x] `AddTrueImpactDamageIfCastPowerAtLeast` 활성화.
+- [x] Preview/Submit parity 검증 추가.
 - [ ] Unity Editor에서 Floating Text/전투 로그 표시 확인.
 
 ## 5. BrokenCast / Clash 후처리 Device 효과 구현
@@ -79,13 +80,17 @@
 - [x] 레거시 `Input.GetKeyDown`/`Update` 폴링 제거.
 - [x] Unity New Input System `InputAction.performed`에서 Runtime 이벤트를 발행하고, Stage Flow는 해당 이벤트를 구독해 처리하도록 분리.
 - [x] 디버그 치트 입력 경로 검증 메뉴 추가.
-- [ ] Unity Editor에서 `Tools/Tessera/Validation/Run Debug Shop Cheat Input Scenario Test v1` 실행 후 PASS 로그 확인.
-- [ ] Unity Editor Play Mode에서 `1` 키 입력 후 Workshop 즉시 진입, Console 로그, Money/Overcharge 갱신 확인.
+- [x] Unity Editor에서 `Tools/Tessera/Validation/Run Debug Shop Cheat Input Scenario Test v1` 실행 후 PASS 로그 확인.
+  - 확인: 사용자 첨부 로그 기준 PASS.
+- [x] Unity Editor Play Mode에서 `1` 키 입력 후 Workshop 즉시 진입, Console 로그, Money/Overcharge 갱신 확인.
+  - 확인: 사용자 첨부 로그 기준 정상 동작.
 
 ## 8. DiceFaceUpgrade 적용 범위 기획 및 구현
 
 - [ ] 단일 주사위 단면 개조 vs 5개 주사위 동일 단면 일괄 개조 중 최종 방향 결정.
 - [ ] 결정된 정책에 맞춰 구매 UI/대상 선택/자동 적용 정책 재정의.
+  - DiceFaceUpgrade 카드 구매 후 1개 Dice를 선택하는 단계 추가.
+  - 선택한 Dice에서 1개 Face를 선택하는 단계 추가.
 - [ ] 기존 RunSession FaceUpgrade 장착 모델을 최종 정책에 맞게 보정.
 - [ ] Preview/Submit/PatternEvaluator 경로에 실제 장착 FaceUpgrade를 연결.
 - [ ] Unity Editor에서 구매 후 실제 전투 Pattern 결과가 변경되는지 확인.
