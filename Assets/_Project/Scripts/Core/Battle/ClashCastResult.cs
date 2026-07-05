@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Tessera.Core
@@ -8,6 +8,7 @@ namespace Tessera.Core
     {
         private readonly List<int> diceValues;
         private readonly List<int> lockSlotDiceIndexes;
+        private readonly List<SlotPairDeviceDefinition> deviceDefinitions;
 
         /// <summary>Cast 계산 주체.</summary>
         public ClashParticipantType Owner { get; }
@@ -30,6 +31,9 @@ namespace Tessera.Core
         /// <summary>SlotPair 슬롯별 DiceIndex 매핑.</summary>
         public IReadOnlyList<int> LockSlotDiceIndexes => lockSlotDiceIndexes;
 
+        /// <summary>Clash Cast 계산에 사용된 SlotPair Device 정의 목록이다.</summary>
+        public IReadOnlyList<SlotPairDeviceDefinition> DeviceDefinitions => deviceDefinitions;
+
         /// <summary>Clash 승패 비교에 사용할 CastPower 값이다.</summary>
         public int CastPower { get; }
 
@@ -50,6 +54,7 @@ namespace Tessera.Core
             TableRuleEvaluationResult tableRuleEvaluationResult,
             IReadOnlyList<int> diceValues,
             IReadOnlyList<int> lockSlotDiceIndexes,
+            IReadOnlyList<SlotPairDeviceDefinition> deviceDefinitions,
             RoundRuleContext ruleContext,
             ImpactDamageCalculator impactDamageCalculator)
         {
@@ -65,6 +70,10 @@ namespace Tessera.Core
             this.lockSlotDiceIndexes = lockSlotDiceIndexes != null
                 ? new List<int>(lockSlotDiceIndexes)
                 : new List<int>();
+
+            this.deviceDefinitions = deviceDefinitions != null
+                ? new List<SlotPairDeviceDefinition>(deviceDefinitions)
+                : new List<SlotPairDeviceDefinition>();
 
             PatternType = patternResult.PatternType;
             CastPower = Math.Max(0, tableRuleEvaluationResult.ModifiedCastPower);

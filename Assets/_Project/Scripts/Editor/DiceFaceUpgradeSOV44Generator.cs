@@ -49,10 +49,10 @@ namespace Tessera.Editor
             int updated = _updatedCount;
             Debug.Log($"[DiceFaceUpgradeSOV44Generator] v4.4 DiceFaceUpgrade SO Complete. Created: {created}, Updated: {updated}");
 
-            // 5. 보류 항목 안내
-            Debug.Log("[DiceFaceUpgradeSOV44Generator] [보류] FaceUpgrade_MirrorFace: 복제형. PatternEvaluator 전 단계 개입 필요.");
-            Debug.Log("[DiceFaceUpgradeSOV44Generator] [보류] FaceUpgrade_BlankFace: 특수 Face. PatternEvaluator 전 단계 개입 필요.");
-            Debug.Log("[DiceFaceUpgradeSOV44Generator] [보류] FaceUpgrade_WildFace: 와일드 평가. PatternEvaluator 전 단계 개입 필요.");
+            // 5. 특수 Face 항목 안내
+            Debug.Log("[DiceFaceUpgradeSOV44Generator] [특수 Face] FaceUpgrade_MirrorFace: 왼쪽 평가값 복제.");
+            Debug.Log("[DiceFaceUpgradeSOV44Generator] [특수 Face] FaceUpgrade_BlankFace: Pattern 평가 기여 제외.");
+            Debug.Log("[DiceFaceUpgradeSOV44Generator] [특수 Face] FaceUpgrade_WildFace: Pattern별 최선 값 선택.");
         }
 
         // ── 폴더 생성 ──────────────────────────────────────────────────
@@ -240,27 +240,27 @@ namespace Tessera.Editor
                 DiceFaceUpgradeEffectType.IncreaseIncomingDamageWhenLose, 10, 0f,
                 2, 2, 2, 7, 0);
 
-            // 9. FaceUpgrade_MirrorFace: 복제형 (PatternEvaluator 전 단계 개입 필요 → 보류)
+            // 9. FaceUpgrade_MirrorFace: 왼쪽 평가값 복제형
             CreateDiceFaceUpgradeV44(DiceFaceUpgradesPath + "/FaceUpgrade_MirrorFace.asset",
                 "face.mirror_face", "거울 Face",
-                "다른 Face 값을 참조하는 복제형 Face Upgrade 후보. PatternEvaluator 전 단계 개입이 필요하므로 현재 보류.",
-                false, 1, DiceFaceType.Number, 1,
+                "왼쪽 Dice의 평가값을 복제하는 특수 Face Upgrade.",
+                false, 1, DiceFaceType.Mirror, 1,
                 DiceFaceUpgradeEffectType.None, 0, 0f,
                 2, 2, 3, 8, 0);
 
-            // 10. FaceUpgrade_BlankFace: 특수 Face (PatternEvaluator 전 단계 개입 필요 → 보류)
+            // 10. FaceUpgrade_BlankFace: 패턴 기여 제외형
             CreateDiceFaceUpgradeV44(DiceFaceUpgradesPath + "/FaceUpgrade_BlankFace.asset",
                 "face.blank_face", "빈 Face",
-                "족보 기여를 줄이고 다른 효과와 연계하는 특수 Face Upgrade 후보. PatternEvaluator 전 단계 개입이 필요하므로 현재 보류.",
-                false, 1, DiceFaceType.Number, 1,
+                "Pattern 평가에서 기여하지 않는 특수 Face Upgrade.",
+                false, 1, DiceFaceType.Blank, 1,
                 DiceFaceUpgradeEffectType.None, 0, 0f,
                 2, 2, 3, 8, 0);
 
-            // 11. FaceUpgrade_WildFace: 와일드 Face (PatternEvaluator 전 단계 개입 필요 → 보류)
+            // 11. FaceUpgrade_WildFace: 유리한 값 선택형
             CreateDiceFaceUpgradeV44(DiceFaceUpgradesPath + "/FaceUpgrade_WildFace.asset",
                 "face.wild_face", "와일드 Face",
-                "족보 평가에서 유리한 값으로 취급될 수 있는 고급 Face Upgrade 후보. PatternEvaluator 전 단계 개입이 필요하므로 현재 보류.",
-                false, 1, DiceFaceType.Number, 1,
+                "Pattern 평가에서 가장 유리한 1~6 값으로 취급되는 고급 Face Upgrade.",
+                false, 1, DiceFaceType.Wild, 1,
                 DiceFaceUpgradeEffectType.None, 0, 0f,
                 3, 3, 4, 10, 1);
         }

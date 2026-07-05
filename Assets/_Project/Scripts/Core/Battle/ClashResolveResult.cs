@@ -1,4 +1,4 @@
-﻿namespace Tessera.Core
+namespace Tessera.Core
 {
     /// <summary>Player와 Opponent의 CastPower를 비교한 Clash 판정 결과다.</summary>
     public class ClashResolveResult
@@ -29,6 +29,9 @@
 
         /// <summary>DiceType 효과로 감소한 플레이어 수신 피해량이다.</summary>
         public int IncomingDamageReductionFromDiceType { get; }
+
+        /// <summary>Device 후처리 효과로 감소한 플레이어 수신 피해량이다.</summary>
+        public int IncomingDamageReductionFromDevice { get; }
 
         /// <summary>DiceType 효과로 Round 승리 보상에 더할 Money 값이다.</summary>
         public int MoneyOnRoundWinBonusFromDiceType { get; }
@@ -72,7 +75,8 @@
             bool canStartNextAttempt,
             string message,
             int incomingDamageReductionFromDiceType = 0,
-            int moneyOnRoundWinBonusFromDiceType = 0)
+            int moneyOnRoundWinBonusFromDiceType = 0,
+            int incomingDamageReductionFromDevice = 0)
         {
             AttemptNumber = attemptNumber;
             PlayerResult = playerResult;
@@ -83,6 +87,7 @@
             AppliedImpactDamageToPlayer = appliedImpactDamageToPlayer;
             AppliedImpactDamageToOpponent = appliedImpactDamageToOpponent;
             IncomingDamageReductionFromDiceType = System.Math.Max(0, incomingDamageReductionFromDiceType);
+            IncomingDamageReductionFromDevice = System.Math.Max(0, incomingDamageReductionFromDevice);
             MoneyOnRoundWinBonusFromDiceType = System.Math.Max(0, moneyOnRoundWinBonusFromDiceType);
             PlayerUsedBrokenCastDefense = playerUsedBrokenCastDefense;
             DidGrantOvercharge = didGrantOvercharge;
