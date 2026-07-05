@@ -29,16 +29,18 @@
   - 정책: Upgrade의 대상 숫자 또는 교체 숫자에 해당하는 FaceIndex를 고르고, 비어 있거나 다른 Upgrade가 장착된 첫 번째 Dice 슬롯에 적용한다.
 - [x] DiceFaceUpgrade 구매 시 RunSession 장착 상태에 실제 적용하도록 연결.
 - [x] FaceUpgrade 구매/적용 검증 클래스 추가.
-- [ ] Unity Editor에서 FaceUpgrade 상품 카드, 구매 메시지, 적용 UI 확인.
+- [x] Unity Editor에서 FaceUpgrade 상품 카드, 구매 메시지, 적용 UI 확인.
+  - 확인: DiceFaceUpgrade 구매/적용 검증 PASS 및 실제 구매 로그 확인.
 
 ## 3. Mirror / Blank / Wild Face의 PatternEvaluator 전처리 설계 및 구현
 
-- [ ] Pattern 평가용 effective dice face/value 모델 설계.
-- [ ] Mirror Face 동작 규칙 구현.
-- [ ] Blank Face 동작 규칙 구현.
-- [ ] Wild Face 최적값 선택 규칙 구현.
-- [ ] Preview/Submit parity 검증 추가.
-- [ ] Unity Editor에서 특수 Face 결과 표시 확인.
+- [x] Pattern 평가용 effective dice face/value 모델 설계.
+  - 정책: Number는 1~6, Blank는 0으로 기여 제외, Mirror는 왼쪽 평가값 복제, Wild는 1~6 후보를 전부 평가해 Cast별 최선 결과를 선택한다.
+- [x] Mirror Face 동작 규칙 구현.
+- [x] Blank Face 동작 규칙 구현.
+- [x] Wild Face 최적값 선택 규칙 구현.
+- [x] 특수 Face PatternEvaluator 검증 시나리오 추가.
+- [ ] Unity Editor에서 특수 Face 검증 메뉴 실행 및 결과 확인.
 
 ## 4. CastPower 조건 Device 후처리 연결
 
