@@ -23,6 +23,7 @@ namespace Tessera.Editor.Validation
             Dictionary<string, DiceTypeDefinitionSO> diceTypes = LoadDiceTypes(ref failures);
             ValidateShopProductsAndWorkshopRules(diceTypes, ref failures);
             ValidateDiceSetPurchase(diceTypes, ref failures);
+            ValidateIndividualDiceTypePurchase(diceTypes, ref failures);
             ValidateSlotPairIntrinsic(diceTypes, ref failures);
             ValidatePreviewSubmitParity(diceTypes, ref failures);
             ValidatePostProcessHooks(diceTypes, ref failures);
@@ -89,6 +90,36 @@ namespace Tessera.Editor.Validation
             }
 
             Debug.Log("[DiceTypeScenarioTest] PASS DiceSetPurchase");
+        }
+
+        /// <summary>SingleDice/DiceTypeUpgrade 구매용 자동 슬롯 선택 API가 한 DiceType만 교체하는지 검증한다.</summary>
+        private static void ValidateIndividualDiceTypePurchase(Dictionary<string, DiceTypeDefinitionSO> diceTypes, ref int failures)
+        {
+            TesseraRunSession session = new TesseraRunSession(20, 20);
+            DiceTypeDefinitionSO red = diceTypes["Red"];
+            DiceTypeDefinitionSO blue = diceTypes["Blue"];
+            DiceTypeDefinitionSO green = diceTypes["Green"];
+
+            session.SetDiceSetType(red);
+            bool firstApplied = session.TryApplyPurchasedIndividualDiceType(blue, out int firstAppliedIndex, out DiceTypeDefinitionSO firstPreviousType);
+
+            if (!firstApplied || firstAppliedIndex != 0 || firstPreviousType != red || session.GetEquippedDiceType(0) != blue)
+                Fail(ref failures, "Blue", "IndividualDiceTypePurchaseFirst", "Dice0 Red->Blue", BuildIndividualDiceTypeActual(firstApplied, firstAppliedIndex, firstPreviousType, session.GetEquippedDiceType(0)));
+            else
+                Debug.Log("[DiceTypeScenarioTest] PASS IndividualDiceTypePurchase FirstSlot");
+
+            bool secondApplied = session.TryApplyPurchasedIndividualDiceType(green, out int secondAppliedIndex, out DiceTypeDefinitionSO secondPreviousType);
+
+            if (!secondApplied || secondAppliedIndex != 0 || secondPreviousType != blue || session.GetEquippedDiceType(0) != green)
+                Fail(ref failures, "Green", "IndividualDiceTypePurchaseReplaceMismatch", "Dice0 Blue->Green", BuildIndividualDiceTypeActual(secondApplied, secondAppliedIndex, secondPreviousType, session.GetEquippedDiceType(0)));
+            else
+                Debug.Log("[DiceTypeScenarioTest] PASS IndividualDiceTypePurchase ReplaceFirstMismatch");
+
+            for (int i = 1; i < TesseraRunSession.PlayerDiceCount; i++)
+            {
+                if (session.GetEquippedDiceType(i) != red)
+                    Fail(ref failures, "Red", $"IndividualDiceTypePurchaseUnaffectedSlot{i}", red.name, session.GetEquippedDiceType(i) != null ? session.GetEquippedDiceType(i).name : "null");
+            }
         }
 
         /// <summary>SlotPair 계산에서 주요 DiceType Score/Force 보정이 반영되는지 검증한다.</summary>
@@ -255,6 +286,18 @@ namespace Tessera.Editor.Validation
         {
             failures++;
             Debug.LogError($"[DiceTypeScenarioTest] FAIL DiceType={diceType} Location={location} Expected={expected} Actual={actual}");
+        }
+
+        /// <summary>개별 DiceType 구매 검증 실패 시 실제 상태를 읽기 쉬운 문자열로 만든다.</summary>
+        private static string BuildIndividualDiceTypeActual(
+            bool applied,
+            int appliedIndex,
+            DiceTypeDefinitionSO previousType,
+            DiceTypeDefinitionSO currentType)
+        {
+            string previousName = previousType != null ? previousType.name : "null";
+            string currentName = currentType != null ? currentType.name : "null";
+            return $"Applied={applied}, Index={appliedIndex}, Previous={previousName}, Current={currentName}";
         }
     }
 }
