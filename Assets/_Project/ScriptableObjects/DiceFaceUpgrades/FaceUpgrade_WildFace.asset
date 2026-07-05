@@ -14,14 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tessera.Data::Tessera.Data.DiceFaceUpgradeDefinitionSO
   upgradeId: face.wild_face
   displayName: "\uC640\uC77C\uB4DC Face"
-  description: "\uC871\uBCF4 \uD3C9\uAC00\uC5D0\uC11C \uC720\uB9AC\uD55C \uAC12\uC73C\uB85C
-    \uCDE8\uAE09\uB420 \uC218 \uC788\uB294 \uACE0\uAE09 Face Upgrade \uD6C4\uBCF4.
-    PatternEvaluator \uC804 \uB2E8\uACC4 \uAC1C\uC785\uC774 \uD544\uC694\uD558\uBBC0\uB85C
-    \uD604\uC7AC \uBCF4\uB958."
+  description: "Pattern 평가에서 가장 유리한 1~6 값으로 취급되는 고급 Face Upgrade."
   icon: {fileID: 0}
   requiresSpecificNumber: 0
   targetNumber: 1
-  replacementFaceType: 0
+  replacementFaceType: 1
   replacementNumberValue: 1
   effectType: 0
   intValue: 0
