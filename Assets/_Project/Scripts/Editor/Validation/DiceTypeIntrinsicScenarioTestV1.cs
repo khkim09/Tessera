@@ -126,7 +126,7 @@ namespace Tessera.Editor.Validation
         {
             CoreRoundSimulator simulator = new CoreRoundSimulator(1234);
             RoundRuleContext ruleContext = RoundRuleContext.CreateDefault();
-            List<DiceTypeDefinitionSO> redTypes = CreateDiceTypes(diceTypes["Red"]);
+            List<DiceTypeIntrinsicData> redTypes = CreateDiceTypes(diceTypes["Red"]);
             RoundState roundState = simulator.StartRound(ruleContext, 20, new OverchargeState(), redTypes);
             simulator.SetCurrentDiceValuesForTest(roundState, new List<int> { 1, 2, 3, 4, 5 });
             List<int> lockSlots = new List<int> { 0, 1, 2, 3, 4 };
@@ -145,8 +145,8 @@ namespace Tessera.Editor.Validation
         private static void ValidatePostProcessHooks(Dictionary<string, DiceTypeDefinitionSO> diceTypes, ref int failures)
         {
             DiceTypeIntrinsicEvaluator evaluator = new DiceTypeIntrinsicEvaluator();
-            int gold = evaluator.CalculateMoneyOnRoundWinBonus(new List<DiceTypeDefinitionSO> { diceTypes["Gold"] });
-            int voidReduction = evaluator.CalculateIncomingDamageReduction(new List<DiceTypeDefinitionSO> { diceTypes["Void"] });
+            int gold = evaluator.CalculateMoneyOnRoundWinBonus(new List<DiceTypeIntrinsicData> { CreateDiceTypeIntrinsicData(diceTypes["Gold"]) });
+            int voidReduction = evaluator.CalculateIncomingDamageReduction(new List<DiceTypeIntrinsicData> { CreateDiceTypeIntrinsicData(diceTypes["Void"]) });
 
             if (gold != Mathf.Max(0, diceTypes["Gold"].IntValue))
                 Fail(ref failures, "Gold", "MoneyHook", diceTypes["Gold"].IntValue.ToString(), gold.ToString());
@@ -173,9 +173,18 @@ namespace Tessera.Editor.Validation
         }
 
         /// <summary>동일 DiceType 5개로 테스트용 DiceType 목록을 생성한다.</summary>
-        private static List<DiceTypeDefinitionSO> CreateDiceTypes(DiceTypeDefinitionSO diceType)
+        private static List<DiceTypeIntrinsicData> CreateDiceTypes(DiceTypeDefinitionSO diceType)
         {
-            return new List<DiceTypeDefinitionSO> { diceType, diceType, diceType, diceType, diceType };
+            DiceTypeIntrinsicData data = CreateDiceTypeIntrinsicData(diceType);
+            return new List<DiceTypeIntrinsicData> { data, data, data, data, data };
+        }
+
+        /// <summary>DiceType SO를 Core intrinsic 데이터로 변환한다.</summary>
+        private static DiceTypeIntrinsicData CreateDiceTypeIntrinsicData(DiceTypeDefinitionSO diceType)
+        {
+            return diceType != null
+                ? new DiceTypeIntrinsicData(diceType.DisplayName, diceType.IntrinsicEffectType, diceType.IntValue, diceType.FloatValue)
+                : DiceTypeIntrinsicData.Empty;
         }
 
         /// <summary>Device 효과가 없는 테스트용 SlotPair Device 목록을 생성한다.</summary>

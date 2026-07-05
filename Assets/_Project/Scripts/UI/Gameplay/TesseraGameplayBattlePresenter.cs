@@ -223,9 +223,6 @@ namespace Tessera.UI
         /// <summary>Core 시뮬레이터와 ViewModel 빌더를 준비한다.</summary>
         private void Awake()
         {
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            SlotPairDamageCalculator.DiceTypeIntrinsicLogSink = Debug.Log;
-#endif
             activeCombatSeed = ResolveCombatSeed();
             simulator = new CoreRoundSimulator(activeCombatSeed);
             castBoardModelBuilder = CastBoardModelBuilder.CreateDefault();
@@ -273,6 +270,26 @@ namespace Tessera.UI
         }
 
 
+
+        /// <summary>Data 계층 DiceType SO 목록을 Core intrinsic 데이터 목록으로 변환한다.</summary>
+        private static List<DiceTypeIntrinsicData> BuildDiceTypeIntrinsicData(IReadOnlyList<DiceTypeDefinitionSO> equippedDiceTypes)
+        {
+            if (equippedDiceTypes == null)
+                return null;
+
+            List<DiceTypeIntrinsicData> result = new List<DiceTypeIntrinsicData>(equippedDiceTypes.Count);
+
+            for (int i = 0; i < equippedDiceTypes.Count; i++)
+            {
+                DiceTypeDefinitionSO diceType = equippedDiceTypes[i];
+                result.Add(diceType != null
+                    ? new DiceTypeIntrinsicData(diceType.DisplayName, diceType.IntrinsicEffectType, diceType.IntValue, diceType.FloatValue)
+                    : DiceTypeIntrinsicData.Empty);
+            }
+
+            return result;
+        }
+
         /// <summary>출시용/디버그용 Combat Seed를 분리해 계산한다.</summary>
         private int ResolveCombatSeed()
         {
@@ -311,12 +328,13 @@ namespace Tessera.UI
                 return;
             }
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            SlotPairDamageCalculator.DiceTypeIntrinsicLogSink = Debug.Log;
-#endif
             activeCombatSeed = ResolveCombatSeed();
             simulator = new CoreRoundSimulator(activeCombatSeed);
-            roundState = simulator.StartRound(ruleContext, carriedPlayerHP, stageOverchargeState, equippedDiceTypes);
+            roundState = simulator.StartRound(
+                ruleContext,
+                carriedPlayerHP,
+                stageOverchargeState,
+                BuildDiceTypeIntrinsicData(equippedDiceTypes));
             currentRoundDefinition = roundDefinition;
             currentEnemyIntentDefinition = currentRoundDefinition != null
                 ? currentRoundDefinition.SelectIntentDefinitionForAttempt(1, activeCombatSeed)

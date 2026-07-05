@@ -47,7 +47,7 @@ namespace Tessera.Core
             RoundRuleContext ruleContext,
             int playerCurrentHP,
             OverchargeState stageOverchargeState,
-            IReadOnlyList<IDiceTypeIntrinsicDefinition> equippedDiceTypes)
+            IReadOnlyList<DiceTypeIntrinsicData> equippedDiceTypes)
         {
             if (ruleContext == null)
                 throw new ArgumentNullException(nameof(ruleContext));
@@ -797,9 +797,9 @@ namespace Tessera.Core
         }
 
         /// <summary>제출 Cast에 포함된 DiceIndex를 DiceType 목록으로 변환한다.</summary>
-        private static List<IDiceTypeIntrinsicDefinition> CollectUsedDiceTypes(RoundState roundState, ClashCastResult playerResult)
+        private static List<DiceTypeIntrinsicData> CollectUsedDiceTypes(RoundState roundState, ClashCastResult playerResult)
         {
-            List<IDiceTypeIntrinsicDefinition> usedDiceTypes = new List<IDiceTypeIntrinsicDefinition>();
+            List<DiceTypeIntrinsicData> usedDiceTypes = new List<DiceTypeIntrinsicData>();
 
             if (roundState == null || playerResult == null || playerResult.LockSlotDiceIndexes == null)
                 return usedDiceTypes;
@@ -807,8 +807,8 @@ namespace Tessera.Core
             for (int i = 0; i < playerResult.LockSlotDiceIndexes.Count; i++)
             {
                 int diceIndex = playerResult.LockSlotDiceIndexes[i];
-                IDiceTypeIntrinsicDefinition diceType = roundState.GetDiceType(diceIndex);
-                if (diceType != null)
+                DiceTypeIntrinsicData diceType = roundState.GetDiceType(diceIndex);
+                if (diceType.IsValid)
                     usedDiceTypes.Add(diceType);
             }
 

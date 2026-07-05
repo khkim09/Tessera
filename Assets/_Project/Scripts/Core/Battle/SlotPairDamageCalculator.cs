@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Tessera.Core
 {
@@ -7,9 +8,6 @@ namespace Tessera.Core
     public class SlotPairDamageCalculator
     {
         public const int SlotPairCount = 5;
-
-        /// <summary>DiceType 고유 효과 로그를 외부 표시 계층에 전달하는 선택적 콜백이다.</summary>
-        public static Action<string> DiceTypeIntrinsicLogSink { get; set; }
 
         /// <summary>SlotPair 계산 중 DiceType 고유 효과를 평가하는 계산기다.</summary>
         private readonly DiceTypeIntrinsicEvaluator diceTypeIntrinsicEvaluator = new DiceTypeIntrinsicEvaluator();
@@ -64,7 +62,7 @@ namespace Tessera.Core
                     out currentForce,
                     out currentTruePower);
 
-                IDiceTypeIntrinsicDefinition diceType = calculationContext.GetDiceType(diceIndex);
+                DiceTypeIntrinsicData diceType = calculationContext.GetDiceType(diceIndex);
                 DiceTypeIntrinsicResult intrinsicResult = diceTypeIntrinsicEvaluator.EvaluateSlotPair(
                     slotIndex,
                     diceValue,
@@ -123,7 +121,7 @@ namespace Tessera.Core
         /// <summary>Editor 또는 Development Build에서 DiceType 고유 효과 적용 로그를 출력한다.</summary>
         private static void LogDiceTypeIntrinsic(
             int slotIndex,
-            IDiceTypeIntrinsicDefinition diceType,
+            DiceTypeIntrinsicData diceType,
             int diceValue,
             int scoreBefore,
             int scoreAfter,
@@ -131,18 +129,14 @@ namespace Tessera.Core
             float forceAfter)
         {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-            if (diceType == null)
+            if (!diceType.IsValid)
                 return;
 
             int scoreDelta = scoreAfter - scoreBefore;
             float forceDelta = forceAfter - forceBefore;
             string scoreText = scoreDelta != 0 ? $" Score+{scoreDelta}" : string.Empty;
             string forceText = System.Math.Abs(forceDelta) > 0.001f ? $" Force+{forceDelta:0.##}" : string.Empty;
-            string message = $"[DiceTypeIntrinsic] Slot={slotIndex + 1} DiceType={diceType.DisplayName} Value={diceValue}{scoreText}{forceText}";
-            if (DiceTypeIntrinsicLogSink != null)
-                DiceTypeIntrinsicLogSink.Invoke(message);
-            else
-                System.Diagnostics.Debug.WriteLine(message);
+            Debug.Log($"[DiceTypeIntrinsic] Slot={slotIndex + 1} DiceType={diceType.DisplayName} Value={diceValue}{scoreText}{forceText}");
 #endif
         }
 

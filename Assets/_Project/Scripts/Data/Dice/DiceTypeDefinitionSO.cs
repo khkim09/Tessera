@@ -7,7 +7,7 @@ namespace Tessera.Data
     [CreateAssetMenu(
         fileName = "DiceType_",
         menuName = "Tessera/Dice/Dice Type Definition")]
-    public class DiceTypeDefinitionSO : ScriptableObject, IShopItemDefinition, IDiceTypeIntrinsicDefinition
+    public class DiceTypeDefinitionSO : ScriptableObject, IShopItemDefinition
     {
         [Header("Identity")]
         [SerializeField] private string diceTypeId = "dice.standard";
