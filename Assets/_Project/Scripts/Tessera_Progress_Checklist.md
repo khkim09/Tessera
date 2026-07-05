@@ -18,15 +18,17 @@
 - [x] Shop 구매 가능 여부에서 `SingleDice`, `DiceTypeUpgrade` 차단 제거.
 - [x] Shop 구매 적용 경로에서 `SingleDice`, `DiceTypeUpgrade` 실제 적용.
 - [x] Shop 카드 버튼의 구매 가능 여부에서도 동일 차단 제거.
-- [x] 기존 DiceType intrinsic 검증 클래스에 개별 DiceType 구매 적용 시나리오 추가.
-- [ ] Unity Editor에서 Shop 카드 클릭 및 DiceType 표시 갱신 확인.
+- [x] 기존 DiceType intrinsic 검증 클래스에 SingleDice/DiceTypeUpgrade 분리 검증 시나리오 추가.
+- [x] Unity Editor에서 Shop 카드 클릭 및 DiceType 표시 갱신 확인.
+  - 확인: DiceType visual과 표시 UI 갱신 로그 PASS 확인.
 
 ## 2. DiceFaceUpgrade 구매 placeholder 제거 + 실제 보유/적용 상태 모델 추가
 
-- [ ] 현재 `DiceFaceUpgrade` 구매가 placeholder로만 처리되는 경로 확인.
-- [ ] FaceUpgrade 보유/장착 상태 모델 확정.
-- [ ] PatternEvaluator 전처리가 필요 없는 단순 FaceUpgrade부터 적용 경로 구현.
-- [ ] FaceUpgrade 구매/적용 검증 클래스 추가.
+- [x] 현재 `DiceFaceUpgrade` 구매가 placeholder로만 처리되는 경로 확인.
+- [x] FaceUpgrade 보유/장착 상태 모델 확정.
+  - 정책: Upgrade의 대상 숫자 또는 교체 숫자에 해당하는 FaceIndex를 고르고, 비어 있거나 다른 Upgrade가 장착된 첫 번째 Dice 슬롯에 적용한다.
+- [x] DiceFaceUpgrade 구매 시 RunSession 장착 상태에 실제 적용하도록 연결.
+- [x] FaceUpgrade 구매/적용 검증 클래스 추가.
 - [ ] Unity Editor에서 FaceUpgrade 상품 카드, 구매 메시지, 적용 UI 확인.
 
 ## 3. Mirror / Blank / Wild Face의 PatternEvaluator 전처리 설계 및 구현

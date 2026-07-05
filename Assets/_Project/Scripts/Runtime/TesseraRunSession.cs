@@ -492,6 +492,36 @@ namespace Tessera.Runtime
             return true;
         }
 
+        /// <summary>
+        /// Shop의 DiceFaceUpgrade 상품 구매용으로 대상 선택 UI 없이 적용할 Dice/Face 슬롯을 자동 선택한다.
+        /// 현재 정책은 Upgrade의 대상 숫자 또는 교체 숫자에 해당하는 FaceIndex를 우선 선택하고,
+        /// 같은 FaceIndex에서 비어 있거나 다른 Upgrade가 장착된 첫 번째 Dice 슬롯에 적용한다.
+        /// </summary>
+        public bool TryApplyPurchasedDiceFaceUpgrade(
+            DiceFaceUpgradeDefinitionSO upgradeDefinition,
+            out int appliedDiceIndex,
+            out int appliedFaceIndex,
+            out DiceFaceUpgradeDefinitionSO previousUpgrade)
+        {
+            appliedDiceIndex = -1;
+            appliedFaceIndex = -1;
+            previousUpgrade = null;
+
+            if (upgradeDefinition == null)
+                return false;
+
+            int targetFaceIndex = ResolveFaceUpgradeTargetFaceIndex(upgradeDefinition);
+            int targetDiceIndex = FindFirstDiceFaceUpgradeMismatchDiceIndex(targetFaceIndex, upgradeDefinition);
+            if (targetDiceIndex < 0)
+                targetDiceIndex = 0;
+
+            previousUpgrade = equippedDiceFaceUpgrades[targetDiceIndex, targetFaceIndex];
+            equippedDiceFaceUpgrades[targetDiceIndex, targetFaceIndex] = upgradeDefinition;
+            appliedDiceIndex = targetDiceIndex;
+            appliedFaceIndex = targetFaceIndex;
+            return true;
+        }
+
         /// <summary>특정 Dice의 특정 FaceIndex에 장착된 FaceUpgrade를 반환한다.</summary>
         public DiceFaceUpgradeDefinitionSO GetDiceFaceUpgrade(int diceIndex, int faceIndex)
         {
@@ -525,6 +555,36 @@ namespace Tessera.Runtime
         private static bool IsValidFaceIndex(int faceIndex)
         {
             return faceIndex >= 0 && faceIndex < DiceFaceCount;
+        }
+
+        /// <summary>FaceUpgrade의 자동 적용 대상 FaceIndex를 계산한다.</summary>
+        private static int ResolveFaceUpgradeTargetFaceIndex(DiceFaceUpgradeDefinitionSO upgradeDefinition)
+        {
+            if (upgradeDefinition == null)
+                return 0;
+
+            int targetNumber = upgradeDefinition.RequiresSpecificNumber
+                ? upgradeDefinition.TargetNumber
+                : upgradeDefinition.ReplacementNumberValue;
+
+            return Mathf.Clamp(targetNumber, 1, DiceFaceCount) - 1;
+        }
+
+        /// <summary>지정 FaceIndex에서 Upgrade가 비어 있거나 다른 첫 번째 Dice 슬롯 인덱스를 찾는다.</summary>
+        private int FindFirstDiceFaceUpgradeMismatchDiceIndex(
+            int faceIndex,
+            DiceFaceUpgradeDefinitionSO upgradeDefinition)
+        {
+            if (!IsValidFaceIndex(faceIndex) || upgradeDefinition == null)
+                return -1;
+
+            for (int i = 0; i < PlayerDiceCount; i++)
+            {
+                if (equippedDiceFaceUpgrades[i, faceIndex] != upgradeDefinition)
+                    return i;
+            }
+
+            return -1;
         }
 
         /// <summary>지정 DiceType과 다른 첫 번째 Dice 슬롯 인덱스를 찾는다.</summary>

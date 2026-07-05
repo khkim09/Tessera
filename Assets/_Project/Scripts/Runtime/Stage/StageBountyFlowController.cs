@@ -802,12 +802,7 @@ namespace Tessera.Runtime
                     return TryApplyPurchasedIndividualDiceTypeProduct(product, out applyMessage, out playerDiceTypesChanged);
 
                 case ShopProductType.DiceFaceUpgrade:
-                    Debug.Log(
-                        $"[Tessera][ShopProductPurchase] DiceFaceUpgrade product purchased as prototype placeholder. " +
-                        $"Type={product.ProductType}, Product={product.DisplayName}. Effect application pending.");
-
-                    applyMessage = "FaceUpgrade application pending. Card removed for prototype verification.";
-                    return true;
+                    return TryApplyPurchasedDiceFaceUpgradeProduct(product, out applyMessage);
 
                 default:
                     applyMessage = $"Product type {product.ProductType} purchase effect is not implemented.";
@@ -889,6 +884,36 @@ namespace Tessera.Runtime
             playerDiceTypesChanged = true;
             string previousName = previousDiceType != null ? previousDiceType.DisplayName : "None";
             applyMessage = $"Dice {appliedDiceIndex + 1} changed from {previousName} to {diceType.DisplayName}.";
+            return true;
+        }
+
+        /// <summary>구매한 DiceFaceUpgrade 상품을 자동 선택된 첫 번째 대상 Dice/Face 슬롯에 장착한다.</summary>
+        private bool TryApplyPurchasedDiceFaceUpgradeProduct(
+            ShopProductDefinitionSO product,
+            out string applyMessage)
+        {
+            applyMessage = string.Empty;
+
+            DiceFaceUpgradeDefinitionSO upgradeDefinition = product.DiceFaceUpgradeDefinition;
+
+            if (upgradeDefinition == null)
+            {
+                applyMessage = "DiceFaceUpgrade definition is missing.";
+                return false;
+            }
+
+            if (!runSession.TryApplyPurchasedDiceFaceUpgrade(
+                    upgradeDefinition,
+                    out int appliedDiceIndex,
+                    out int appliedFaceIndex,
+                    out DiceFaceUpgradeDefinitionSO previousUpgrade))
+            {
+                applyMessage = "Failed to apply DiceFaceUpgrade.";
+                return false;
+            }
+
+            string previousName = previousUpgrade != null ? previousUpgrade.DisplayName : "None";
+            applyMessage = $"Dice {appliedDiceIndex + 1} Face {appliedFaceIndex + 1} changed from {previousName} to {upgradeDefinition.DisplayName}.";
             return true;
         }
 
