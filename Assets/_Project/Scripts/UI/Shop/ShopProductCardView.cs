@@ -329,12 +329,6 @@ namespace Tessera.UI
                 return false;
             }
 
-            if (RequiresDiceTypeSlotSelection(product.ProductType))
-            {
-                failureMessage = "Individual DiceType assignment UI is not implemented yet.";
-                return false;
-            }
-
             if (boundRunSession.Money < boundSlot.MoneyPrice)
             {
                 failureMessage = "Not enough Money.";
@@ -360,13 +354,6 @@ namespace Tessera.UI
         }
 
         #region Helper
-
-        /// <summary>구매 시 대상 DiceIndex 선택이 필요한 DiceType 상품인지 확인한다.</summary>
-        private static bool RequiresDiceTypeSlotSelection(ShopProductType productType)
-        {
-            return productType == ShopProductType.SingleDice
-                    || productType == ShopProductType.DiceTypeUpgrade;
-        }
 
         /// <summary>구매 불가 Overlay와 Shake 피드백을 비동기로 재생한다.</summary>
         private async UniTaskVoid PlayPurchaseBlockedFeedbackAsync(CancellationToken cancellationToken)
