@@ -112,13 +112,13 @@ namespace Tessera.UI
             }
         }
 
-        /// <summary>Player Dice 위치 변경 없이 주사위 값과 Lock 색상만 갱신한다.</summary>
+        /// <summary>Player Dice 위치 변경 없이 주사위 값과 Lock 상태만 갱신한다.</summary>
         public void SetDiceValuesOnly(IReadOnlyList<int> diceValues, IReadOnlyList<bool> lockStates)
         {
             SetDiceValuesOnly(DiceOwnerType.Player, diceValues, lockStates);
         }
 
-        /// <summary>지정 소유자 Dice 위치 변경 없이 주사위 값과 Lock 색상만 갱신한다.</summary>
+        /// <summary>지정 소유자 Dice 위치 변경 없이 주사위 값과 Lock 상태만 갱신한다.</summary>
         public void SetDiceValuesOnly(DiceOwnerType owner, IReadOnlyList<int> diceValues, IReadOnlyList<bool> lockStates)
         {
             Dice3DView[] diceViews = ResolveDiceViews(owner);

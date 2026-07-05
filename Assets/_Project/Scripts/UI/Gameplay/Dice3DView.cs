@@ -30,7 +30,6 @@ namespace Tessera.UI
 
         [Header("Colors")]
         [SerializeField] private Color normalColor = new Color(0.85f, 0.85f, 0.82f, 1f);
-        [SerializeField] private Color lockedColor = new Color(0.30f, 0.48f, 0.88f, 1f);
         [SerializeField] private Color hoverColor = new Color(0.95f, 0.92f, 0.70f, 1f);
 
         private Material runtimeMaterial;
@@ -41,6 +40,10 @@ namespace Tessera.UI
         private bool isLocked;
         private bool clickInputEnabled = true;
         private bool hoverVisualEnabled = true;
+        /// <summary>DiceType에서 전달된 기본 색상 덮어쓰기 값이다.</summary>
+        private Color diceTypeBaseColor;
+        /// <summary>DiceType 기본 색상 덮어쓰기를 사용할지 여부다.</summary>
+        private bool hasDiceTypeBaseColor;
 
         /// <summary>현재 원본 DiceIndex를 반환한다.</summary>
         public int DiceIndex => diceIndex;
@@ -81,6 +84,14 @@ namespace Tessera.UI
         public void Initialize(Action<int> clickedCallback)
         {
             this.clickedCallback = clickedCallback;
+        }
+
+        /// <summary>DiceType 기반 기본 색상 덮어쓰기를 설정한다.</summary>
+        public void SetDiceTypeVisualColor(bool hasColor, Color color)
+        {
+            hasDiceTypeBaseColor = hasColor;
+            diceTypeBaseColor = color;
+            SetDiceColor(GetBaseColor());
         }
 
         /// <summary>주사위 표시 정보를 갱신한다.</summary>
@@ -362,7 +373,7 @@ namespace Tessera.UI
         /// <summary>현재 상태 기준 기본 색상을 반환한다.</summary>
         private Color GetBaseColor()
         {
-            return isLocked ? lockedColor : normalColor;
+            return hasDiceTypeBaseColor ? diceTypeBaseColor : normalColor;
         }
 
         /// <summary>주사위 색상을 변경한다.</summary>
