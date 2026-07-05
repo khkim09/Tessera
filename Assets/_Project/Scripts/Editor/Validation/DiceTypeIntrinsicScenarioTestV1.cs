@@ -312,6 +312,18 @@ namespace Tessera.Editor.Validation
             failures++;
             Debug.LogError($"[DiceTypeScenarioTest] FAIL DiceType={diceType} Location={location} Expected={expected} Actual={actual}");
         }
+
+        /// <summary>개별 DiceType 구매 검증 실패 시 실제 상태를 읽기 쉬운 문자열로 만든다.</summary>
+        private static string BuildIndividualDiceTypeActual(
+            bool applied,
+            int appliedIndex,
+            DiceTypeDefinitionSO previousType,
+            DiceTypeDefinitionSO currentType)
+        {
+            string previousName = previousType != null ? previousType.name : "null";
+            string currentName = currentType != null ? currentType.name : "null";
+            return $"Applied={applied}, Index={appliedIndex}, Previous={previousName}, Current={currentName}";
+        }
     }
 }
 #endif
