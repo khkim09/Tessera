@@ -1,6 +1,6 @@
 # Tessera 진행 체크리스트
 
-> 7번 작업까지 완료할 때까지 이 파일을 기준으로 진행 상황을 공유한다. 7번까지 완료되면 이 파일은 제거하고 다음 범위용 새 MD 파일을 만든다.
+> 1~9번 작업까지 이 파일을 기준으로 진행 상황을 공유한다. 범위가 완료되면 이 파일은 제거하고 다음 범위용 새 MD 파일을 만든다.
 
 ## 진행 규칙
 
@@ -40,7 +40,8 @@
 - [x] Blank Face 동작 규칙 구현.
 - [x] Wild Face 최적값 선택 규칙 구현.
 - [x] 특수 Face PatternEvaluator 검증 시나리오 추가.
-- [ ] Unity Editor에서 특수 Face 검증 메뉴 실행 및 결과 확인.
+- [x] Unity Editor에서 특수 Face 검증 메뉴 실행 및 결과 확인.
+  - 확인: Mirror/Blank/Wild 특수 Face 검증 PASS 로그 첨부 확인.
 
 ## 4. CastPower 조건 Device 후처리 연결
 
@@ -71,3 +72,34 @@
 - [ ] Consumable/PermanentUpgrade/HPRepair 정식 SO 설계.
 - [ ] 각 상품 타입별 구매 적용 로직 구현.
 - [ ] Unity Editor에서 카드 배경, Tooltip, 상품 타입별 UI 확인.
+
+## 공통. 디버그/검증 편의 기능
+
+- [x] `1` 키 입력 시 Money/Overcharge를 지급하고 Workshop으로 즉시 진입하는 디버그 치트 추가.
+- [x] 레거시 `Input.GetKeyDown`/`Update` 폴링 제거.
+- [x] Unity New Input System `InputAction.performed`에서 Runtime 이벤트를 발행하고, Stage Flow는 해당 이벤트를 구독해 처리하도록 분리.
+- [x] 디버그 치트 입력 경로 검증 메뉴 추가.
+- [ ] Unity Editor에서 `Tools/Tessera/Validation/Run Debug Shop Cheat Input Scenario Test v1` 실행 후 PASS 로그 확인.
+- [ ] Unity Editor Play Mode에서 `1` 키 입력 후 Workshop 즉시 진입, Console 로그, Money/Overcharge 갱신 확인.
+
+## 8. DiceFaceUpgrade 적용 범위 기획 및 구현
+
+- [ ] 단일 주사위 단면 개조 vs 5개 주사위 동일 단면 일괄 개조 중 최종 방향 결정.
+- [ ] 결정된 정책에 맞춰 구매 UI/대상 선택/자동 적용 정책 재정의.
+- [ ] 기존 RunSession FaceUpgrade 장착 모델을 최종 정책에 맞게 보정.
+- [ ] Preview/Submit/PatternEvaluator 경로에 실제 장착 FaceUpgrade를 연결.
+- [ ] Unity Editor에서 구매 후 실제 전투 Pattern 결과가 변경되는지 확인.
+
+## 9. 라운드 승리 연출/카메라 연출 체크리스트
+
+- [ ] 라운드 승리 시 해머 스윙 연출 트리거 추가.
+- [ ] 해머 스윙 타이밍과 ImpactDamage 적용/표시 타이밍 동기화.
+- [ ] 승리 시 카메라 무브먼트/줌/쉐이크 연출 설계.
+- [ ] 연출 중 입력 잠금 및 UI 상태 전환 규칙 정리.
+- [ ] Unity Editor에서 승리/패배/무승부 흐름별 연출 확인.
+
+## 사용자 확인 요청 템플릿
+
+- [ ] 새 Validation 메뉴가 추가되면 메뉴 경로와 기대 PASS 로그를 함께 공유한다.
+- [ ] 직접 Play 확인이 필요하면 확인할 GameObject/UI/Console 로그와 첨부해야 할 스크린샷을 함께 공유한다.
+- [ ] 확인 결과를 받으면 이 체크리스트에 PASS/보류/재작업 여부를 반영한다.
