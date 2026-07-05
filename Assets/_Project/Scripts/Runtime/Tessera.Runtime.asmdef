@@ -3,7 +3,8 @@
     "rootNamespace": "Tessera.Runtime",
     "references": [
         "Tessera.Core",
-        "Tessera.Data"
+        "Tessera.Data",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
