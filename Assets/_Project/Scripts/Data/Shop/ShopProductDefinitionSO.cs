@@ -15,6 +15,8 @@ namespace Tessera.Data
         [Header("Shop")]
         /// <summary>Shop 상품 타입이다.</summary>
         [SerializeField] private ShopProductType productType = ShopProductType.None;
+        /// <summary>Shop 카드 배경으로 사용할 선택 Sprite다. 비어 있으면 prefab 기본 배경을 유지한다.</summary>
+        [SerializeField] private Sprite cardBackgroundSprite;
 
         [Header("Linked Item")]
         /// <summary>Device 상품일 때 연결되는 원본 Device 정의다.</summary>
@@ -25,6 +27,12 @@ namespace Tessera.Data
         [SerializeField] private DiceFaceUpgradeDefinitionSO diceFaceUpgradeDefinition;
 
         [Header("Future Placeholders")]
+        /// <summary>Consumable 상품일 때 연결되는 원본 Consumable 정의다.</summary>
+        [SerializeField] private ShopConsumableDefinitionSO consumableDefinition;
+        /// <summary>PermanentUpgrade 상품일 때 연결되는 원본 PermanentUpgrade 정의다.</summary>
+        [SerializeField] private ShopPermanentUpgradeDefinitionSO permanentUpgradeDefinition;
+        /// <summary>HPRepair 상품일 때 연결되는 원본 HPRepair 정의다.</summary>
+        [SerializeField] private ShopHpRepairDefinitionSO hpRepairDefinition;
         /// <summary>추후 Consumable 상품 원본 정의가 추가되기 전까지 사용하는 임시 참조다.</summary>
         [SerializeField] private ScriptableObject consumableDefinitionPlaceholder;
         /// <summary>추후 PermanentUpgrade 상품 원본 정의가 추가되기 전까지 사용하는 임시 참조다.</summary>
@@ -50,6 +58,9 @@ namespace Tessera.Data
         /// <summary>Shop 상품 타입이다.</summary>
         public ShopProductType ProductType => productType;
 
+        /// <summary>Shop 카드 배경으로 사용할 선택 Sprite다. 비어 있으면 prefab 기본 배경을 유지한다.</summary>
+        public Sprite CardBackgroundSprite => cardBackgroundSprite;
+
         /// <summary>Shop 등장/필터링에 사용할 Tier다.</summary>
         public int Tier => ItemDefinition != null ? Mathf.Max(1, ItemDefinition.Tier) : 1;
 
@@ -67,6 +78,15 @@ namespace Tessera.Data
 
         /// <summary>DiceFaceUpgrade 상품 원본 정의다.</summary>
         public DiceFaceUpgradeDefinitionSO DiceFaceUpgradeDefinition => diceFaceUpgradeDefinition;
+
+        /// <summary>Consumable 상품 원본 정의다.</summary>
+        public ShopConsumableDefinitionSO ConsumableDefinition => consumableDefinition;
+
+        /// <summary>PermanentUpgrade 상품 원본 정의다.</summary>
+        public ShopPermanentUpgradeDefinitionSO PermanentUpgradeDefinition => permanentUpgradeDefinition;
+
+        /// <summary>HPRepair 상품 원본 정의다.</summary>
+        public ShopHpRepairDefinitionSO HpRepairDefinition => hpRepairDefinition;
 
         /// <summary>추후 Consumable 상품 원본 정의가 추가되기 전까지 사용하는 임시 참조다.</summary>
         public ScriptableObject ConsumableDefinitionPlaceholder => consumableDefinitionPlaceholder;
@@ -102,6 +122,15 @@ namespace Tessera.Data
                 case ShopProductType.DiceFaceUpgrade:
                     return diceFaceUpgradeDefinition != null;
 
+                case ShopProductType.Consumable:
+                    return consumableDefinition != null;
+
+                case ShopProductType.PermanentUpgrade:
+                    return permanentUpgradeDefinition != null;
+
+                case ShopProductType.HpRepair:
+                    return hpRepairDefinition != null;
+
                 default:
                     return false;
             }
@@ -122,6 +151,15 @@ namespace Tessera.Data
 
                 case ShopProductType.DiceFaceUpgrade:
                     return diceFaceUpgradeDefinition;
+
+                case ShopProductType.Consumable:
+                    return consumableDefinition;
+
+                case ShopProductType.PermanentUpgrade:
+                    return permanentUpgradeDefinition;
+
+                case ShopProductType.HpRepair:
+                    return hpRepairDefinition;
 
                 default:
                     return null;

@@ -226,15 +226,15 @@ namespace Tessera.UI
         /// <summary>상품 배경 이미지를 갱신한다.</summary>
         private void RefreshBackground(ShopProductDefinitionSO product)
         {
-            // 현재 SO에는 배경 Sprite 필드가 없으므로 prefab 기본 배경을 유지한다.
             if (backgroundImage == null)
                 return;
 
+            Sprite cardBackground = product != null ? product.CardBackgroundSprite : null;
+            if (cardBackground != null)
+                backgroundImage.sprite = cardBackground;
+
             backgroundImage.enabled = true;
             backgroundImage.raycastTarget = true;
-
-            // TODO: ShopProductDefinitionSO에 CardBackgroundSprite가 추가되면 여기서 할당한다.
-            // backgroundImage.sprite = product != null ? product.CardBackgroundSprite : null;
         }
 
         /// <summary>카드 버튼 상호작용 상태를 갱신한다.</summary>

@@ -71,10 +71,14 @@
 
 ## 7. 상점 시각/상품군 확장
 
-- [ ] `ShopProductDefinitionSO` 카드 배경 Sprite 필드 추가.
-- [ ] `ShopProductCardView` 배경 Sprite 할당 구현.
-- [ ] Consumable/PermanentUpgrade/HPRepair 정식 SO 설계.
-- [ ] 각 상품 타입별 구매 적용 로직 구현.
+- [x] `ShopProductDefinitionSO` 카드 배경 Sprite 필드 추가.
+- [x] `ShopProductCardView` 배경 Sprite 할당 구현.
+- [x] Consumable/PermanentUpgrade/HPRepair 정식 SO 설계.
+  - `ShopConsumableDefinitionSO`: Money/Overcharge/HP 회복/Full HP 복구 계열 즉시 소모형 상품.
+  - `ShopPermanentUpgradeDefinitionSO`: Max HP 증가/Workshop Tier 증가 계열 Run 지속 강화 상품.
+  - `ShopHpRepairDefinitionSO`: 카드형 HP 회복 상품.
+- [x] 각 상품 타입별 구매 적용 로직 구현.
+- [x] Shop 상품 시각/타입 확장 검증 메뉴 추가.
 - [ ] Unity Editor에서 카드 배경, Tooltip, 상품 타입별 UI 확인.
 
 ## 공통. 디버그/검증 편의 기능
@@ -105,6 +109,15 @@
 - [ ] 승리 시 카메라 무브먼트/줌/쉐이크 연출 설계.
 - [ ] 연출 중 입력 잠금 및 UI 상태 전환 규칙 정리.
 - [ ] Unity Editor에서 승리/패배/무승부 흐름별 연출 확인.
+
+## 코드 시나리오만으로 확정하지 못하는 수동 확인 항목
+
+- [ ] `TesseraGameplayBattlePresenter`의 `Dice Synergy Rules` 배열에 필요한 `DiceSynergyDefinitionSO`가 Scene/Prefab Inspector에서 할당되어 있는지 확인.
+- [ ] CastPower 후처리 Device가 실제 전투 로그/FloatingText에 표시되는지 확인.
+- [ ] BrokenCast/Clash 후처리 Device가 실제 전투 로그/FloatingText에 표시되는지 확인.
+- [ ] DiceSynergy 효과가 실제 PlayMode 전투에서 의도한 UI/로그로 확인되는지 확인.
+- [ ] ShopProduct 카드 배경 Sprite가 Prefab 기본 배경 또는 SO 지정 배경으로 정상 표시되는지 확인.
+- [ ] Consumable/PermanentUpgrade/HPRepair 카드형 상품 SO를 실제 WorkshopRules productPool에 배치한 뒤 구매/Tooltip/가격/품절 상태를 확인.
 
 ## 사용자 확인 요청 템플릿
 

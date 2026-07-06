@@ -191,6 +191,17 @@ namespace Tessera.Runtime
             return PlayerCurrentHP - previousHP;
         }
 
+        /// <summary>플레이어 최대 HP를 증가시키고 증가량만큼 현재 HP도 함께 회복한다.</summary>
+        public int IncreasePlayerMaxHP(int amount)
+        {
+            if (amount <= 0)
+                return 0;
+
+            PlayerMaxHP += amount;
+            PlayerCurrentHP = Mathf.Min(PlayerMaxHP, PlayerCurrentHP + amount);
+            return amount;
+        }
+
         /// <summary>기존 CashOut 회복 호출 호환용 메서드다. 신규 코드는 HealByRatio를 사용한다.</summary>
         public int HealByCashOutRatio(float ratio)
         {

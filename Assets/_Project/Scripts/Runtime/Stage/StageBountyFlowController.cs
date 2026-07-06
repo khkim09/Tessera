@@ -945,6 +945,15 @@ namespace Tessera.Runtime
                 case ShopProductType.DiceFaceUpgrade:
                     return TryApplyPurchasedDiceFaceUpgradeProduct(product, out applyMessage);
 
+                case ShopProductType.Consumable:
+                    return TryApplyPurchasedConsumableProduct(product, out applyMessage);
+
+                case ShopProductType.PermanentUpgrade:
+                    return TryApplyPurchasedPermanentUpgradeProduct(product, out applyMessage);
+
+                case ShopProductType.HpRepair:
+                    return TryApplyPurchasedHpRepairProduct(product, out applyMessage);
+
                 default:
                     applyMessage = $"Product type {product.ProductType} purchase effect is not implemented.";
                     return false;
@@ -1055,6 +1064,113 @@ namespace Tessera.Runtime
 
             string previousName = previousUpgrade != null ? previousUpgrade.DisplayName : "None";
             applyMessage = $"Dice {appliedDiceIndex + 1} Face {appliedFaceIndex + 1} changed from {previousName} to {upgradeDefinition.DisplayName}.";
+            return true;
+        }
+
+        /// <summary>구매 즉시 소모되는 Consumable 상품 효과를 적용한다.</summary>
+        private bool TryApplyPurchasedConsumableProduct(
+            ShopProductDefinitionSO product,
+            out string applyMessage)
+        {
+            applyMessage = string.Empty;
+            ShopConsumableDefinitionSO consumable = product.ConsumableDefinition;
+
+            if (consumable == null)
+            {
+                applyMessage = "Consumable definition is missing.";
+                return false;
+            }
+
+            switch (consumable.EffectType)
+            {
+                case ShopConsumableEffectType.AddMoney:
+                    runSession.AddMoney(consumable.IntValue);
+                    PublishStageEconomyChanged($"Consumable applied. Money +{consumable.IntValue}.");
+                    applyMessage = $"Money +{consumable.IntValue}.";
+                    return true;
+
+                case ShopConsumableEffectType.AddOvercharge:
+                    runSession.AddOvercharge(consumable.IntValue);
+                    PublishOverchargeDisplayRefresh($"Consumable applied. Overcharge +{consumable.IntValue}.");
+                    applyMessage = $"Overcharge +{consumable.IntValue}.";
+                    return true;
+
+                case ShopConsumableEffectType.RepairHP:
+                    int healed = runSession.RepairPlayerHP(consumable.IntValue);
+                    PublishPlayerHPDisplayRefresh($"Consumable applied. HP +{healed}.");
+                    applyMessage = $"HP +{healed}.";
+                    return true;
+
+                case ShopConsumableEffectType.RestoreFullHP:
+                    int previousHP = runSession.PlayerCurrentHP;
+                    runSession.RestorePlayerToFullHP();
+                    int restored = runSession.PlayerCurrentHP - previousHP;
+                    PublishPlayerHPDisplayRefresh($"Consumable applied. HP +{restored}.");
+                    applyMessage = $"HP restored by {restored}.";
+                    return true;
+
+                default:
+                    applyMessage = $"Consumable effect {consumable.EffectType} is not implemented.";
+                    return false;
+            }
+        }
+
+        /// <summary>Run 동안 유지되는 PermanentUpgrade 상품 효과를 적용한다.</summary>
+        private bool TryApplyPurchasedPermanentUpgradeProduct(
+            ShopProductDefinitionSO product,
+            out string applyMessage)
+        {
+            applyMessage = string.Empty;
+            ShopPermanentUpgradeDefinitionSO upgrade = product.PermanentUpgradeDefinition;
+
+            if (upgrade == null)
+            {
+                applyMessage = "PermanentUpgrade definition is missing.";
+                return false;
+            }
+
+            switch (upgrade.EffectType)
+            {
+                case ShopPermanentUpgradeEffectType.IncreaseMaxHP:
+                    int increased = runSession.IncreasePlayerMaxHP(upgrade.IntValue);
+                    PublishPlayerHPDisplayRefresh($"Permanent upgrade applied. Max HP +{increased}.");
+                    applyMessage = $"Max HP +{increased}.";
+                    return true;
+
+                case ShopPermanentUpgradeEffectType.AddWorkshopTier:
+                    runSession.SetWorkshopTier(runSession.CurrentWorkshopTier + upgrade.IntValue);
+                    applyMessage = $"Workshop Tier +{upgrade.IntValue}. Current Tier {runSession.CurrentWorkshopTier}.";
+                    return true;
+
+                default:
+                    applyMessage = $"PermanentUpgrade effect {upgrade.EffectType} is not implemented.";
+                    return false;
+            }
+        }
+
+        /// <summary>카드형 HPRepair 상품 효과를 적용한다.</summary>
+        private bool TryApplyPurchasedHpRepairProduct(
+            ShopProductDefinitionSO product,
+            out string applyMessage)
+        {
+            applyMessage = string.Empty;
+            ShopHpRepairDefinitionSO repair = product.HpRepairDefinition;
+
+            if (repair == null)
+            {
+                applyMessage = "HPRepair definition is missing.";
+                return false;
+            }
+
+            int previousHP = runSession.PlayerCurrentHP;
+            if (repair.RestoreFullHP)
+                runSession.RestorePlayerToFullHP();
+            else
+                runSession.RepairPlayerHP(repair.HealAmount);
+
+            int healed = runSession.PlayerCurrentHP - previousHP;
+            PublishPlayerHPDisplayRefresh($"HPRepair purchased. HP +{healed}.");
+            applyMessage = repair.RestoreFullHP ? $"HP restored by {healed}." : $"HP +{healed}.";
             return true;
         }
 
