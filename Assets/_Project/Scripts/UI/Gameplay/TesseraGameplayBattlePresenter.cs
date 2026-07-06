@@ -846,6 +846,8 @@ namespace Tessera.UI
 
             LogOpponentClashCastResult("OpponentFirst", pendingOpponentClashResult);
 
+            await PlayOpponentSlotPairEvaluationSequenceAsync(pendingOpponentClashResult);
+
             SetMessage(BuildOpponentTargetMessage(pendingOpponentClashResult));
             RefreshClashPowerTexts();
 
@@ -961,6 +963,8 @@ namespace Tessera.UI
             if (built && pendingOpponentClashResult != null)
             {
                 LogOpponentClashCastResult("OpponentSecond", pendingOpponentClashResult);
+
+                await PlayOpponentSlotPairEvaluationSequenceAsync(pendingOpponentClashResult);
 
                 SetMessage(BuildOpponentTargetMessage(pendingOpponentClashResult));
                 RefreshClashPowerTexts();
@@ -1970,13 +1974,23 @@ namespace Tessera.UI
         /// <summary>지정 SlotPair 인덱스의 Device 표시 이름을 반환한다.</summary>
         private string GetSlotPairDeviceDisplayName(int slotIndex)
         {
-            if (slotPairDevices == null)
+            return GetSlotPairDeviceDisplayName(DiceOwnerType.Player, slotIndex);
+        }
+
+        /// <summary>지정 소유자의 SlotPair 인덱스 Device 표시 이름을 반환한다.</summary>
+        private string GetSlotPairDeviceDisplayName(DiceOwnerType owner, int slotIndex)
+        {
+            SlotPairDeviceDefinitionSO[] devices = owner == DiceOwnerType.Opponent
+                ? opponentSlotPairDevices
+                : slotPairDevices;
+
+            if (devices == null)
                 return "No Device";
 
-            if (slotIndex < 0 || slotIndex >= slotPairDevices.Length)
+            if (slotIndex < 0 || slotIndex >= devices.Length)
                 return "No Device";
 
-            SlotPairDeviceDefinitionSO device = slotPairDevices[slotIndex];
+            SlotPairDeviceDefinitionSO device = devices[slotIndex];
 
             if (device == null)
                 return "No Device";
@@ -2732,9 +2746,19 @@ namespace Tessera.UI
         /// <summary>지정 SlotPair 인덱스의 Player DeviceSlot을 강조한다.</summary>
         private void HighlightSlotPair(int slotIndex)
         {
+            HighlightSlotPair(DiceOwnerType.Player, slotIndex);
+        }
+
+        /// <summary>지정 소유자의 SlotPair 인덱스 DeviceSlot을 강조한다.</summary>
+        private void HighlightSlotPair(DiceOwnerType owner, int slotIndex)
+        {
             // 새 구조에서는 DeviceSlot 하단 Dice와 DeviceSlot 자체가 LockSlot 역할을 겸한다.
-            if (playerDeviceRack3DView != null)
-                playerDeviceRack3DView.HighlightSlot(slotIndex);
+            DeviceRack3DView targetRack = owner == DiceOwnerType.Opponent
+                ? opponentDeviceRack3DView
+                : playerDeviceRack3DView;
+
+            if (targetRack != null)
+                targetRack.HighlightSlot(slotIndex);
         }
 
         /// <summary>SlotPair 계산 연출 Highlight를 모두 해제한다.</summary>
@@ -2752,6 +2776,16 @@ namespace Tessera.UI
             SlotPairDamageStep step,
             CancellationToken cancellationToken)
         {
+            PlayEvaluationDiceJumpRollAsync(DiceOwnerType.Player, step, cancellationToken).Forget();
+            await UniTask.CompletedTask;
+        }
+
+        /// <summary>현재 SlotPair 단계의 지정 소유자 DiceView를 제자리에서 점프/회전시킨다.</summary>
+        private async UniTaskVoid PlayEvaluationDiceJumpRollAsync(
+            DiceOwnerType owner,
+            SlotPairDamageStep step,
+            CancellationToken cancellationToken)
+        {
             if (!playDiceJumpRollDuringEvaluation) return;
             if (step == null) return;
             if (step.DiceIndex < 0) return;
@@ -2759,6 +2793,7 @@ namespace Tessera.UI
 
             // 이미 DeviceSlot 하단에 배치된 DiceView를 제자리에서 반응시킨다.
             await diceTray3DView.PlayDiceJumpRollAsync(
+                owner,
                 step.DiceIndex,
                 slotPairDiceJumpHeight,
                 slotPairDiceJumpRollEuler,
@@ -2774,15 +2809,35 @@ namespace Tessera.UI
             out Vector3 worldPosition,
             out Quaternion worldRotation)
         {
+            return TryGetSlotPairFloatingWorldPose(
+                DiceOwnerType.Player,
+                slotIndex,
+                localPresentationOffset,
+                localRotationOffset,
+                out worldPosition,
+                out worldRotation);
+        }
+
+        /// <summary>SlotPair Floating Text를 띄울 지정 소유자 DeviceSlot 기준 월드 위치와 회전을 계산한다.</summary>
+        private bool TryGetSlotPairFloatingWorldPose(
+            DiceOwnerType owner,
+            int slotIndex,
+            Vector3 localPresentationOffset,
+            Quaternion localRotationOffset,
+            out Vector3 worldPosition,
+            out Quaternion worldRotation)
+        {
             worldPosition = Vector3.zero;
             worldRotation = Quaternion.identity;
 
-            if (playerDeviceRack3DView == null)
+            DeviceRack3DView targetRack = ResolveDeviceRack(owner);
+
+            if (targetRack == null)
                 return false;
 
             Camera targetCamera = battleCamera != null ? battleCamera : Camera.main;
 
-            if (!playerDeviceRack3DView.TryGetSlotPresentationBasis(
+            if (!targetRack.TryGetSlotPresentationBasis(
                     slotIndex,
                     targetCamera,
                     out Vector3 slotCenter,
@@ -2801,6 +2856,14 @@ namespace Tessera.UI
             return true;
         }
 
+        /// <summary>지정 소유자의 DeviceRack View를 반환한다.</summary>
+        private DeviceRack3DView ResolveDeviceRack(DiceOwnerType owner)
+        {
+            return owner == DiceOwnerType.Opponent
+                ? opponentDeviceRack3DView
+                : playerDeviceRack3DView;
+        }
+
         /// <summary>SlotPair 연산 연출 후 모든 DiceView를 DiceTray 위치로 복귀시킨다.</summary>
         private void RestoreEvaluationDicePlacement()
         {
@@ -2809,6 +2872,12 @@ namespace Tessera.UI
 
         /// <summary>연산 완료 후 모든 DiceView를 DiceTray 원래 위치로 복귀시킨다.</summary>
         private void RestoreAllDiceToTrayAfterEvaluation()
+        {
+            RestoreAllDiceToTrayAfterEvaluation(DiceOwnerType.Player, null);
+        }
+
+        /// <summary>연산 완료 후 지정 소유자의 DiceView를 DiceTray 원래 위치로 복귀시킨다.</summary>
+        private void RestoreAllDiceToTrayAfterEvaluation(DiceOwnerType owner, IReadOnlyList<int> diceValuesOverride)
         {
             if (!restoreDiceToTrayAfterEvaluation)
                 return;
@@ -2819,15 +2888,82 @@ namespace Tessera.UI
             if (roundState == null)
                 return;
 
-            IReadOnlyList<int> diceValues = roundState.GetCurrentDiceValues();
+            IReadOnlyList<int> diceValues = diceValuesOverride ?? roundState.GetCurrentDiceValues();
 
             // 상대 턴/다음 흐름으로 넘어가기 전 Dice를 모두 Tray에 정리한다.
-            diceTray3DView.RestoreAllDiceToTray(diceValues, lockedDiceMoveDuration);
+            diceTray3DView.RestoreAllDiceToTray(owner, diceValues, lockedDiceMoveDuration);
         }
 
         #endregion
 
         #region SlotPair Evaluation Presentation
+
+        /// <summary>Cast 제출 후 SlotPair 계산 순서 연출을 비동기로 재생한다.</summary>
+        private async UniTask PlayOpponentSlotPairEvaluationSequenceAsync(ClashCastResult result)
+        {
+            if (result == null)
+                return;
+
+            PresentOpponentDiceForSlotPairEvaluation(result);
+            SetMessage($"Opponent calculating {CastBoardCatalog.GetDisplayName(result.PatternType)}...");
+            await PlaySlotPairEvaluationSequenceAsync(result);
+        }
+
+        /// <summary>Opponent의 확정 Cast에 맞춰 Dice를 각 SlotPair 슬롯에 배치한다.</summary>
+        private void PresentOpponentDiceForSlotPairEvaluation(ClashCastResult result)
+        {
+            if (result == null || diceTray3DView == null)
+                return;
+
+            IReadOnlyList<int> diceValues = result.DiceValues;
+            IReadOnlyList<int> lockSlotDiceIndexes = result.LockSlotDiceIndexes;
+            List<bool> lockStates = CreateAllLockedStates(diceValues != null ? diceValues.Count : 0);
+
+            diceTray3DView.SetDiceValuesOnly(DiceOwnerType.Opponent, diceValues, lockStates);
+
+            for (int slotIndex = 0; slotIndex < opponentLockedDiceIndexBySlot.Length; slotIndex++)
+                opponentLockedDiceIndexBySlot[slotIndex] = -1;
+
+            if (lockSlotDiceIndexes == null)
+                return;
+
+            int slotCount = Mathf.Min(lockSlotDiceIndexes.Count, SlotPairDamageCalculator.SlotPairCount);
+
+            for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
+            {
+                int diceIndex = lockSlotDiceIndexes[slotIndex];
+
+                if (diceIndex < 0 || diceValues == null || diceIndex >= diceValues.Count)
+                    continue;
+
+                opponentLockedDiceIndexBySlot[slotIndex] = diceIndex;
+
+                if (!TryGetLockedDiceSlotAnchorPose(
+                        DiceOwnerType.Opponent,
+                        slotIndex,
+                        out Vector3 targetPosition,
+                        out Quaternion targetRotation))
+                    continue;
+
+                diceTray3DView.MoveDiceToLockedDeviceSlot(
+                    DiceOwnerType.Opponent,
+                    diceIndex,
+                    targetPosition,
+                    targetRotation,
+                    lockedDiceMoveDuration);
+            }
+        }
+
+        /// <summary>지정 개수만큼 모두 Locked 상태인 목록을 생성한다.</summary>
+        private static List<bool> CreateAllLockedStates(int count)
+        {
+            List<bool> lockStates = new List<bool>(Mathf.Max(0, count));
+
+            for (int i = 0; i < count; i++)
+                lockStates.Add(true);
+
+            return lockStates;
+        }
 
         /// <summary>Cast 제출 후 SlotPair 계산 순서 연출을 비동기로 재생한다.</summary>
         private async UniTask PlaySlotPairEvaluationSequenceAsync(ClashCastResult result)
@@ -2867,10 +3003,10 @@ namespace Tessera.UI
 
                     if (completed)
                     {
-                        if (interactionState == BattleInteractionState.CastResolving)
+                        if (result.Owner == ClashParticipantType.Player && interactionState == BattleInteractionState.CastResolving)
                             RefreshDeviceSlotLockedDicePresentation();
                         else
-                            RestoreAllDiceToTrayAfterEvaluation();
+                            RestoreAllDiceToTrayAfterEvaluation(ResolveDiceOwner(result), result.DiceValues);
                     }
                     else
                     {
@@ -2889,6 +3025,14 @@ namespace Tessera.UI
 
                 currentCts.Dispose();
             }
+        }
+
+        /// <summary>Clash 결과의 Dice 소유자를 반환한다.</summary>
+        private static DiceOwnerType ResolveDiceOwner(ClashCastResult result)
+        {
+            return result != null && result.Owner == ClashParticipantType.Opponent
+                ? DiceOwnerType.Opponent
+                : DiceOwnerType.Player;
         }
 
         /// <summary>SlotPairDamagePreview의 Step 목록을 기준으로 DeviceSlot과 Dice 반응 연출을 순차 재생한다.</summary>
@@ -2913,12 +3057,14 @@ namespace Tessera.UI
 
                 SlotPairDamageStep step = steps[i];
 
-                HighlightSlotPair(step.SlotIndex);
+                HighlightSlotPair(ResolveDiceOwner(result), step.SlotIndex);
 
                 LogSlotPairStep(result, step);
 
-                PlayEvaluationDiceJumpRollAsync(step, cancellationToken).Forget();
-                PlaySlotPairFloatingTextAsync(step, cancellationToken).Forget();
+                DiceOwnerType owner = ResolveDiceOwner(result);
+
+                PlayEvaluationDiceJumpRollAsync(owner, step, cancellationToken).Forget();
+                PlaySlotPairFloatingTextAsync(owner, step, cancellationToken).Forget();
 
                 if (hologramUpdateLeadDuration > 0f)
                     await UniTask.Delay(TimeSpan.FromSeconds(hologramUpdateLeadDuration), cancellationToken: cancellationToken);
@@ -2962,10 +3108,17 @@ namespace Tessera.UI
         /// <summary>현재 SlotPair 단계의 변화량을 Floating Text로 표시한다.</summary>
         private async UniTaskVoid PlaySlotPairFloatingTextAsync(SlotPairDamageStep step, CancellationToken cancellationToken)
         {
+            PlaySlotPairFloatingTextAsync(DiceOwnerType.Player, step, cancellationToken).Forget();
+            await UniTask.CompletedTask;
+        }
+
+        /// <summary>현재 SlotPair 단계의 변화량을 지정 소유자의 Floating Text로 표시한다.</summary>
+        private async UniTaskVoid PlaySlotPairFloatingTextAsync(DiceOwnerType owner, SlotPairDamageStep step, CancellationToken cancellationToken)
+        {
             if (!playSlotPairFloatingText) return;
             if (step == null) return;
             if (slotPairStepFloatingTextView == null) return;
-            if (!TryGetSlotPairFloatingAnchoredPosition(step.SlotIndex, out Vector2 anchoredPosition)) return;
+            if (!TryGetSlotPairFloatingAnchoredPosition(owner, step.SlotIndex, out Vector2 anchoredPosition)) return;
 
             string message = BuildSlotPairFloatingMessage(step);
 
@@ -2978,9 +3131,17 @@ namespace Tessera.UI
         /// <summary>SlotPair Floating Text를 띄울 DeviceSlot 기준 Overlay 좌표를 계산한다.</summary>
         private bool TryGetSlotPairFloatingAnchoredPosition(int slotIndex, out Vector2 anchoredPosition)
         {
+            return TryGetSlotPairFloatingAnchoredPosition(DiceOwnerType.Player, slotIndex, out anchoredPosition);
+        }
+
+        /// <summary>SlotPair Floating Text를 띄울 지정 소유자 DeviceSlot 기준 Overlay 좌표를 계산한다.</summary>
+        private bool TryGetSlotPairFloatingAnchoredPosition(DiceOwnerType owner, int slotIndex, out Vector2 anchoredPosition)
+        {
             anchoredPosition = Vector2.zero;
 
-            if (playerDeviceRack3DView == null)
+            DeviceRack3DView targetRack = ResolveDeviceRack(owner);
+
+            if (targetRack == null)
                 return false;
 
             RectTransform root = slotPairFloatingTextRoot;
@@ -2997,6 +3158,7 @@ namespace Tessera.UI
                 return false;
 
             if (!TryGetSlotPairFloatingWorldPose(
+                    owner,
                     slotIndex,
                     slotPairFloatingWorldOffset,
                     Quaternion.identity,
@@ -3993,7 +4155,7 @@ namespace Tessera.UI
             if (result == null || step == null)
                 return;
 
-            string deviceName = GetSlotPairDeviceDisplayName(step.SlotIndex);
+            string deviceName = GetSlotPairDeviceDisplayName(ResolveDiceOwner(result), step.SlotIndex);
             string applyState = step.DidApply ? "APPLY" : "SKIP";
 
             Debug.Log(

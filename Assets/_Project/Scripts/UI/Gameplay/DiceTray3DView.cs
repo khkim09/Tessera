@@ -399,7 +399,25 @@ namespace Tessera.UI
             float duration,
             CancellationToken cancellationToken)
         {
-            if (!TryGetDiceView(DiceOwnerType.Player, diceIndex, out Dice3DView diceView))
+            return PlayDiceJumpRollAsync(
+                DiceOwnerType.Player,
+                diceIndex,
+                jumpHeight,
+                rollEuler,
+                duration,
+                cancellationToken);
+        }
+
+        /// <summary>지정 소유자의 DiceView에 제자리 점프/회전 연출을 재생한다.</summary>
+        public UniTask PlayDiceJumpRollAsync(
+            DiceOwnerType owner,
+            int diceIndex,
+            float jumpHeight,
+            Vector3 rollEuler,
+            float duration,
+            CancellationToken cancellationToken)
+        {
+            if (!TryGetDiceView(owner, diceIndex, out Dice3DView diceView))
                 return UniTask.CompletedTask;
 
             return diceView.PlayJumpRollAsync(jumpHeight, rollEuler, duration, cancellationToken);

@@ -105,7 +105,13 @@
 - [ ] Unity Editor에서 구매 후 실제 전투 Pattern 결과가 변경되는지 확인.
   - 코드 검증 메뉴: `Tools/Tessera/Validation/Run DiceFaceUpgrade Runtime Connection Scenario Test v1` 추가.
 
-## 9. 라운드 승리 연출/카메라 연출 체크리스트
+## 9. Opponent Cast 확정 후 SlotPair 연산 시뮬레이션 표시
+
+- [x] Opponent가 AI 정책으로 Cast를 확정한 뒤에도 Player 제출과 동일한 SlotPair 연산 시퀀스를 재생한다.
+- [x] Opponent Dice를 확정 Cast의 각 SlotPair 슬롯에 배치하고 DeviceSlot 하이라이트/Dice 반응 연출을 Opponent 소유자 기준으로 재생한다.
+- [ ] Unity Editor에서 Opponent 선공/후공 모두 Dice와 Device 연산 과정이 Player와 같은 속도로 보이는지 확인.
+
+## 10. 라운드 승리 연출/카메라 연출 체크리스트
 
 - [ ] 라운드 승리 시 해머 스윙 연출 트리거 추가.
 - [ ] 해머 스윙 타이밍과 ImpactDamage 적용/표시 타이밍 동기화.
@@ -123,6 +129,7 @@
 - [ ] Consumable/PermanentUpgrade/HPRepair 카드형 상품 SO를 실제 WorkshopRules productPool에 배치한 뒤 구매/Tooltip/가격/품절 상태를 확인.
 - [ ] DiceFaceUpgrade 구매 후 실제 PlayMode 전투에서 구매한 Face가 Pattern 결과를 바꾸는지 확인.
 - [ ] DiceFaceUpgrade 구매 후 대상 Dice/Face 선택 UI가 아직 없으므로 자동 적용 정책이 임시 정책임을 UX에서 확인.
+- [ ] Opponent 선공/후공 Cast 확정 후 SlotPair별 Dice/Device 연산 시뮬레이션이 Player 제출 연출과 같은 속도로 표시되는지 확인.
 
 ## 사용자 확인 요청 템플릿
 
