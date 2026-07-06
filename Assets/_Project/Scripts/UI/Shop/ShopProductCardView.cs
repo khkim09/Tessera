@@ -226,15 +226,15 @@ namespace Tessera.UI
         /// <summary>상품 배경 이미지를 갱신한다.</summary>
         private void RefreshBackground(ShopProductDefinitionSO product)
         {
-            // 현재 SO에는 배경 Sprite 필드가 없으므로 prefab 기본 배경을 유지한다.
             if (backgroundImage == null)
                 return;
 
+            Sprite cardBackground = product != null ? product.CardBackgroundSprite : null;
+            if (cardBackground != null)
+                backgroundImage.sprite = cardBackground;
+
             backgroundImage.enabled = true;
             backgroundImage.raycastTarget = true;
-
-            // TODO: ShopProductDefinitionSO에 CardBackgroundSprite가 추가되면 여기서 할당한다.
-            // backgroundImage.sprite = product != null ? product.CardBackgroundSprite : null;
         }
 
         /// <summary>카드 버튼 상호작용 상태를 갱신한다.</summary>
@@ -329,12 +329,6 @@ namespace Tessera.UI
                 return false;
             }
 
-            if (RequiresDiceTypeSlotSelection(product.ProductType))
-            {
-                failureMessage = "Individual DiceType assignment UI is not implemented yet.";
-                return false;
-            }
-
             if (boundRunSession.Money < boundSlot.MoneyPrice)
             {
                 failureMessage = "Not enough Money.";
@@ -360,13 +354,6 @@ namespace Tessera.UI
         }
 
         #region Helper
-
-        /// <summary>구매 시 대상 DiceIndex 선택이 필요한 DiceType 상품인지 확인한다.</summary>
-        private static bool RequiresDiceTypeSlotSelection(ShopProductType productType)
-        {
-            return productType == ShopProductType.SingleDice
-                    || productType == ShopProductType.DiceTypeUpgrade;
-        }
 
         /// <summary>구매 불가 Overlay와 Shake 피드백을 비동기로 재생한다.</summary>
         private async UniTaskVoid PlayPurchaseBlockedFeedbackAsync(CancellationToken cancellationToken)

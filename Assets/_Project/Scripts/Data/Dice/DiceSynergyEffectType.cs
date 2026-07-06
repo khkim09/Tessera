@@ -10,6 +10,8 @@
         AddForceIfOddDiceCountAtLeast = 12,
         AddForceIfEvenDiceCountAtLeast = 13,
         AddScoreForHighDice = 14,
+        AddScoreForLowDice = 15,
+        AddForceIfLowDiceCountAtLeast = 16,
 
         IncreaseBrokenCastDamageReduction = 50,
         AddOverchargeOnBrokenCast = 51,

@@ -9,6 +9,8 @@ namespace Tessera.Core
         private readonly List<DiceInstance> _dice;
         /// <summary>DiceIndex별 DiceType 상태를 보관한다.</summary>
         private readonly List<DiceTypeIntrinsicData> _diceTypes;
+        private readonly List<DiceSynergyRuleData> _diceSynergyRules;
+        private readonly List<DiceFaceUpgradeData> _diceFaceUpgrades;
         private readonly List<CastSubmitResult> _submitResults;
         private readonly Dictionary<RollPatternType, int> _patternUseCounts;
 
@@ -29,6 +31,25 @@ namespace Tessera.Core
 
         /// <summary>DiceIndex별 현재 DiceType 목록이다.</summary>
         public IReadOnlyList<DiceTypeIntrinsicData> DiceTypes => _diceTypes;
+
+        /// <summary>현재 Round에서 평가할 DiceSynergy 규칙 목록이다.</summary>
+        public IReadOnlyList<DiceSynergyRuleData> DiceSynergyRules => _diceSynergyRules;
+
+        /// <summary>현재 Round에서 DiceIndex/FaceIndex별로 적용할 FaceUpgrade 데이터다.</summary>
+        public IReadOnlyList<DiceFaceUpgradeData> DiceFaceUpgrades => _diceFaceUpgrades;
+
+        /// <summary>하나 이상의 FaceUpgrade가 현재 Round에 적용되어 있는지 확인한다.</summary>
+        public bool HasDiceFaceUpgrades
+        {
+            get
+            {
+                for (int i = 0; i < _diceFaceUpgrades.Count; i++)
+                    if (_diceFaceUpgrades[i].IsValid)
+                        return true;
+
+                return false;
+            }
+        }
 
         /// <summary>현재 Attempt 상태.</summary>
         public AttemptState CurrentAttempt { get; private set; }
@@ -107,7 +128,9 @@ namespace Tessera.Core
             IReadOnlyList<DiceInstance> initialDice,
             AttemptState firstAttempt,
             EnemyIntent initialEnemyIntent,
-            IReadOnlyList<DiceTypeIntrinsicData> initialDiceTypes = null)
+            IReadOnlyList<DiceTypeIntrinsicData> initialDiceTypes = null,
+            IReadOnlyList<DiceSynergyRuleData> initialDiceSynergyRules = null,
+            IReadOnlyList<DiceFaceUpgradeData> initialDiceFaceUpgrades = null)
         {
             RuleContext = ruleContext ?? throw new ArgumentNullException(nameof(ruleContext));
             Encounter = encounter ?? throw new ArgumentNullException(nameof(encounter));
@@ -125,6 +148,13 @@ namespace Tessera.Core
             _diceTypes = new List<DiceTypeIntrinsicData>(_dice.Count);
             for (int i = 0; i < _dice.Count; i++)
                 _diceTypes.Add(initialDiceTypes != null && i < initialDiceTypes.Count ? initialDiceTypes[i] : DiceTypeIntrinsicData.Empty);
+            _diceSynergyRules = initialDiceSynergyRules != null
+                ? new List<DiceSynergyRuleData>(initialDiceSynergyRules)
+                : new List<DiceSynergyRuleData>();
+            _diceFaceUpgrades = new List<DiceFaceUpgradeData>(_dice.Count * 6);
+            int expectedFaceUpgradeCount = _dice.Count * 6;
+            for (int i = 0; i < expectedFaceUpgradeCount; i++)
+                _diceFaceUpgrades.Add(initialDiceFaceUpgrades != null && i < initialDiceFaceUpgrades.Count ? initialDiceFaceUpgrades[i] : DiceFaceUpgradeData.Empty);
             _submitResults = new List<CastSubmitResult>();
             _patternUseCounts = new Dictionary<RollPatternType, int>();
             IsRoundEnded = false;
@@ -165,6 +195,35 @@ namespace Tessera.Core
                 values.Add(_dice[i].GetCurrentNumberValue());
 
             return values;
+        }
+
+        /// <summary>현재 주사위 값을 FaceUpgrade가 적용된 평가용 Face 목록으로 반환한다.</summary>
+        public List<DiceFace> GetCurrentEffectiveDiceFaces()
+        {
+            List<DiceFace> faces = new List<DiceFace>(_dice.Count);
+
+            for (int i = 0; i < _dice.Count; i++)
+            {
+                DiceFace currentFace = _dice[i].CurrentFace;
+                faces.Add(ResolveEffectiveFace(i, currentFace));
+            }
+
+            return faces;
+        }
+
+        private DiceFace ResolveEffectiveFace(int diceIndex, DiceFace currentFace)
+        {
+            if (!currentFace.IsNumber)
+                return currentFace;
+
+            int faceIndex = currentFace.NumberValue - 1;
+            int flatIndex = diceIndex * 6 + faceIndex;
+
+            if (flatIndex < 0 || flatIndex >= _diceFaceUpgrades.Count)
+                return currentFace;
+
+            DiceFaceUpgradeData upgrade = _diceFaceUpgrades[flatIndex];
+            return upgrade.IsValid ? upgrade.ReplacementFace : currentFace;
         }
 
         /// <summary>지정한 Cast 카테고리의 사용 횟수를 반환한다.</summary>

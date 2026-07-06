@@ -53,6 +53,9 @@ namespace Tessera.UI
         [Header("Runtime Player Slot Pair Devices Debug Mirror")]
         [SerializeField, ReadOnlyInspector] private SlotPairDeviceDefinitionSO[] slotPairDevices = new SlotPairDeviceDefinitionSO[5];
 
+        [Header("Dice Synergy Rules")]
+        [SerializeField] private DiceSynergyDefinitionSO[] diceSynergyDefinitions;
+
         [Header("Runtime Opponent Slot Pair Devices Debug Mirror")]
         [SerializeField, ReadOnlyInspector] private SlotPairDeviceDefinitionSO[] opponentSlotPairDevices = new SlotPairDeviceDefinitionSO[5];
 
@@ -301,8 +304,48 @@ namespace Tessera.UI
             {
                 DiceTypeDefinitionSO diceType = equippedDiceTypes[i];
                 result.Add(diceType != null
-                    ? new DiceTypeIntrinsicData(diceType.DisplayName, diceType.IntrinsicEffectType, diceType.IntValue, diceType.FloatValue)
+                    ? new DiceTypeIntrinsicData(diceType.DisplayName, diceType.IntrinsicEffectType, diceType.IntValue, diceType.FloatValue, (int)diceType.SynergyTag)
                     : DiceTypeIntrinsicData.Empty);
+            }
+
+            return result;
+        }
+
+
+        /// <summary>Data 계층 DiceSynergy SO 목록을 Core 규칙 데이터 목록으로 변환한다.</summary>
+        private static List<DiceSynergyRuleData> BuildDiceSynergyRuleData(IReadOnlyList<DiceSynergyDefinitionSO> synergyDefinitions)
+        {
+            if (synergyDefinitions == null)
+                return null;
+
+            List<DiceSynergyRuleData> result = new List<DiceSynergyRuleData>(synergyDefinitions.Count);
+
+            for (int i = 0; i < synergyDefinitions.Count; i++)
+            {
+                DiceSynergyDefinitionSO synergy = synergyDefinitions[i];
+                if (synergy != null && synergy.EffectType != Tessera.Data.DiceSynergyEffectType.None)
+                    result.Add(synergy.ToCoreRuleData());
+            }
+
+            return result;
+        }
+
+        /// <summary>RunSession의 DiceFaceUpgrade 장착 상태를 Core Round 계산용 데이터로 변환한다.</summary>
+        private static List<DiceFaceUpgradeData> BuildDiceFaceUpgradeData(TesseraRunSession runSession)
+        {
+            if (runSession == null)
+                return null;
+
+            List<DiceFaceUpgradeData> result = new List<DiceFaceUpgradeData>(TesseraRunSession.PlayerDiceCount * TesseraRunSession.DiceFaceCount);
+            for (int diceIndex = 0; diceIndex < TesseraRunSession.PlayerDiceCount; diceIndex++)
+            {
+                for (int faceIndex = 0; faceIndex < TesseraRunSession.DiceFaceCount; faceIndex++)
+                {
+                    DiceFaceUpgradeDefinitionSO upgrade = runSession.GetDiceFaceUpgrade(diceIndex, faceIndex);
+                    result.Add(upgrade != null
+                        ? new DiceFaceUpgradeData(true, upgrade.CreateReplacementFace())
+                        : DiceFaceUpgradeData.Empty);
+                }
             }
 
             return result;
@@ -352,7 +395,9 @@ namespace Tessera.UI
                 ruleContext,
                 carriedPlayerHP,
                 stageOverchargeState,
-                BuildDiceTypeIntrinsicData(equippedDiceTypes));
+                BuildDiceTypeIntrinsicData(equippedDiceTypes),
+                BuildDiceSynergyRuleData(diceSynergyDefinitions),
+                BuildDiceFaceUpgradeData(runSession));
             ApplyPlayerDiceTypeVisuals();
             currentRoundDefinition = roundDefinition;
             currentEnemyIntentDefinition = currentRoundDefinition != null

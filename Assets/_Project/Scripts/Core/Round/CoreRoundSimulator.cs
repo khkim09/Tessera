@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Tessera.Core
@@ -11,6 +11,7 @@ namespace Tessera.Core
         private readonly SlotPairDamageCalculator slotPairDamageCalculator;
         /// <summary>DiceType 고유 효과 후처리를 계산하는 평가기다.</summary>
         private readonly DiceTypeIntrinsicEvaluator diceTypeIntrinsicEvaluator;
+        private readonly DiceSynergyEvaluator diceSynergyEvaluator;
         private readonly ImpactDamageCalculator impactDamageCalculator;
 
         /// <summary>시드 없는 랜덤 굴림 기반 Round 시뮬레이터를 생성한다.</summary>
@@ -20,6 +21,7 @@ namespace Tessera.Core
             patternEvaluator = PatternEvaluator.CreateDefault();
             slotPairDamageCalculator = new SlotPairDamageCalculator();
             diceTypeIntrinsicEvaluator = new DiceTypeIntrinsicEvaluator();
+            diceSynergyEvaluator = new DiceSynergyEvaluator();
             impactDamageCalculator = new ImpactDamageCalculator();
         }
 
@@ -30,6 +32,7 @@ namespace Tessera.Core
             patternEvaluator = PatternEvaluator.CreateDefault();
             slotPairDamageCalculator = new SlotPairDamageCalculator();
             diceTypeIntrinsicEvaluator = new DiceTypeIntrinsicEvaluator();
+            diceSynergyEvaluator = new DiceSynergyEvaluator();
             impactDamageCalculator = new ImpactDamageCalculator();
         }
 
@@ -39,7 +42,7 @@ namespace Tessera.Core
             int playerCurrentHP,
             OverchargeState stageOverchargeState)
         {
-            return StartRound(ruleContext, playerCurrentHP, stageOverchargeState, null);
+            return StartRound(ruleContext, playerCurrentHP, stageOverchargeState, null, null);
         }
 
         /// <summary>DiceType 목록을 포함하여 새 Round를 시작한다.</summary>
@@ -47,7 +50,9 @@ namespace Tessera.Core
             RoundRuleContext ruleContext,
             int playerCurrentHP,
             OverchargeState stageOverchargeState,
-            IReadOnlyList<DiceTypeIntrinsicData> equippedDiceTypes)
+            IReadOnlyList<DiceTypeIntrinsicData> equippedDiceTypes,
+            IReadOnlyList<DiceSynergyRuleData> diceSynergyRules = null,
+            IReadOnlyList<DiceFaceUpgradeData> diceFaceUpgrades = null)
         {
             if (ruleContext == null)
                 throw new ArgumentNullException(nameof(ruleContext));
@@ -74,7 +79,9 @@ namespace Tessera.Core
                 dice,
                 firstAttempt,
                 enemyIntent,
-                equippedDiceTypes);
+                equippedDiceTypes,
+                diceSynergyRules,
+                diceFaceUpgrades);
 
             roundState.ApplyCurrentIntentInitiativeToAttempt();
             return roundState;
@@ -85,8 +92,7 @@ namespace Tessera.Core
         {
             ValidatePlayableRound(roundState);
 
-            List<int> diceValues = roundState.GetCurrentDiceValues();
-            List<PatternResult> allResults = patternEvaluator.EvaluateAll(diceValues);
+            List<PatternResult> allResults = EvaluateAllForRoundState(roundState);
             List<PatternResult> filteredResults = new List<PatternResult>();
 
             for (int i = 0; i < allResults.Count; i++)
@@ -115,9 +121,7 @@ namespace Tessera.Core
             if (!roundState.CanUseCastThisRound(patternType))
                 return false;
 
-            List<int> diceValues = roundState.GetCurrentDiceValues();
-
-            if (!patternEvaluator.TryEvaluateSpecificPattern(diceValues, patternType, out PatternResult patternResult))
+            if (!TryEvaluateSpecificPatternForRoundState(roundState, patternType, out PatternResult patternResult))
                 return false;
 
             TableRuleEvaluationResult tableRuleResult = TableRuleEvaluator.Evaluate(roundState.RuleContext, patternResult);
@@ -191,14 +195,13 @@ namespace Tessera.Core
         {
             ValidatePlayableRound(roundState);
 
-            List<int> diceValues = roundState.GetCurrentDiceValues();
-
             return TryBuildSlotPairDamagePreviewFromDiceValues(
                 roundState,
                 patternType,
-                diceValues,
+                roundState.GetCurrentDiceValues(),
                 lockSlotDiceIndexes,
                 deviceDefinitions,
+                true,
                 out patternResult,
                 out preview,
                 out tableRuleResult);
@@ -224,6 +227,7 @@ namespace Tessera.Core
                     diceValues,
                     lockSlotDiceIndexes,
                     deviceDefinitions,
+                    owner == ClashParticipantType.Player,
                     out PatternResult patternResult,
                     out SlotPairDamagePreview preview,
                     out TableRuleEvaluationResult tableRuleResult))
@@ -238,6 +242,7 @@ namespace Tessera.Core
                 tableRuleResult,
                 diceValues,
                 lockSlotDiceIndexes,
+                deviceDefinitions,
                 roundState.RuleContext,
                 impactDamageCalculator);
 
@@ -452,6 +457,7 @@ namespace Tessera.Core
 
             int appliedImpactDamageToPlayer = 0;
             int appliedImpactDamageToOpponent = 0;
+            int incomingDamageReductionFromDevice = 0;
             bool playerUsedBrokenCastDefense = false;
 
             if (playerCastPower > opponentCastPower)
@@ -486,10 +492,21 @@ namespace Tessera.Core
 
                 appliedImpactDamageToPlayer = opponentImpactDamage.AppliedImpactDamage;
 
+                IReadOnlyList<DiceTypeIntrinsicData> usedDiceTypes = CollectUsedDiceTypes(roundState, playerResult);
                 int incomingDamageReduction = diceTypeIntrinsicEvaluator.CalculateIncomingDamageReduction(
-                    CollectUsedDiceTypes(roundState, playerResult));
+                    usedDiceTypes);
+                incomingDamageReduction += diceSynergyEvaluator.CalculateBrokenCastIncomingDamageReduction(
+                    roundState.DiceTypes,
+                    roundState.DiceSynergyRules);
                 if (incomingDamageReduction > 0)
                     appliedImpactDamageToPlayer = Math.Max(0, appliedImpactDamageToPlayer - incomingDamageReduction);
+
+                if (playerResult.IsBrokenCast)
+                {
+                    incomingDamageReductionFromDevice = CalculateBrokenCastIncomingDamageReduction(playerResult);
+                    if (incomingDamageReductionFromDevice > 0)
+                        appliedImpactDamageToPlayer = Math.Max(0, appliedImpactDamageToPlayer - incomingDamageReductionFromDevice);
+                }
             }
 
             if (appliedImpactDamageToOpponent > 0)
@@ -499,7 +516,8 @@ namespace Tessera.Core
                 roundState.Encounter.ApplyDamageToPlayer(appliedImpactDamageToPlayer);
 
             int moneyOnRoundWinBonus = winner == ClashParticipantType.Player
-                ? diceTypeIntrinsicEvaluator.CalculateMoneyOnRoundWinBonus(CollectUsedDiceTypes(roundState, playerResult))
+                ? diceTypeIntrinsicEvaluator.CalculateMoneyOnRoundWinBonus(CollectUsedDiceTypes(roundState, playerResult)) +
+                  diceSynergyEvaluator.CalculateMoneyOnRoundWinBonus(roundState.DiceTypes, roundState.DiceSynergyRules)
                 : 0;
 
             bool didGrantOvercharge = false;
@@ -515,6 +533,15 @@ namespace Tessera.Core
                     out didGrantOvercharge,
                     out grantedOvercharge,
                     out grantedFreeRerollTokens);
+
+                int deviceOverchargeBonus = CalculateBrokenCastOverchargeBonus(playerResult) +
+                    diceSynergyEvaluator.CalculateBrokenCastOverchargeBonus(roundState.DiceTypes, roundState.DiceSynergyRules);
+                if (deviceOverchargeBonus > 0)
+                {
+                    roundState.Overcharge.AddOvercharge(deviceOverchargeBonus);
+                    didGrantOvercharge = true;
+                    grantedOvercharge += deviceOverchargeBonus;
+                }
             }
 
             roundState.AddClashPatternUse(playerResult.PatternType);
@@ -550,7 +577,8 @@ namespace Tessera.Core
                 canStartNextAttempt,
                 message,
                 opponentCastPower > playerCastPower ? diceTypeIntrinsicEvaluator.CalculateIncomingDamageReduction(CollectUsedDiceTypes(roundState, playerResult)) : 0,
-                moneyOnRoundWinBonus);
+                moneyOnRoundWinBonus,
+                incomingDamageReductionFromDevice);
 
             roundState.CurrentAttempt.MarkClashResolved(result);
 
@@ -644,6 +672,7 @@ namespace Tessera.Core
             IReadOnlyList<int> diceValues,
             IReadOnlyList<int> lockSlotDiceIndexes,
             IReadOnlyList<SlotPairDeviceDefinition> deviceDefinitions,
+            bool useDiceFaceUpgrades,
             out PatternResult patternResult,
             out SlotPairDamagePreview preview,
             out TableRuleEvaluationResult tableRuleResult)
@@ -658,8 +687,15 @@ namespace Tessera.Core
             if (!roundState.CanUseCastThisRound(patternType))
                 return false;
 
-            if (!patternEvaluator.TryEvaluateSpecificPattern(diceValues, patternType, out patternResult))
+            if (useDiceFaceUpgrades && roundState.HasDiceFaceUpgrades)
+            {
+                if (!patternEvaluator.TryEvaluateSpecificPatternFaces(roundState.GetCurrentEffectiveDiceFaces(), patternType, out patternResult))
+                    return false;
+            }
+            else if (!patternEvaluator.TryEvaluateSpecificPattern(diceValues, patternType, out patternResult))
+            {
                 return false;
+            }
 
             TableRuleEvaluationResult baseTableRuleResult = TableRuleEvaluator.Evaluate(roundState.RuleContext, patternResult);
 
@@ -688,6 +724,20 @@ namespace Tessera.Core
             return true;
         }
 
+        private List<PatternResult> EvaluateAllForRoundState(RoundState roundState)
+        {
+            return roundState.HasDiceFaceUpgrades
+                ? patternEvaluator.EvaluateAllFaces(roundState.GetCurrentEffectiveDiceFaces())
+                : patternEvaluator.EvaluateAll(roundState.GetCurrentDiceValues());
+        }
+
+        private bool TryEvaluateSpecificPatternForRoundState(RoundState roundState, RollPatternType patternType, out PatternResult patternResult)
+        {
+            return roundState.HasDiceFaceUpgrades
+                ? patternEvaluator.TryEvaluateSpecificPatternFaces(roundState.GetCurrentEffectiveDiceFaces(), patternType, out patternResult)
+                : patternEvaluator.TryEvaluateSpecificPattern(roundState.GetCurrentDiceValues(), patternType, out patternResult);
+        }
+
         /// <summary>현재 Round 상태에서 SlotPair 계산에 필요한 외부 컨텍스트를 생성한다.</summary>
         private static SlotPairCalculationContext CreateSlotPairCalculationContext(RoundState roundState)
         {
@@ -700,7 +750,7 @@ namespace Tessera.Core
                 : 0;
 
             // SlotPairDamageCalculator에는 읽기 전용 계산 컨텍스트만 전달한다.
-            return new SlotPairCalculationContext(stageThreatLevel, roundState.DiceTypes);
+            return new SlotPairCalculationContext(stageThreatLevel, roundState.DiceTypes, roundState.DiceSynergyRules);
         }
 
         /// <summary>Attempt 상태에 기록하지 않고 Clash Cast 결과만 계산한다.</summary>
@@ -721,6 +771,7 @@ namespace Tessera.Core
                     diceValues,
                     lockSlotDiceIndexes,
                     deviceDefinitions,
+                    false,
                     out PatternResult patternResult,
                     out SlotPairDamagePreview preview,
                     out TableRuleEvaluationResult tableRuleResult))
@@ -735,10 +786,50 @@ namespace Tessera.Core
                 tableRuleResult,
                 diceValues,
                 lockSlotDiceIndexes,
+                deviceDefinitions,
                 roundState.RuleContext,
                 impactDamageCalculator);
 
             return true;
+        }
+
+        /// <summary>Broken Cast 후처리 Device가 지급하는 추가 Overcharge를 계산한다.</summary>
+        private static int CalculateBrokenCastOverchargeBonus(ClashCastResult playerResult)
+        {
+            return SumPlayerPostProcessDeviceIntValue(playerResult, SlotPairDeviceType.AddOverchargeOnBrokenCast);
+        }
+
+        /// <summary>Broken Cast 후처리 Device가 감소시키는 IncomingDamage를 계산한다.</summary>
+        private static int CalculateBrokenCastIncomingDamageReduction(ClashCastResult playerResult)
+        {
+            return SumPlayerPostProcessDeviceIntValue(playerResult, SlotPairDeviceType.ReduceIncomingDamageOnBrokenCast);
+        }
+
+        /// <summary>Player가 사용한 SlotPair Device 중 지정 후처리 타입의 IntValue 합계를 계산한다.</summary>
+        private static int SumPlayerPostProcessDeviceIntValue(ClashCastResult playerResult, SlotPairDeviceType deviceType)
+        {
+            if (playerResult == null || playerResult.DeviceDefinitions == null)
+                return 0;
+
+            int total = 0;
+            IReadOnlyList<int> lockSlotDiceIndexes = playerResult.LockSlotDiceIndexes;
+            IReadOnlyList<int> diceValues = playerResult.DiceValues;
+
+            for (int slotIndex = 0; slotIndex < playerResult.DeviceDefinitions.Count; slotIndex++)
+            {
+                SlotPairDeviceDefinition device = playerResult.DeviceDefinitions[slotIndex];
+                if (device == null || device.DeviceType != deviceType)
+                    continue;
+
+                int diceIndex = GetDiceIndexOrEmpty(lockSlotDiceIndexes, slotIndex);
+                int diceValue = GetDiceValueOrZero(diceValues, diceIndex);
+                if (diceIndex < 0 || diceValue <= 0)
+                    continue;
+
+                total += Math.Max(0, device.IntValue);
+            }
+
+            return total;
         }
 
         private static AttemptState CreateAttempt(OverchargeState overcharge, int attemptNumber)
@@ -778,6 +869,22 @@ namespace Tessera.Core
                 roundState.Overcharge.AddNextAttemptFreeRerollTokens(rule.BrokenCastFreeRerollTokenAmount);
                 grantedFreeRerollTokens = rule.BrokenCastFreeRerollTokenAmount;
             }
+        }
+
+        private static int GetDiceIndexOrEmpty(IReadOnlyList<int> lockSlotDiceIndexes, int slotIndex)
+        {
+            if (lockSlotDiceIndexes == null || slotIndex < 0 || slotIndex >= lockSlotDiceIndexes.Count)
+                return -1;
+
+            return lockSlotDiceIndexes[slotIndex];
+        }
+
+        private static int GetDiceValueOrZero(IReadOnlyList<int> diceValues, int diceIndex)
+        {
+            if (diceValues == null || diceIndex < 0 || diceIndex >= diceValues.Count)
+                return 0;
+
+            return diceValues[diceIndex];
         }
 
         /// <summary>SlotPair 0~4에 DiceIndex 0~4를 순서대로 대응시킨다.</summary>

@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using Tessera.Core;
+using UnityEngine;
 
 namespace Tessera.Data
 {
@@ -35,5 +36,17 @@ namespace Tessera.Data
         public DiceSynergyEffectType EffectType => effectType;
         public int IntValue => intValue;
         public float FloatValue => floatValue;
+
+        /// <summary>Core 런타임 계산용 DiceSynergy 규칙으로 변환한다.</summary>
+        public DiceSynergyRuleData ToCoreRuleData()
+        {
+            return new DiceSynergyRuleData(
+                DisplayName,
+                (int)RequiredTag,
+                RequiredCount,
+                (Tessera.Core.DiceSynergyEffectType)(int)EffectType,
+                IntValue,
+                FloatValue);
+        }
     }
 }

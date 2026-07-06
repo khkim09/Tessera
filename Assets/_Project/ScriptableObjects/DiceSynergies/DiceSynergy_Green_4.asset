@@ -19,6 +19,6 @@ MonoBehaviour:
   icon: {fileID: 0}
   requiredTag: 60
   requiredCount: 4
-  effectType: 0
-  intValue: 0
+  effectType: 16
+  intValue: 1
   floatValue: 0

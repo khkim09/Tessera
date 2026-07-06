@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Tessera.Core;
 using Tessera.Data;
 
@@ -364,6 +364,18 @@ namespace Tessera.Runtime
         {
             CurrentOvercharge = currentOvercharge;
             Reason = reason ?? string.Empty;
+        }
+    }
+
+
+    /// <summary>디버그용 Workshop 즉시 진입 치트 요청 이벤트다.</summary>
+    public readonly struct DebugShopCheatRequestedEvent
+    {
+        public string SourceBinding { get; }
+
+        public DebugShopCheatRequestedEvent(string sourceBinding)
+        {
+            SourceBinding = sourceBinding ?? string.Empty;
         }
     }
 

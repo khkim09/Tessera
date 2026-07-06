@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -11,6 +11,7 @@ namespace Tessera.Core
 
         /// <summary>SlotPair 계산 중 DiceType 고유 효과를 평가하는 계산기다.</summary>
         private readonly DiceTypeIntrinsicEvaluator diceTypeIntrinsicEvaluator = new DiceTypeIntrinsicEvaluator();
+        private readonly DiceSynergyEvaluator diceSynergyEvaluator = new DiceSynergyEvaluator();
 
         public SlotPairDamagePreview Calculate(
             PatternResult patternResult,
@@ -96,6 +97,32 @@ namespace Tessera.Core
                     LogDiceTypeIntrinsic(slotIndex, diceType, diceValue, scoreBeforeIntrinsic, currentScore, forceBeforeIntrinsic, currentForce);
                 }
 
+                DiceTypeIntrinsicResult synergyResult = diceSynergyEvaluator.EvaluateSlotPair(
+                    diceValue,
+                    currentDiceValues,
+                    calculationContext.EquippedDiceTypes,
+                    calculationContext.SynergyRules);
+
+                if (synergyResult.HasBattleAdjustment)
+                {
+                    currentScore += synergyResult.ScoreBonus;
+                    currentForce += synergyResult.ForceAdd;
+
+                    step = new SlotPairDamageStep(
+                        step.SlotIndex,
+                        step.DiceIndex,
+                        step.DiceValue,
+                        step.DeviceType,
+                        step.ScoreBefore,
+                        currentScore,
+                        step.ForceBefore,
+                        currentForce,
+                        step.TruePowerBefore,
+                        step.TruePowerAfter,
+                        true,
+                        string.IsNullOrEmpty(step.Message) ? synergyResult.Message : step.Message + " Synergy " + synergyResult.Message + ".");
+                }
+
                 steps.Add(step);
             }
 
@@ -103,6 +130,14 @@ namespace Tessera.Core
                 currentScore,
                 currentForce,
                 patternResult.TruePower + currentTruePower);
+
+            ApplyCastPowerConditionalImpactDevices(
+                castPowerBeforeRules,
+                currentDiceValues,
+                lockSlotDiceIndexes,
+                deviceDefinitions,
+                steps,
+                ref currentTrueImpactDamage);
 
             return new SlotPairDamagePreview(
                 patternResult.PatternType,
@@ -138,6 +173,60 @@ namespace Tessera.Core
             string forceText = System.Math.Abs(forceDelta) > 0.001f ? $" Force+{forceDelta:0.##}" : string.Empty;
             Debug.Log($"[DiceTypeIntrinsic] Slot={slotIndex + 1} DiceType={diceType.DisplayName} Value={diceValue}{scoreText}{forceText}");
 #endif
+        }
+
+        /// <summary>SlotPair 계산으로 확정된 CastPower를 기준으로 후처리 ImpactDamage Device를 평가한다.</summary>
+        private static void ApplyCastPowerConditionalImpactDevices(
+            int castPowerBeforeRules,
+            IReadOnlyList<int> currentDiceValues,
+            IReadOnlyList<int> lockSlotDiceIndexes,
+            IReadOnlyList<SlotPairDeviceDefinition> deviceDefinitions,
+            List<SlotPairDamageStep> steps,
+            ref int trueImpactDamageAccumulator)
+        {
+            if (steps == null)
+                return;
+
+            for (int slotIndex = 0; slotIndex < SlotPairCount; slotIndex++)
+            {
+                SlotPairDeviceDefinition device = GetDeviceOrNone(deviceDefinitions, slotIndex);
+                if (device.DeviceType != SlotPairDeviceType.AddTrueImpactDamageIfCastPowerAtLeast)
+                    continue;
+
+                int diceIndex = GetDiceIndexOrEmpty(lockSlotDiceIndexes, slotIndex);
+                int diceValue = GetDiceValueOrZero(currentDiceValues, diceIndex);
+
+                if (diceIndex < 0 || diceValue <= 0)
+                    continue;
+
+                int requiredCastPower = Math.Max(0, device.IntValue);
+                bool didApply = castPowerBeforeRules >= requiredCastPower && device.TrueImpactDamage > 0;
+
+                if (didApply)
+                    trueImpactDamageAccumulator += device.TrueImpactDamage;
+
+                string message = didApply
+                    ? $"True Impact Damage +{device.TrueImpactDamage} because CastPower {castPowerBeforeRules} >= {requiredCastPower}."
+                    : $"CastPower {castPowerBeforeRules} is below {requiredCastPower}.";
+
+                if (slotIndex < steps.Count)
+                {
+                    SlotPairDamageStep previousStep = steps[slotIndex];
+                    steps[slotIndex] = CreateStep(
+                        previousStep.SlotIndex,
+                        previousStep.DiceIndex,
+                        previousStep.DiceValue,
+                        previousStep.DeviceType,
+                        previousStep.ScoreBefore,
+                        previousStep.ScoreAfter,
+                        previousStep.ForceBefore,
+                        previousStep.ForceAfter,
+                        previousStep.TruePowerBefore,
+                        previousStep.TruePowerAfter,
+                        didApply,
+                        message);
+                }
+            }
         }
 
         private SlotPairDamageStep ApplyDevice(
@@ -424,10 +513,8 @@ namespace Tessera.Core
 
                 case SlotPairDeviceType.AddTrueImpactDamageIfCastPowerAtLeast:
                     {
-                        // CastPower는 Device 계산 단계에서 아직 확정되지 않았으므로,
-                        // 이 Device 타입은 현재 단계에서 조건 평가가 불가능하다.
-                        // 보류: 추후 CastPower 조건 평가가 가능해지면 활성화한다.
-                        return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "CastPower condition not available at device step. (on hold)");
+                        // 이 Device는 모든 SlotPair Score/Force/TruePower가 계산된 뒤 확정 CastPower로 후처리한다.
+                        return Inactive(slotIndex, diceIndex, diceValue, device, scoreBefore, forceBefore, truePowerBefore, "CastPower condition pending until post process.");
                     }
 
                 default:

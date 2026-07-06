@@ -118,5 +118,7 @@ MonoBehaviour:
     - {fileID: 11400000, guid: da6d5b750ad18fc41a06f83813422792, type: 2}
     - {fileID: 11400000, guid: 333bec0e5cca9844b945e47e7ae03700, type: 2}
     - {fileID: 11400000, guid: b32494fd2aff68d4b83c1970e7a5550d, type: 2}
+    - {fileID: 11400000, guid: f11011d2617e9744f80f0fa6eef3c40b, type: 2}
+    - {fileID: 11400000, guid: 5981482a3ea7f454aaa174b5385c9092, type: 2}
     minTierOverride: 1
     maxTierOverride: 2
