@@ -9,6 +9,7 @@ namespace Tessera.Core
         private readonly List<DiceInstance> _dice;
         /// <summary>DiceIndex별 DiceType 상태를 보관한다.</summary>
         private readonly List<DiceTypeIntrinsicData> _diceTypes;
+        private readonly List<DiceSynergyRuleData> _diceSynergyRules;
         private readonly List<CastSubmitResult> _submitResults;
         private readonly Dictionary<RollPatternType, int> _patternUseCounts;
 
@@ -29,6 +30,9 @@ namespace Tessera.Core
 
         /// <summary>DiceIndex별 현재 DiceType 목록이다.</summary>
         public IReadOnlyList<DiceTypeIntrinsicData> DiceTypes => _diceTypes;
+
+        /// <summary>현재 Round에서 평가할 DiceSynergy 규칙 목록이다.</summary>
+        public IReadOnlyList<DiceSynergyRuleData> DiceSynergyRules => _diceSynergyRules;
 
         /// <summary>현재 Attempt 상태.</summary>
         public AttemptState CurrentAttempt { get; private set; }
@@ -107,7 +111,8 @@ namespace Tessera.Core
             IReadOnlyList<DiceInstance> initialDice,
             AttemptState firstAttempt,
             EnemyIntent initialEnemyIntent,
-            IReadOnlyList<DiceTypeIntrinsicData> initialDiceTypes = null)
+            IReadOnlyList<DiceTypeIntrinsicData> initialDiceTypes = null,
+            IReadOnlyList<DiceSynergyRuleData> initialDiceSynergyRules = null)
         {
             RuleContext = ruleContext ?? throw new ArgumentNullException(nameof(ruleContext));
             Encounter = encounter ?? throw new ArgumentNullException(nameof(encounter));
@@ -125,6 +130,9 @@ namespace Tessera.Core
             _diceTypes = new List<DiceTypeIntrinsicData>(_dice.Count);
             for (int i = 0; i < _dice.Count; i++)
                 _diceTypes.Add(initialDiceTypes != null && i < initialDiceTypes.Count ? initialDiceTypes[i] : DiceTypeIntrinsicData.Empty);
+            _diceSynergyRules = initialDiceSynergyRules != null
+                ? new List<DiceSynergyRuleData>(initialDiceSynergyRules)
+                : new List<DiceSynergyRuleData>();
             _submitResults = new List<CastSubmitResult>();
             _patternUseCounts = new Dictionary<RollPatternType, int>();
             IsRoundEnded = false;

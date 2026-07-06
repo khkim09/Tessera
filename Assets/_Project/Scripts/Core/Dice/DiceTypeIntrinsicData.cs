@@ -18,16 +18,20 @@ namespace Tessera.Core
         /// <summary>DiceType 고유 효과에 쓰이는 실수 값이다.</summary>
         public float FloatValue { get; }
 
+        /// <summary>DiceSynergy 판정에 사용할 태그 값이다.</summary>
+        public int SynergyTagValue { get; }
+
         /// <summary>실제 DiceType 데이터가 있는지 확인한다.</summary>
         public bool IsValid => IntrinsicEffectType != DiceIntrinsicEffectType.None || !string.IsNullOrEmpty(DisplayName);
 
         /// <summary>DiceType intrinsic 데이터 값을 생성한다.</summary>
-        public DiceTypeIntrinsicData(string displayName, DiceIntrinsicEffectType intrinsicEffectType, int intValue, float floatValue)
+        public DiceTypeIntrinsicData(string displayName, DiceIntrinsicEffectType intrinsicEffectType, int intValue, float floatValue, int synergyTagValue = 0)
         {
             DisplayName = displayName ?? string.Empty;
             IntrinsicEffectType = intrinsicEffectType;
             IntValue = intValue;
             FloatValue = floatValue;
+            SynergyTagValue = synergyTagValue;
         }
     }
 }

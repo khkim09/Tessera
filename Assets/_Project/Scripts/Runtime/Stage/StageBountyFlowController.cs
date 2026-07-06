@@ -1,7 +1,8 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Tessera.Core;
 using Tessera.Data;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Tessera.Runtime
 {
@@ -31,6 +32,12 @@ namespace Tessera.Runtime
         [Header("Fallback Workshop Rules")]
         [SerializeField] private StageWorkshopRulesSO fallbackWorkshopRules;
 
+        [Header("Debug Cheat")]
+        [SerializeField] private bool enableDebugShopCheat = true;
+        [SerializeField] private string debugShopCheatBinding = "<Keyboard>/1";
+        [SerializeField] private int debugShopCheatMoney = 99;
+        [SerializeField] private int debugShopCheatOvercharge = 9;
+
         private TesseraRunSession runSession;
         private StageBountyBoardState currentStageState;
         private StageShopReasonType currentShopReasonType;
@@ -52,6 +59,8 @@ namespace Tessera.Runtime
         private System.IDisposable economyRefreshSubscription;
         private System.IDisposable shopEquippedDeviceSellSubscription;
         private System.IDisposable shopEquippedDeviceSwapSubscription;
+        private System.IDisposable debugShopCheatRequestedSubscription;
+        private InputAction debugShopCheatAction;
 
         /// <summary>런 세션을 연결하고 Runtime 이벤트를 구독한다.</summary>
         public void Initialize(TesseraRunSession session)
@@ -73,6 +82,7 @@ namespace Tessera.Runtime
             roundWonSubscription = TesseraEventBus.Subscribe<GameplayRoundWonEvent>(HandleRoundWon);
             roundLostSubscription = TesseraEventBus.Subscribe<GameplayRoundLostEvent>(HandleRoundLost);
             economyRefreshSubscription = TesseraEventBus.Subscribe<StageEconomyRefreshRequestedEvent>(HandleStageEconomyRefreshRequested);
+            debugShopCheatRequestedSubscription = TesseraEventBus.Subscribe<DebugShopCheatRequestedEvent>(HandleDebugShopCheatRequested);
             isInitialized = true;
         }
 
@@ -95,10 +105,24 @@ namespace Tessera.Runtime
             StartStage(currentStageIndex);
         }
 
-        /// <summary>오브젝트 파괴 시 이벤트 구독을 해제한다.</summary>
+        /// <summary>오브젝트 활성화 시 New Input System 기반 디버그 치트 액션을 연결한다.</summary>
+        private void OnEnable()
+        {
+            ConfigureDebugShopCheatAction();
+            SetDebugShopCheatActionEnabled(true);
+        }
+
+        /// <summary>오브젝트 비활성화 시 디버그 치트 액션을 중지한다.</summary>
+        private void OnDisable()
+        {
+            SetDebugShopCheatActionEnabled(false);
+        }
+
+        /// <summary>오브젝트 파괴 시 이벤트 구독과 디버그 치트 액션을 해제한다.</summary>
         private void OnDestroy()
         {
             DisposeSubscriptions();
+            DisposeDebugShopCheatAction();
         }
 
         /// <summary>Runtime 이벤트 구독을 해제한다.</summary>
@@ -116,6 +140,7 @@ namespace Tessera.Runtime
             roundWonSubscription?.Dispose();
             roundLostSubscription?.Dispose();
             economyRefreshSubscription?.Dispose();
+            debugShopCheatRequestedSubscription?.Dispose();
 
             bountySelectedSubscription = null;
             rewardDecisionSubscription = null;
@@ -129,6 +154,7 @@ namespace Tessera.Runtime
             roundWonSubscription = null;
             roundLostSubscription = null;
             economyRefreshSubscription = null;
+            debugShopCheatRequestedSubscription = null;
         }
 
         /// <summary>지정 Stage를 시작한다.</summary>
@@ -236,6 +262,121 @@ namespace Tessera.Runtime
                     "Shop view refreshed."));
 
             PublishStageEconomyChanged(message);
+        }
+
+        /// <summary>New Input System 액션을 구성하고 입력 performed 시 Runtime 이벤트를 발행한다.</summary>
+        private void ConfigureDebugShopCheatAction()
+        {
+            if (debugShopCheatAction != null)
+                return;
+
+            if (string.IsNullOrWhiteSpace(debugShopCheatBinding))
+                return;
+
+            debugShopCheatAction = new InputAction(
+                name: "DebugShopCheat",
+                type: InputActionType.Button,
+                binding: debugShopCheatBinding);
+            debugShopCheatAction.performed += HandleDebugShopCheatActionPerformed;
+        }
+
+        /// <summary>디버그 치트 액션 활성 상태를 갱신한다.</summary>
+        private void SetDebugShopCheatActionEnabled(bool shouldEnable)
+        {
+            if (debugShopCheatAction == null)
+                return;
+
+            if (!enableDebugShopCheat || (!Application.isEditor && !Debug.isDebugBuild))
+            {
+                if (debugShopCheatAction.enabled)
+                    debugShopCheatAction.Disable();
+                return;
+            }
+
+            if (shouldEnable && !debugShopCheatAction.enabled)
+                debugShopCheatAction.Enable();
+            else if (!shouldEnable && debugShopCheatAction.enabled)
+                debugShopCheatAction.Disable();
+        }
+
+        /// <summary>디버그 치트 액션 입력을 Runtime 이벤트로 변환한다.</summary>
+        private void HandleDebugShopCheatActionPerformed(InputAction.CallbackContext context)
+        {
+            TesseraEventBus.Publish(new DebugShopCheatRequestedEvent(debugShopCheatBinding));
+        }
+
+        /// <summary>디버그 치트 액션 리소스를 해제한다.</summary>
+        private void DisposeDebugShopCheatAction()
+        {
+            if (debugShopCheatAction == null)
+                return;
+
+            debugShopCheatAction.performed -= HandleDebugShopCheatActionPerformed;
+            debugShopCheatAction.Dispose();
+            debugShopCheatAction = null;
+        }
+
+        /// <summary>디버그 치트 이벤트 수신 시 Money/Overcharge를 충분히 지급하고 즉시 Workshop으로 진입한다.</summary>
+        private void HandleDebugShopCheatRequested(DebugShopCheatRequestedEvent gameEvent)
+        {
+            if (!enableDebugShopCheat)
+                return;
+
+            if (!Application.isEditor && !Debug.isDebugBuild)
+                return;
+
+            if (runSession == null)
+            {
+                Debug.LogWarning("[Tessera][DebugShopCheat] RunSession is null.");
+                return;
+            }
+
+            if (!EnsureStageStateForDebugShop())
+                return;
+
+            int money = Mathf.Max(0, debugShopCheatMoney);
+            int overcharge = Mathf.Max(0, debugShopCheatOvercharge);
+
+            if (money > 0)
+                runSession.AddMoney(money);
+
+            if (overcharge > 0)
+                runSession.AddOvercharge(overcharge);
+
+            runSession.UnlockIndividualDiceTypeUpgrade();
+
+            string message = $"Debug Shop Cheat: Money +{money}, Overcharge +{overcharge}, Individual DiceType unlocked. Workshop opened.";
+            Debug.Log($"[Tessera][DebugShopCheat] {message}");
+            ShowShop(StageShopReasonType.Tutorial, message, true);
+        }
+
+        /// <summary>디버그 Shop 진입에 필요한 Stage 상태를 보장한다.</summary>
+        private bool EnsureStageStateForDebugShop()
+        {
+            if (currentStageState != null)
+                return true;
+
+            if (stageDefinitions == null || stageDefinitions.Length == 0)
+            {
+                Debug.LogWarning("[Tessera][DebugShopCheat] Stage definitions are empty.");
+                return false;
+            }
+
+            int stageIndex = runSession != null
+                ? Mathf.Clamp(runSession.CurrentStageIndex, 0, stageDefinitions.Length - 1)
+                : 0;
+            StageDefinitionSO stageDefinition = stageDefinitions[stageIndex];
+
+            if (stageDefinition == null || !stageDefinition.IsValidDefinition())
+            {
+                Debug.LogWarning("[Tessera][DebugShopCheat] Invalid stage definition.");
+                return false;
+            }
+
+            currentStageIndex = stageIndex;
+            currentStageState = new StageBountyBoardState(stageDefinition);
+            currentShopInventorySlots.Clear();
+            return true;
         }
 
         /// <summary>Workshop 진입 시 1회성 제한값을 초기화한다.</summary>
@@ -715,12 +856,6 @@ namespace Tessera.Runtime
                 return false;
             }
 
-            if (RequiresDiceTypeSlotSelection(product.ProductType))
-            {
-                failureMessage = "Individual DiceType assignment UI is not implemented yet.";
-                return false;
-            }
-
             if (runSession.Money < slot.MoneyPrice)
             {
                 failureMessage = "Not enough Money.";
@@ -805,16 +940,19 @@ namespace Tessera.Runtime
 
                 case ShopProductType.SingleDice:
                 case ShopProductType.DiceTypeUpgrade:
-                    applyMessage = "Individual DiceType assignment UI is not implemented yet.";
-                    return false;
+                    return TryApplyPurchasedIndividualDiceTypeProduct(product, out applyMessage, out playerDiceTypesChanged);
 
                 case ShopProductType.DiceFaceUpgrade:
-                    Debug.Log(
-                        $"[Tessera][ShopProductPurchase] DiceFaceUpgrade product purchased as prototype placeholder. " +
-                        $"Type={product.ProductType}, Product={product.DisplayName}. Effect application pending.");
+                    return TryApplyPurchasedDiceFaceUpgradeProduct(product, out applyMessage);
 
-                    applyMessage = "FaceUpgrade application pending. Card removed for prototype verification.";
-                    return true;
+                case ShopProductType.Consumable:
+                    return TryApplyPurchasedConsumableProduct(product, out applyMessage);
+
+                case ShopProductType.PermanentUpgrade:
+                    return TryApplyPurchasedPermanentUpgradeProduct(product, out applyMessage);
+
+                case ShopProductType.HpRepair:
+                    return TryApplyPurchasedHpRepairProduct(product, out applyMessage);
 
                 default:
                     applyMessage = $"Product type {product.ProductType} purchase effect is not implemented.";
@@ -870,6 +1008,172 @@ namespace Tessera.Runtime
             return true;
         }
 
+        /// <summary>구매한 개별 DiceType 상품을 자동 선택된 첫 번째 대상 Dice 슬롯에 적용한다.</summary>
+        private bool TryApplyPurchasedIndividualDiceTypeProduct(
+            ShopProductDefinitionSO product,
+            out string applyMessage,
+            out bool playerDiceTypesChanged)
+        {
+            applyMessage = string.Empty;
+            playerDiceTypesChanged = false;
+
+            DiceTypeDefinitionSO diceType = product.DiceTypeDefinition;
+
+            if (diceType == null)
+            {
+                applyMessage = "DiceType definition is missing.";
+                return false;
+            }
+
+            if (!runSession.TryApplyPurchasedIndividualDiceType(diceType, out int appliedDiceIndex, out DiceTypeDefinitionSO previousDiceType))
+            {
+                applyMessage = "Failed to apply individual DiceType.";
+                return false;
+            }
+
+            playerDiceTypesChanged = true;
+            string previousName = previousDiceType != null ? previousDiceType.DisplayName : "None";
+            applyMessage = $"Dice {appliedDiceIndex + 1} changed from {previousName} to {diceType.DisplayName}.";
+            return true;
+        }
+
+        /// <summary>구매한 DiceFaceUpgrade 상품을 자동 선택된 첫 번째 대상 Dice/Face 슬롯에 장착한다.</summary>
+        private bool TryApplyPurchasedDiceFaceUpgradeProduct(
+            ShopProductDefinitionSO product,
+            out string applyMessage)
+        {
+            applyMessage = string.Empty;
+
+            DiceFaceUpgradeDefinitionSO upgradeDefinition = product.DiceFaceUpgradeDefinition;
+
+            if (upgradeDefinition == null)
+            {
+                applyMessage = "DiceFaceUpgrade definition is missing.";
+                return false;
+            }
+
+            if (!runSession.TryApplyPurchasedDiceFaceUpgrade(
+                    upgradeDefinition,
+                    out int appliedDiceIndex,
+                    out int appliedFaceIndex,
+                    out DiceFaceUpgradeDefinitionSO previousUpgrade))
+            {
+                applyMessage = "Failed to apply DiceFaceUpgrade.";
+                return false;
+            }
+
+            string previousName = previousUpgrade != null ? previousUpgrade.DisplayName : "None";
+            applyMessage = $"Dice {appliedDiceIndex + 1} Face {appliedFaceIndex + 1} changed from {previousName} to {upgradeDefinition.DisplayName}.";
+            return true;
+        }
+
+        /// <summary>구매 즉시 소모되는 Consumable 상품 효과를 적용한다.</summary>
+        private bool TryApplyPurchasedConsumableProduct(
+            ShopProductDefinitionSO product,
+            out string applyMessage)
+        {
+            applyMessage = string.Empty;
+            ShopConsumableDefinitionSO consumable = product.ConsumableDefinition;
+
+            if (consumable == null)
+            {
+                applyMessage = "Consumable definition is missing.";
+                return false;
+            }
+
+            switch (consumable.EffectType)
+            {
+                case ShopConsumableEffectType.AddMoney:
+                    runSession.AddMoney(consumable.IntValue);
+                    PublishStageEconomyChanged($"Consumable applied. Money +{consumable.IntValue}.");
+                    applyMessage = $"Money +{consumable.IntValue}.";
+                    return true;
+
+                case ShopConsumableEffectType.AddOvercharge:
+                    runSession.AddOvercharge(consumable.IntValue);
+                    PublishOverchargeDisplayRefresh($"Consumable applied. Overcharge +{consumable.IntValue}.");
+                    applyMessage = $"Overcharge +{consumable.IntValue}.";
+                    return true;
+
+                case ShopConsumableEffectType.RepairHP:
+                    int healed = runSession.RepairPlayerHP(consumable.IntValue);
+                    PublishPlayerHPDisplayRefresh($"Consumable applied. HP +{healed}.");
+                    applyMessage = $"HP +{healed}.";
+                    return true;
+
+                case ShopConsumableEffectType.RestoreFullHP:
+                    int previousHP = runSession.PlayerCurrentHP;
+                    runSession.RestorePlayerToFullHP();
+                    int restored = runSession.PlayerCurrentHP - previousHP;
+                    PublishPlayerHPDisplayRefresh($"Consumable applied. HP +{restored}.");
+                    applyMessage = $"HP restored by {restored}.";
+                    return true;
+
+                default:
+                    applyMessage = $"Consumable effect {consumable.EffectType} is not implemented.";
+                    return false;
+            }
+        }
+
+        /// <summary>Run 동안 유지되는 PermanentUpgrade 상품 효과를 적용한다.</summary>
+        private bool TryApplyPurchasedPermanentUpgradeProduct(
+            ShopProductDefinitionSO product,
+            out string applyMessage)
+        {
+            applyMessage = string.Empty;
+            ShopPermanentUpgradeDefinitionSO upgrade = product.PermanentUpgradeDefinition;
+
+            if (upgrade == null)
+            {
+                applyMessage = "PermanentUpgrade definition is missing.";
+                return false;
+            }
+
+            switch (upgrade.EffectType)
+            {
+                case ShopPermanentUpgradeEffectType.IncreaseMaxHP:
+                    int increased = runSession.IncreasePlayerMaxHP(upgrade.IntValue);
+                    PublishPlayerHPDisplayRefresh($"Permanent upgrade applied. Max HP +{increased}.");
+                    applyMessage = $"Max HP +{increased}.";
+                    return true;
+
+                case ShopPermanentUpgradeEffectType.AddWorkshopTier:
+                    runSession.SetWorkshopTier(runSession.CurrentWorkshopTier + upgrade.IntValue);
+                    applyMessage = $"Workshop Tier +{upgrade.IntValue}. Current Tier {runSession.CurrentWorkshopTier}.";
+                    return true;
+
+                default:
+                    applyMessage = $"PermanentUpgrade effect {upgrade.EffectType} is not implemented.";
+                    return false;
+            }
+        }
+
+        /// <summary>카드형 HPRepair 상품 효과를 적용한다.</summary>
+        private bool TryApplyPurchasedHpRepairProduct(
+            ShopProductDefinitionSO product,
+            out string applyMessage)
+        {
+            applyMessage = string.Empty;
+            ShopHpRepairDefinitionSO repair = product.HpRepairDefinition;
+
+            if (repair == null)
+            {
+                applyMessage = "HPRepair definition is missing.";
+                return false;
+            }
+
+            int previousHP = runSession.PlayerCurrentHP;
+            if (repair.RestoreFullHP)
+                runSession.RestorePlayerToFullHP();
+            else
+                runSession.RepairPlayerHP(repair.HealAmount);
+
+            int healed = runSession.PlayerCurrentHP - previousHP;
+            PublishPlayerHPDisplayRefresh($"HPRepair purchased. HP +{healed}.");
+            applyMessage = repair.RestoreFullHP ? $"HP restored by {healed}." : $"HP +{healed}.";
+            return true;
+        }
+
         /// <summary>상품 타입이 Dice 관련 상품인지 확인한다.</summary>
         private static bool IsDiceProductType(ShopProductType productType)
         {
@@ -877,13 +1181,6 @@ namespace Tessera.Runtime
                     || productType == ShopProductType.SingleDice
                     || productType == ShopProductType.DiceTypeUpgrade
                     || productType == ShopProductType.DiceFaceUpgrade;
-        }
-
-        /// <summary>구매 시 대상 DiceIndex 선택이 필요한 DiceType 상품인지 확인한다.</summary>
-        private static bool RequiresDiceTypeSlotSelection(ShopProductType productType)
-        {
-            return productType == ShopProductType.SingleDice
-                    || productType == ShopProductType.DiceTypeUpgrade;
         }
 
         /// <summary>구매 완료 메시지를 생성한다.</summary>

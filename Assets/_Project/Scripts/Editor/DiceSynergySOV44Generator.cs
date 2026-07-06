@@ -216,7 +216,7 @@ namespace Tessera.Editor
                 "synergy.green.2", "Green 2 Set",
                 "Green Dice가 2개 이상이면 Straight/Chance/성장형 조합 보너스 후보.",
                 DiceSynergyTag.Green, 2,
-                DiceSynergyEffectType.None, 0, 0f);
+                DiceSynergyEffectType.AddScoreForLowDice, 2, 0f);
 
             // 6. DiceSynergy_Green_4 (신규)
             CreateDiceSynergyV44(
@@ -224,7 +224,7 @@ namespace Tessera.Editor
                 "synergy.green.4", "Green 4 Set",
                 "Green Dice가 4개 이상이면 강한 성장형 조합 보너스 후보.",
                 DiceSynergyTag.Green, 4,
-                DiceSynergyEffectType.None, 0, 0f);
+                DiceSynergyEffectType.AddForceIfLowDiceCountAtLeast, 1, 0f);
 
             // 7. DiceSynergy_Iron_3 (기존 수정)
             CreateDiceSynergyV44(
@@ -256,7 +256,7 @@ namespace Tessera.Editor
                 "synergy.void.2", "Void 2 Set",
                 "Void Dice가 2개 이상이면 Broken Cast/Overcharge/위험 보상 조합 보너스 후보.",
                 DiceSynergyTag.Void, 2,
-                DiceSynergyEffectType.None, 0, 0f);
+                DiceSynergyEffectType.AddOverchargeOnBrokenCast, 1, 0f);
 
             // 11. DiceSynergy_Void_4 (신규)
             CreateDiceSynergyV44(
@@ -264,7 +264,7 @@ namespace Tessera.Editor
                 "synergy.void.4", "Void 4 Set",
                 "Void Dice가 4개 이상이면 강한 위험 보상형 조합 보너스 후보.",
                 DiceSynergyTag.Void, 4,
-                DiceSynergyEffectType.None, 0, 0f);
+                DiceSynergyEffectType.IncreaseBrokenCastDamageReduction, 2, 0f);
         }
 
         /// <summary>DiceSynergy SO를 v4.4 기준으로 생성하거나 업데이트한다.</summary>
