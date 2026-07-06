@@ -103,7 +103,8 @@ namespace Tessera.UI
         [SerializeField] private SlotPairStepFloatingTextView slotPairStepFloatingTextView;
         [SerializeField] private RectTransform slotPairFloatingTextRoot;
         [SerializeField] private Camera battleCamera;
-        [SerializeField] private Vector3 slotPairFloatingWorldOffset = new Vector3(0f, 0f, -0.3f);
+        [SerializeField] private Vector3 playerSlotPairFloatingWorldOffset = new Vector3(0f, 0f, -0.3f);
+        [SerializeField] private Vector3 opponentSlotPairFloatingWorldOffset = new Vector3(0f, 0f, 0.3f);
 
         [Header("DeviceSlot Lock Dice Presentation")]
         /// <summary>Player Lock Dice가 이동할 Slot별 Anchor 배열이다.</summary>
@@ -3157,10 +3158,12 @@ namespace Tessera.UI
             if (targetCamera == null)
                 return false;
 
+            Vector3 floatingWorldOffset = ResolveSlotPairFloatingWorldOffset(owner);
+
             if (!TryGetSlotPairFloatingWorldPose(
                     owner,
                     slotIndex,
-                    slotPairFloatingWorldOffset,
+                    floatingWorldOffset,
                     Quaternion.identity,
                     out Vector3 worldPosition,
                     out Quaternion _))
@@ -3174,6 +3177,14 @@ namespace Tessera.UI
 
             // UIRoot가 Screen Space Overlay이므로 camera 인자는 null을 사용한다.
             return RectTransformUtility.ScreenPointToLocalPointInRectangle(root, screenPosition, null, out anchoredPosition);
+        }
+
+        /// <summary>소유자별 SlotPair Floating Text 로컬 위치 보정값을 반환한다.</summary>
+        private Vector3 ResolveSlotPairFloatingWorldOffset(DiceOwnerType owner)
+        {
+            return owner == DiceOwnerType.Opponent
+                ? opponentSlotPairFloatingWorldOffset
+                : playerSlotPairFloatingWorldOffset;
         }
 
         /// <summary>SlotPair Step의 Score/Force 변화량을 짧은 Floating Text 문구로 변환한다.</summary>
