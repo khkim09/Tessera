@@ -49,7 +49,14 @@ namespace Tessera.Core
                 }
             }
 
-            return new DiceTypeIntrinsicResult(scoreBonus, forceAdd, 1f, 0, 0, string.Join(". ", messages));
+            return new DiceTypeIntrinsicResult(
+                scoreBonus,
+                forceAdd,
+                1f,
+                0,
+                0,
+                DiceIntrinsicEffectType.None,
+                string.Join(". ", messages));
         }
 
         public int CalculateMoneyOnRoundWinBonus(IReadOnlyList<DiceTypeIntrinsicData> equippedDiceTypes, IReadOnlyList<DiceSynergyRuleData> synergyRules) =>
