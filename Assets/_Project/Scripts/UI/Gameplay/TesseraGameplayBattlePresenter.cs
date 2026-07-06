@@ -2379,7 +2379,7 @@ namespace Tessera.UI
             if (anchors[slotIndex] == null)
                 return false;
 
-            worldPosition = anchors[slotIndex].position;
+            worldPosition = anchors[slotIndex].position + new Vector3(0f, 0.025f, 0f);
             worldRotation = anchors[slotIndex].rotation;
             return true;
         }
