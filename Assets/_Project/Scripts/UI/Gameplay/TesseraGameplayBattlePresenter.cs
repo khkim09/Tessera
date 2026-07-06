@@ -330,6 +330,27 @@ namespace Tessera.UI
             return result;
         }
 
+        /// <summary>RunSession의 DiceFaceUpgrade 장착 상태를 Core Round 계산용 데이터로 변환한다.</summary>
+        private static List<DiceFaceUpgradeData> BuildDiceFaceUpgradeData(TesseraRunSession runSession)
+        {
+            if (runSession == null)
+                return null;
+
+            List<DiceFaceUpgradeData> result = new List<DiceFaceUpgradeData>(TesseraRunSession.PlayerDiceCount * TesseraRunSession.DiceFaceCount);
+            for (int diceIndex = 0; diceIndex < TesseraRunSession.PlayerDiceCount; diceIndex++)
+            {
+                for (int faceIndex = 0; faceIndex < TesseraRunSession.DiceFaceCount; faceIndex++)
+                {
+                    DiceFaceUpgradeDefinitionSO upgrade = runSession.GetDiceFaceUpgrade(diceIndex, faceIndex);
+                    result.Add(upgrade != null
+                        ? new DiceFaceUpgradeData(true, upgrade.CreateReplacementFace())
+                        : DiceFaceUpgradeData.Empty);
+                }
+            }
+
+            return result;
+        }
+
         /// <summary>출시용/디버그용 Combat Seed를 분리해 계산한다.</summary>
         private int ResolveCombatSeed()
         {
@@ -375,7 +396,8 @@ namespace Tessera.UI
                 carriedPlayerHP,
                 stageOverchargeState,
                 BuildDiceTypeIntrinsicData(equippedDiceTypes),
-                BuildDiceSynergyRuleData(diceSynergyDefinitions));
+                BuildDiceSynergyRuleData(diceSynergyDefinitions),
+                BuildDiceFaceUpgradeData(runSession));
             ApplyPlayerDiceTypeVisuals();
             currentRoundDefinition = roundDefinition;
             currentEnemyIntentDefinition = currentRoundDefinition != null

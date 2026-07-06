@@ -99,8 +99,11 @@
   - DiceFaceUpgrade 카드 구매 후 1개 Dice를 선택하는 단계 추가.
   - 선택한 Dice에서 1개 Face를 선택하는 단계 추가.
 - [ ] 기존 RunSession FaceUpgrade 장착 모델을 최종 정책에 맞게 보정.
-- [ ] Preview/Submit/PatternEvaluator 경로에 실제 장착 FaceUpgrade를 연결.
+- [x] Preview/Submit/PatternEvaluator 경로에 실제 장착 FaceUpgrade를 연결.
+  - 자동 적용된 FaceUpgrade를 Core `DiceFaceUpgradeData`로 변환해 Round 시작 시 전달한다.
+  - 현재 주사위 숫자에 해당하는 FaceIndex의 Upgrade가 있으면 Pattern 평가는 교체 Face(Number/Mirror/Blank/Wild)를 사용한다.
 - [ ] Unity Editor에서 구매 후 실제 전투 Pattern 결과가 변경되는지 확인.
+  - 코드 검증 메뉴: `Tools/Tessera/Validation/Run DiceFaceUpgrade Runtime Connection Scenario Test v1` 추가.
 
 ## 9. 라운드 승리 연출/카메라 연출 체크리스트
 
@@ -118,6 +121,8 @@
 - [ ] DiceSynergy 효과가 실제 PlayMode 전투에서 의도한 UI/로그로 확인되는지 확인.
 - [ ] ShopProduct 카드 배경 Sprite가 Prefab 기본 배경 또는 SO 지정 배경으로 정상 표시되는지 확인.
 - [ ] Consumable/PermanentUpgrade/HPRepair 카드형 상품 SO를 실제 WorkshopRules productPool에 배치한 뒤 구매/Tooltip/가격/품절 상태를 확인.
+- [ ] DiceFaceUpgrade 구매 후 실제 PlayMode 전투에서 구매한 Face가 Pattern 결과를 바꾸는지 확인.
+- [ ] DiceFaceUpgrade 구매 후 대상 Dice/Face 선택 UI가 아직 없으므로 자동 적용 정책이 임시 정책임을 UX에서 확인.
 
 ## 사용자 확인 요청 템플릿
 

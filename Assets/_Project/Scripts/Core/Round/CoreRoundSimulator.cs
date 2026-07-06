@@ -51,7 +51,8 @@ namespace Tessera.Core
             int playerCurrentHP,
             OverchargeState stageOverchargeState,
             IReadOnlyList<DiceTypeIntrinsicData> equippedDiceTypes,
-            IReadOnlyList<DiceSynergyRuleData> diceSynergyRules = null)
+            IReadOnlyList<DiceSynergyRuleData> diceSynergyRules = null,
+            IReadOnlyList<DiceFaceUpgradeData> diceFaceUpgrades = null)
         {
             if (ruleContext == null)
                 throw new ArgumentNullException(nameof(ruleContext));
@@ -79,7 +80,8 @@ namespace Tessera.Core
                 firstAttempt,
                 enemyIntent,
                 equippedDiceTypes,
-                diceSynergyRules);
+                diceSynergyRules,
+                diceFaceUpgrades);
 
             roundState.ApplyCurrentIntentInitiativeToAttempt();
             return roundState;
@@ -90,8 +92,7 @@ namespace Tessera.Core
         {
             ValidatePlayableRound(roundState);
 
-            List<int> diceValues = roundState.GetCurrentDiceValues();
-            List<PatternResult> allResults = patternEvaluator.EvaluateAll(diceValues);
+            List<PatternResult> allResults = EvaluateAllForRoundState(roundState);
             List<PatternResult> filteredResults = new List<PatternResult>();
 
             for (int i = 0; i < allResults.Count; i++)
@@ -120,9 +121,7 @@ namespace Tessera.Core
             if (!roundState.CanUseCastThisRound(patternType))
                 return false;
 
-            List<int> diceValues = roundState.GetCurrentDiceValues();
-
-            if (!patternEvaluator.TryEvaluateSpecificPattern(diceValues, patternType, out PatternResult patternResult))
+            if (!TryEvaluateSpecificPatternForRoundState(roundState, patternType, out PatternResult patternResult))
                 return false;
 
             TableRuleEvaluationResult tableRuleResult = TableRuleEvaluator.Evaluate(roundState.RuleContext, patternResult);
@@ -196,14 +195,13 @@ namespace Tessera.Core
         {
             ValidatePlayableRound(roundState);
 
-            List<int> diceValues = roundState.GetCurrentDiceValues();
-
             return TryBuildSlotPairDamagePreviewFromDiceValues(
                 roundState,
                 patternType,
-                diceValues,
+                roundState.GetCurrentDiceValues(),
                 lockSlotDiceIndexes,
                 deviceDefinitions,
+                true,
                 out patternResult,
                 out preview,
                 out tableRuleResult);
@@ -229,6 +227,7 @@ namespace Tessera.Core
                     diceValues,
                     lockSlotDiceIndexes,
                     deviceDefinitions,
+                    owner == ClashParticipantType.Player,
                     out PatternResult patternResult,
                     out SlotPairDamagePreview preview,
                     out TableRuleEvaluationResult tableRuleResult))
@@ -673,6 +672,7 @@ namespace Tessera.Core
             IReadOnlyList<int> diceValues,
             IReadOnlyList<int> lockSlotDiceIndexes,
             IReadOnlyList<SlotPairDeviceDefinition> deviceDefinitions,
+            bool useDiceFaceUpgrades,
             out PatternResult patternResult,
             out SlotPairDamagePreview preview,
             out TableRuleEvaluationResult tableRuleResult)
@@ -687,8 +687,15 @@ namespace Tessera.Core
             if (!roundState.CanUseCastThisRound(patternType))
                 return false;
 
-            if (!patternEvaluator.TryEvaluateSpecificPattern(diceValues, patternType, out patternResult))
+            if (useDiceFaceUpgrades && roundState.HasDiceFaceUpgrades)
+            {
+                if (!patternEvaluator.TryEvaluateSpecificPatternFaces(roundState.GetCurrentEffectiveDiceFaces(), patternType, out patternResult))
+                    return false;
+            }
+            else if (!patternEvaluator.TryEvaluateSpecificPattern(diceValues, patternType, out patternResult))
+            {
                 return false;
+            }
 
             TableRuleEvaluationResult baseTableRuleResult = TableRuleEvaluator.Evaluate(roundState.RuleContext, patternResult);
 
@@ -715,6 +722,20 @@ namespace Tessera.Core
                 return false;
 
             return true;
+        }
+
+        private List<PatternResult> EvaluateAllForRoundState(RoundState roundState)
+        {
+            return roundState.HasDiceFaceUpgrades
+                ? patternEvaluator.EvaluateAllFaces(roundState.GetCurrentEffectiveDiceFaces())
+                : patternEvaluator.EvaluateAll(roundState.GetCurrentDiceValues());
+        }
+
+        private bool TryEvaluateSpecificPatternForRoundState(RoundState roundState, RollPatternType patternType, out PatternResult patternResult)
+        {
+            return roundState.HasDiceFaceUpgrades
+                ? patternEvaluator.TryEvaluateSpecificPatternFaces(roundState.GetCurrentEffectiveDiceFaces(), patternType, out patternResult)
+                : patternEvaluator.TryEvaluateSpecificPattern(roundState.GetCurrentDiceValues(), patternType, out patternResult);
         }
 
         /// <summary>현재 Round 상태에서 SlotPair 계산에 필요한 외부 컨텍스트를 생성한다.</summary>
@@ -750,6 +771,7 @@ namespace Tessera.Core
                     diceValues,
                     lockSlotDiceIndexes,
                     deviceDefinitions,
+                    false,
                     out PatternResult patternResult,
                     out SlotPairDamagePreview preview,
                     out TableRuleEvaluationResult tableRuleResult))
