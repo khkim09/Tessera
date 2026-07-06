@@ -62,10 +62,11 @@
 
 ## 6. DiceSynergy 효과 enum 및 런타임 계산 연결
 
-- [ ] 보류된 DiceSynergy 목록 산출.
-- [ ] 필요한 `DiceSynergyEffectType` enum 확장.
-- [ ] DiceSynergy Evaluator 또는 기존 계산기 통합 경로 구현.
-- [ ] DiceType intrinsic과 중첩 순서 검증.
+- [x] 보류된 DiceSynergy 목록 산출.
+  - Green 2/4, Void 2/4가 `None` 상태였고 Lucky 2는 기획 보류로 유지한다.
+- [x] 필요한 `DiceSynergyEffectType` enum 확장.
+- [x] DiceSynergy Evaluator 또는 기존 계산기 통합 경로 구현.
+- [x] DiceType intrinsic과 중첩 순서 검증.
 - [ ] Unity Editor에서 Synergy 표시/효과 적용 확인.
 
 ## 7. 상점 시각/상품군 확장

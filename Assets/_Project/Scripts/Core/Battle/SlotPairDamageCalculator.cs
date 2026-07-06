@@ -11,6 +11,7 @@ namespace Tessera.Core
 
         /// <summary>SlotPair 계산 중 DiceType 고유 효과를 평가하는 계산기다.</summary>
         private readonly DiceTypeIntrinsicEvaluator diceTypeIntrinsicEvaluator = new DiceTypeIntrinsicEvaluator();
+        private readonly DiceSynergyEvaluator diceSynergyEvaluator = new DiceSynergyEvaluator();
 
         public SlotPairDamagePreview Calculate(
             PatternResult patternResult,
@@ -94,6 +95,32 @@ namespace Tessera.Core
                         string.IsNullOrEmpty(step.Message) ? intrinsicResult.Message : step.Message + " DiceType " + intrinsicResult.Message + ".");
 
                     LogDiceTypeIntrinsic(slotIndex, diceType, diceValue, scoreBeforeIntrinsic, currentScore, forceBeforeIntrinsic, currentForce);
+                }
+
+                DiceTypeIntrinsicResult synergyResult = diceSynergyEvaluator.EvaluateSlotPair(
+                    diceValue,
+                    currentDiceValues,
+                    calculationContext.EquippedDiceTypes,
+                    calculationContext.SynergyRules);
+
+                if (synergyResult.HasBattleAdjustment)
+                {
+                    currentScore += synergyResult.ScoreBonus;
+                    currentForce += synergyResult.ForceAdd;
+
+                    step = new SlotPairDamageStep(
+                        step.SlotIndex,
+                        step.DiceIndex,
+                        step.DiceValue,
+                        step.DeviceType,
+                        step.ScoreBefore,
+                        currentScore,
+                        step.ForceBefore,
+                        currentForce,
+                        step.TruePowerBefore,
+                        step.TruePowerAfter,
+                        true,
+                        string.IsNullOrEmpty(step.Message) ? synergyResult.Message : step.Message + " Synergy " + synergyResult.Message + ".");
                 }
 
                 steps.Add(step);
