@@ -1,0 +1,22 @@
+{
+    "name": "Tessera.EditMode.Tests",
+    "rootNamespace": "Tessera.Tests",
+    "references": [
+        "Tessera.Core",
+        "Tessera.UI"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false,
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}
