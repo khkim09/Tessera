@@ -4482,6 +4482,7 @@ namespace Tessera.UI
                     int score = 0;
                     float force = 0f;
                     int castPower = 0;
+                    int baseImpact = 0;
 
                     if (!isUnlimited)
                     {
@@ -4494,7 +4495,8 @@ namespace Tessera.UI
                             calculationContext,
                             out score,
                             out force,
-                            out castPower);
+                            out castPower,
+                            out baseImpact);
                     }
 
                     snapshots.Add(new RunInfoCastBookEntrySnapshot(
@@ -4504,6 +4506,7 @@ namespace Tessera.UI
                         force,
                         FormatForce(force),
                         castPower,
+                        baseImpact,
                         remainingUses,
                         maxUses,
                         isUnlimited,
@@ -4566,6 +4569,7 @@ namespace Tessera.UI
                     int score = 0;
                     float force = 0f;
                     int castPower = 0;
+                    int baseImpact = 0;
 
                     if (!isUnlimited)
                     {
@@ -4582,7 +4586,8 @@ namespace Tessera.UI
                             calculationContext,
                             out score,
                             out force,
-                            out castPower);
+                            out castPower,
+                            out baseImpact);
                     }
 
                     snapshots.Add(new RunInfoCastBookEntrySnapshot(
@@ -4592,6 +4597,7 @@ namespace Tessera.UI
                         force,
                         FormatForce(force),
                         castPower,
+                        baseImpact,
                         remainingUses,
                         maxUses,
                         isUnlimited,
@@ -4725,11 +4731,13 @@ namespace Tessera.UI
             SlotPairCalculationContext calculationContext,
             out int bestScore,
             out float bestForce,
-            out int bestCastPower)
+            out int bestCastPower,
+            out int bestBaseImpact)
         {
             bestScore = 0;
             bestForce = 0f;
             bestCastPower = 0;
+            bestBaseImpact = 0;
 
             if (roundState == null || patternEvaluator == null || slotPairDamageCalculator == null)
                 return false;
@@ -4772,7 +4780,8 @@ namespace Tessera.UI
                                         calculationContext,
                                         out int candidateScore,
                                         out float candidateForce,
-                                        out int candidateCastPower))
+                                        out int candidateCastPower,
+                                        out int candidateBaseImpact))
                                 {
                                     continue;
                                 }
@@ -4788,6 +4797,7 @@ namespace Tessera.UI
                                     bestScore = candidateScore;
                                     bestForce = candidateForce;
                                     bestCastPower = candidateCastPower;
+                                    bestBaseImpact = candidateBaseImpact;
                                     hasBest = true;
                                 }
                             }
@@ -4845,11 +4855,13 @@ namespace Tessera.UI
             SlotPairCalculationContext calculationContext,
             out int score,
             out float force,
-            out int castPower)
+            out int castPower,
+            out int baseImpact)
         {
             score = 0;
             force = 0f;
             castPower = 0;
+            baseImpact = 0;
 
             if (diceValues == null)
                 return false;
@@ -4877,6 +4889,7 @@ namespace Tessera.UI
 
             score = preview.FinalScore;
             force = preview.FinalForce;
+            baseImpact = Mathf.Max(0, patternResult.BaseImpact);
             castPower = tableRuleResult != null
                 ? Mathf.Max(0, tableRuleResult.ModifiedCastPower)
                 : Mathf.Max(0, preview.CastPowerBeforeTableRules);
@@ -4915,6 +4928,11 @@ namespace Tessera.UI
 
             if (right == null)
                 return -1;
+
+            int baseImpactCompare = right.BaseImpact.CompareTo(left.BaseImpact);
+
+            if (baseImpactCompare != 0)
+                return baseImpactCompare;
 
             int castPowerCompare = right.CastPower.CompareTo(left.CastPower);
 

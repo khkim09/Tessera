@@ -23,6 +23,9 @@ namespace Tessera.UI
         /// <summary>정렬 기준으로 사용할 최종 CastPower다.</summary>
         public int CastPower { get; }
 
+        /// <summary>Cast 등급 기준 기본 ImpactDamage 값이다.</summary>
+        public int BaseImpact { get; }
+
         /// <summary>이번 Round에서 남은 사용 횟수다.</summary>
         public int RemainingUses { get; }
 
@@ -39,7 +42,10 @@ namespace Tessera.UI
         public bool IsUnavailable => !IsUnlimited && RemainingUses <= 0;
 
         /// <summary>사용 횟수 표시 문자열이다.</summary>
-        public string RemainingUseText => IsUnlimited ? "∞" : $"{RemainingUses}/{MaxUses}";
+        public string RemainingUseText => IsUnlimited ? "∞" : $"{RemainingUses}";
+
+        /// <summary>BaseImpact 표시 문자열이다.</summary>
+        public string BaseImpactText => BaseImpact.ToString();
 
         /// <summary>RunInfo 족보 UI 표시용 스냅샷을 생성한다.</summary>
         public RunInfoCastBookEntrySnapshot(
@@ -49,6 +55,7 @@ namespace Tessera.UI
             float forceValue,
             string forceText,
             int castPower,
+            int baseImpact,
             int remainingUses,
             int maxUses,
             bool isUnlimited,
@@ -60,6 +67,7 @@ namespace Tessera.UI
             ForceValue = forceValue;
             ForceText = string.IsNullOrWhiteSpace(forceText) ? "0" : forceText;
             CastPower = castPower;
+            BaseImpact = baseImpact < 0 ? 0 : baseImpact;
             RemainingUses = remainingUses < 0 ? 0 : remainingUses;
             MaxUses = maxUses <= 0 ? 1 : maxUses;
             IsUnlimited = isUnlimited;

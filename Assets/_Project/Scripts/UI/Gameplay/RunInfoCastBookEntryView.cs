@@ -13,6 +13,7 @@ namespace Tessera.UI
         [SerializeField] private TMP_Text castNameText;
         [SerializeField] private TMP_Text scoreText;
         [SerializeField] private TMP_Text forceText;
+        [SerializeField] private TMP_Text baseImpactText;
         [SerializeField] private TMP_Text remainingUseText;
 
         [Header("State Visuals")]
@@ -36,7 +37,8 @@ namespace Tessera.UI
                 SetText(castNameText, "-");
                 SetText(scoreText, "0");
                 SetText(forceText, "0");
-                SetText(remainingUseText, "0/1");
+                SetText(baseImpactText, "0");
+                SetText(remainingUseText, "0");
                 SetUnavailableOverlay(false);
                 return;
             }
@@ -44,6 +46,7 @@ namespace Tessera.UI
             SetText(castNameText, snapshot.CastName);
             SetText(scoreText, snapshot.Score.ToString());
             SetText(forceText, snapshot.ForceText);
+            SetText(baseImpactText, snapshot.BaseImpactText);
             SetText(remainingUseText, snapshot.RemainingUseText);
             SetUnavailableOverlay(snapshot.IsUnavailable);
         }
