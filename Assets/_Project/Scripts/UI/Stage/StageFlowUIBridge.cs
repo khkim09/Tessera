@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Tessera.Core;
 using Tessera.Data;
@@ -22,6 +23,11 @@ namespace Tessera.UI
         [SerializeField] private RoundFailureDecisionView roundFailureDecisionView;
         [SerializeField] private StageShopFlowView shopFlowView;
 
+        [Header("Run Info Cast Book")]
+        [SerializeField] private RunInfoCastBookButton3DView runInfoCastBookButton3DView;
+        [SerializeField] private RunInfoCastBookWindowView runInfoCastBookWindowView;
+        [SerializeField] private bool lockGameplayInputWhileRunInfoOpen = true;
+
         [Header("Shop Device Hover UI")]
         [SerializeField] private DeviceSlotHoverActionUIView[] playerDeviceSlotHoverActionUI = new DeviceSlotHoverActionUIView[5];
         [SerializeField] private int defaultDeviceSellRefundMoney = 1;
@@ -42,6 +48,7 @@ namespace Tessera.UI
         private GameObject draggingDeviceViewObject; // 드래그 중인 장착 Device View
         private SlotPairDeviceDefinitionSO draggingDeviceDefinition; // 드래그 중인 Device 데이터
         private Vector3 lastDraggingDeviceWorldPosition; // dead-zone 유지용 마지막 드래그 위치
+        private bool isRunInfoGameplayInputLockApplied; // RunInfo 창으로 Gameplay 입력을 잠근 상태인지 여부
 
         private IDisposable roundStartSubscription;
         private IDisposable bountyBoardShowSubscription;
@@ -68,6 +75,7 @@ namespace Tessera.UI
             {
                 gameplayPresenter.RoundWon += HandleRoundWon;
                 gameplayPresenter.RoundLost += HandleRoundLost;
+                gameplayPresenter.RunInfoCastBookSnapshotsUpdated += HandleRunInfoCastBookSnapshotsUpdated;
             }
 
             if (bountyBoardView != null)
@@ -111,6 +119,15 @@ namespace Tessera.UI
                 LogShopDeviceInputWarning("[Subscribe] playerDeviceRackForShop is not assigned. DeviceSlot sell/swap input cannot be received.");
             }
 
+            if (runInfoCastBookButton3DView != null)
+                runInfoCastBookButton3DView.Clicked += HandleRunInfoCastBookButtonClicked;
+
+            if (runInfoCastBookWindowView != null)
+            {
+                runInfoCastBookWindowView.CloseRequested += HandleRunInfoCastBookCloseRequested;
+                runInfoCastBookWindowView.Hide();
+            }
+
             SubscribeDeviceSlotHoverActionUIs();
             HideAllDeviceHoverUIs();
         }
@@ -140,6 +157,7 @@ namespace Tessera.UI
             {
                 gameplayPresenter.RoundWon -= HandleRoundWon;
                 gameplayPresenter.RoundLost -= HandleRoundLost;
+                gameplayPresenter.RunInfoCastBookSnapshotsUpdated -= HandleRunInfoCastBookSnapshotsUpdated;
             }
 
             if (bountyBoardView != null)
@@ -177,12 +195,21 @@ namespace Tessera.UI
                 playerDeviceRackForShop.SlotDragEndedWithPointer -= HandleDeviceSlotDragEndedWithPointer;
             }
 
+            if (runInfoCastBookButton3DView != null)
+                runInfoCastBookButton3DView.Clicked -= HandleRunInfoCastBookButtonClicked;
+
+            if (runInfoCastBookWindowView != null)
+                runInfoCastBookWindowView.CloseRequested -= HandleRunInfoCastBookCloseRequested;
+
+            ReleaseRunInfoGameplayInputLock();
             UnsubscribeDeviceSlotHoverActionUIs();
         }
 
         /// <summary>Stage Round 시작 요청을 Gameplay Presenter에 전달한다.</summary>
         private void HandleRoundStartRequested(StageRoundStartRequestedEvent gameEvent)
         {
+            HideRunInfoCastBookWindow();
+
             // Round 시작 시 전투용 사선 카메라로 복귀한다.
             if (cameraPoseController != null)
                 cameraPoseController.MoveToBattleView("Round started.");
@@ -212,6 +239,8 @@ namespace Tessera.UI
         /// <summary>Bounty Board 표시 요청을 View에 전달한다.</summary>
         private void HandleBountyBoardShowRequested(BountyBoardShowRequestedEvent gameEvent)
         {
+            HideRunInfoCastBookWindow();
+
             if (bountyBoardView == null)
                 return;
 
@@ -228,6 +257,8 @@ namespace Tessera.UI
         /// <summary>Reward Decision 표시 요청을 View에 전달한다.</summary>
         private void HandleRewardDecisionShowRequested(RewardDecisionShowRequestedEvent gameEvent)
         {
+            HideRunInfoCastBookWindow();
+
             if (rewardDecisionView == null)
                 return;
 
@@ -244,6 +275,8 @@ namespace Tessera.UI
         /// <summary>Round Failure Decision 표시 요청을 View에 전달한다.</summary>
         private void HandleRoundFailureShowRequested(RoundFailureShowRequestedEvent gameEvent)
         {
+            HideRunInfoCastBookWindow();
+
             if (roundFailureDecisionView == null)
                 return;
 
@@ -264,6 +297,8 @@ namespace Tessera.UI
         /// <summary>Workshop Shell 표시 요청을 View에 전달한다.</summary>
         private void HandleShopShowRequested(StageShopShowRequestedEvent gameEvent)
         {
+            HideRunInfoCastBookWindow();
+
             if (shopFlowView == null)
                 return;
 
@@ -436,6 +471,8 @@ namespace Tessera.UI
         /// <summary>Gameplay Presenter의 Round 승리 이벤트를 Runtime 이벤트로 변환한다.</summary>
         private void HandleRoundWon(ClashResolveResult result)
         {
+            HideRunInfoCastBookWindow();
+
             isDeviceSlotSwapAllowed = false;
             ResetShopDeviceInteractionState();
             HideAllDeviceHoverUIs();
@@ -447,12 +484,26 @@ namespace Tessera.UI
         /// <summary>Gameplay Presenter의 Round 패배 이벤트를 Runtime 이벤트로 변환한다.</summary>
         private void HandleRoundLost(ClashResolveResult result)
         {
+            HideRunInfoCastBookWindow();
+
             isDeviceSlotSwapAllowed = false;
             ResetShopDeviceInteractionState();
             HideAllDeviceHoverUIs();
 
             int playerHP = GetCurrentPlayerHPFromPresenter();
             TesseraEventBus.Publish(new GameplayRoundLostEvent(result, playerHP));
+        }
+
+        /// <summary>RunInfo 족보 캐시 갱신 시 열린 창 내용을 다시 표시한다.</summary>
+        private void HandleRunInfoCastBookSnapshotsUpdated(IReadOnlyList<RunInfoCastBookEntrySnapshot> snapshots)
+        {
+            if (runInfoCastBookWindowView == null)
+                return;
+
+            if (!runInfoCastBookWindowView.IsVisible)
+                return;
+
+            runInfoCastBookWindowView.Show(snapshots);
         }
 
         #region Event
@@ -692,6 +743,81 @@ namespace Tessera.UI
         #endregion
 
         #region Helper
+
+        /// <summary>RunInfo 3D 버튼 클릭을 족보 창 열기/닫기로 처리한다.</summary>
+        private void HandleRunInfoCastBookButtonClicked()
+        {
+            if (runInfoCastBookWindowView == null)
+                return;
+
+            if (runInfoCastBookWindowView.IsVisible)
+            {
+                CloseRunInfoCastBookWindow();
+                return;
+            }
+
+            if (gameplayPresenter == null)
+                return;
+
+            IReadOnlyList<RunInfoCastBookEntrySnapshot> snapshots = gameplayPresenter.BuildRunInfoCastBookSnapshots();
+
+            runInfoCastBookWindowView.Show(snapshots);
+            ApplyRunInfoGameplayInputLock();
+        }
+
+        /// <summary>RunInfo 창의 닫기 요청을 처리한다.</summary>
+        private void HandleRunInfoCastBookCloseRequested()
+        {
+            CloseRunInfoCastBookWindow();
+        }
+
+        /// <summary>RunInfo 족보 창을 닫고 입력 잠금을 해제한다.</summary>
+        private void CloseRunInfoCastBookWindow()
+        {
+            if (runInfoCastBookWindowView != null)
+                runInfoCastBookWindowView.Hide();
+
+            ReleaseRunInfoGameplayInputLock();
+        }
+
+        /// <summary>RunInfo 족보 창을 숨기고 입력 잠금을 정리한다.</summary>
+        private void HideRunInfoCastBookWindow()
+        {
+            if (runInfoCastBookWindowView != null && runInfoCastBookWindowView.IsVisible)
+                runInfoCastBookWindowView.Hide();
+
+            ReleaseRunInfoGameplayInputLock();
+        }
+
+        /// <summary>RunInfo 창 표시 중 Gameplay 입력을 잠근다.</summary>
+        private void ApplyRunInfoGameplayInputLock()
+        {
+            if (!lockGameplayInputWhileRunInfoOpen)
+                return;
+
+            if (isRunInfoGameplayInputLockApplied)
+                return;
+
+            if (gameplayPresenter == null)
+                return;
+
+            isRunInfoGameplayInputLockApplied = true;
+            gameplayPresenter.SetExternalGameplayInputLocked(true, "Run info is open.");
+        }
+
+        /// <summary>RunInfo 창으로 적용한 Gameplay 입력 잠금을 해제한다.</summary>
+        private void ReleaseRunInfoGameplayInputLock()
+        {
+            if (!isRunInfoGameplayInputLockApplied)
+                return;
+
+            isRunInfoGameplayInputLockApplied = false;
+
+            if (gameplayPresenter == null)
+                return;
+
+            gameplayPresenter.SetExternalGameplayInputLocked(false, string.Empty);
+        }
 
         /// <summary>슬롯별 Hover UI 이벤트를 구독한다.</summary>
         private void SubscribeDeviceSlotHoverActionUIs()

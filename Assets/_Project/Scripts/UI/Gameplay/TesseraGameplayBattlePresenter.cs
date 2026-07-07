@@ -207,6 +207,21 @@ namespace Tessera.UI
         private int combatEntrySerial;
         private int activeCombatSeed;
 
+        /// <summary>RunInfo 족보 표시용 캐시 스냅샷 목록이다.</summary>
+        private readonly List<RunInfoCastBookEntrySnapshot> cachedRunInfoCastBookSnapshots = new List<RunInfoCastBookEntrySnapshot>();
+
+        /// <summary>RunInfo 족보 캐시가 현재 최신 상태가 아닌지 여부다.</summary>
+        private bool isRunInfoCastBookCacheDirty = true;
+
+        /// <summary>RunInfo 족보 캐시 재계산이 진행 중인지 여부다.</summary>
+        private bool isRunInfoCastBookCacheRebuilding;
+
+        /// <summary>RunInfo 족보 캐시 재계산 취소 토큰이다.</summary>
+        private CancellationTokenSource runInfoCastBookCacheCts;
+
+        /// <summary>RunInfo 족보 캐시 재계산 세대 번호다.</summary>
+        private int runInfoCastBookCacheRebuildSerial;
+
         #endregion
 
         #region Events And Properties
@@ -216,6 +231,9 @@ namespace Tessera.UI
 
         /// <summary>Round 패배 확정</summary>
         public event Action<ClashResolveResult> RoundLost;
+
+        /// <summary>RunInfo 족보 캐시 갱신 완료 이벤트다.</summary>
+        public event Action<IReadOnlyList<RunInfoCastBookEntrySnapshot>> RunInfoCastBookSnapshotsUpdated;
 
         /// <summary>현재 진행 중인 Core RoundState를 반환한다.</summary>
         public RoundState CurrentRoundState => roundState;
@@ -255,6 +273,7 @@ namespace Tessera.UI
         {
             // 진행 중인 SlotPair 연출을 안전하게 중단한다.
             CancelSlotPairEvaluationSequence();
+            CancelRunInfoCastBookCacheRebuild();
         }
 
         /// <summary>Inspector 배열 길이를 고정 슬롯 수에 맞게 보정한다.</summary>
@@ -449,6 +468,10 @@ namespace Tessera.UI
             SetExternalGameplayInputLocked(false, string.Empty);
             RefreshAll(message);
 
+            MarkRunInfoCastBookCacheDirty();
+            RefreshRunInfoCastBookFallbackCache();
+            RequestRunInfoCastBookCacheRebuild();
+
             if (roundState.CurrentAttempt.InitiativeOwner == InitiativeOwnerType.Opponent)
                 StartOpponentFirstTurnAsync().Forget();
             else
@@ -467,6 +490,10 @@ namespace Tessera.UI
                 RefreshAll(null);
             else
                 RefreshDeviceSlotViews();
+
+            MarkRunInfoCastBookCacheDirty();
+            RefreshRunInfoCastBookFallbackCache();
+            RequestRunInfoCastBookCacheRebuild();
         }
 
         /// <summary>RunSession의 현재 장착 Device를 Presenter Debug Mirror와 DeviceSlot View에 다시 반영한다.</summary>
@@ -474,6 +501,10 @@ namespace Tessera.UI
         {
             SyncDevicesFromRunSession();
             ApplyPlayerDiceTypeVisuals();
+
+            MarkRunInfoCastBookCacheDirty();
+            RefreshRunInfoCastBookFallbackCache();
+            RequestRunInfoCastBookCacheRebuild();
 
             if (roundState != null)
             {
@@ -774,6 +805,10 @@ namespace Tessera.UI
                 BuildCurrentSlotPairPreview();
                 RefreshSelectedCastTexts();
             }
+
+            MarkRunInfoCastBookCacheDirty();
+            RefreshRunInfoCastBookFallbackCache();
+            RequestRunInfoCastBookCacheRebuild();
         }
 
         /// <summary>현재 Gameplay 중 Player DeviceSlot swap이 가능한지 확인한다.</summary>
@@ -817,6 +852,21 @@ namespace Tessera.UI
                 return false;
 
             return slotIndex >= 0 && slotIndex < slotPairDevices.Length;
+        }
+
+        /// <summary>현재 Run/Deck/Device 기준 RunInfo 족보 표시 스냅샷을 반환한다.</summary>
+        public IReadOnlyList<RunInfoCastBookEntrySnapshot> BuildRunInfoCastBookSnapshots()
+        {
+            if (roundState == null)
+                return new List<RunInfoCastBookEntrySnapshot>();
+
+            if (cachedRunInfoCastBookSnapshots.Count <= 0)
+                RefreshRunInfoCastBookFallbackCache();
+
+            if (isRunInfoCastBookCacheDirty && !isRunInfoCastBookCacheRebuilding)
+                RequestRunInfoCastBookCacheRebuild();
+
+            return new List<RunInfoCastBookEntrySnapshot>(cachedRunInfoCastBookSnapshots);
         }
 
         #endregion
@@ -918,6 +968,10 @@ namespace Tessera.UI
                 roundState,
                 playerResult,
                 pendingOpponentClashResult);
+
+            MarkRunInfoCastBookCacheDirty();
+            RefreshRunInfoCastBookFallbackCache();
+            RequestRunInfoCastBookCacheRebuild();
 
             RefreshClashPowerTexts();
             LogClashResolveResult(lastClashResolveResult);
@@ -4298,6 +4352,586 @@ namespace Tessera.UI
                 return ((int)force).ToString();
 
             return force.ToString("0.##");
+        }
+
+        #endregion
+
+        #region Run Info Cast Book
+
+        /// <summary>RunInfo 족보에 표시할 Cast 타입 목록을 생성한다.</summary>
+        private static RollPatternType[] CreateRunInfoCastBookPatternTypes()
+        {
+            return new RollPatternType[]
+            {
+                RollPatternType.Aces,
+                RollPatternType.Twos,
+                RollPatternType.Threes,
+                RollPatternType.Fours,
+                RollPatternType.Fives,
+                RollPatternType.Sixes,
+                RollPatternType.ThreeOfAKind,
+                RollPatternType.FourOfAKind,
+                RollPatternType.FullHouse,
+                RollPatternType.SmallStraight,
+                RollPatternType.LargeStraight,
+                RollPatternType.Chance,
+                RollPatternType.Tessera,
+                RollPatternType.BrokenCast
+            };
+        }
+
+                /// <summary>RunInfo 족보 캐시를 Dirty 상태로 표시한다.</summary>
+        private void MarkRunInfoCastBookCacheDirty()
+        {
+            isRunInfoCastBookCacheDirty = true;
+        }
+
+        /// <summary>RunInfo 족보 정확 캐시 재계산을 요청한다.</summary>
+        private void RequestRunInfoCastBookCacheRebuild()
+        {
+            if (roundState == null)
+                return;
+
+            CancelRunInfoCastBookCacheRebuild();
+
+            runInfoCastBookCacheCts = new CancellationTokenSource();
+            int rebuildSerial = ++runInfoCastBookCacheRebuildSerial;
+
+            isRunInfoCastBookCacheRebuilding = true;
+            RebuildRunInfoCastBookCacheAsync(rebuildSerial, runInfoCastBookCacheCts.Token).Forget();
+        }
+
+        /// <summary>진행 중인 RunInfo 족보 캐시 재계산을 취소한다.</summary>
+        private void CancelRunInfoCastBookCacheRebuild()
+        {
+            if (runInfoCastBookCacheCts != null)
+            {
+                runInfoCastBookCacheCts.Cancel();
+                runInfoCastBookCacheCts.Dispose();
+                runInfoCastBookCacheCts = null;
+            }
+
+            isRunInfoCastBookCacheRebuilding = false;
+        }
+
+        /// <summary>RunInfo 족보 정확 캐시를 비동기로 재계산한다.</summary>
+        private async UniTaskVoid RebuildRunInfoCastBookCacheAsync(int rebuildSerial, CancellationToken cancellationToken)
+        {
+            try
+            {
+                List<RunInfoCastBookEntrySnapshot> snapshots =
+                    await BuildRunInfoCastBookSnapshotsExactAsync(cancellationToken);
+
+                if (rebuildSerial != runInfoCastBookCacheRebuildSerial)
+                    return;
+
+                cachedRunInfoCastBookSnapshots.Clear();
+                cachedRunInfoCastBookSnapshots.AddRange(snapshots);
+                isRunInfoCastBookCacheDirty = false;
+
+                PublishRunInfoCastBookSnapshotsUpdated();
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            finally
+            {
+                if (rebuildSerial == runInfoCastBookCacheRebuildSerial)
+                {
+                    isRunInfoCastBookCacheRebuilding = false;
+
+                    if (runInfoCastBookCacheCts != null)
+                    {
+                        runInfoCastBookCacheCts.Dispose();
+                        runInfoCastBookCacheCts = null;
+                    }
+                }
+            }
+        }
+
+        /// <summary>RunInfo 족보 정확 스냅샷을 패턴 단위로 나누어 계산한다.</summary>
+        private async UniTask<List<RunInfoCastBookEntrySnapshot>> BuildRunInfoCastBookSnapshotsExactAsync(
+            CancellationToken cancellationToken)
+        {
+            List<RunInfoCastBookEntrySnapshot> snapshots = new List<RunInfoCastBookEntrySnapshot>();
+
+            if (roundState == null)
+                return snapshots;
+
+            PatternEvaluator patternEvaluator = PatternEvaluator.CreateDefault();
+            SlotPairDamageCalculator slotPairDamageCalculator = new SlotPairDamageCalculator();
+            List<SlotPairDeviceDefinition> playerDevices = CreatePlayerDeviceDefinitions();
+            List<int> lockSlotDiceIndexes = CreateRunInfoDefaultLockSlotDiceIndexList();
+            SlotPairCalculationContext calculationContext = CreateRunInfoSlotPairCalculationContext();
+            RollPatternType[] patternTypes = CreateRunInfoCastBookPatternTypes();
+
+            List<int> originalDiceValues = roundState.GetCurrentDiceValues();
+
+            try
+            {
+                for (int i = 0; i < patternTypes.Length; i++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    RollPatternType patternType = patternTypes[i];
+                    bool isUnlimited = patternType == RollPatternType.BrokenCast;
+                    int maxUses = ResolveRunInfoCastMaxUses(patternType);
+                    int usedCount = roundState.GetPatternUseCount(patternType);
+                    int remainingUses = isUnlimited ? int.MaxValue : Mathf.Max(0, maxUses - usedCount);
+
+                    int score = 0;
+                    float force = 0f;
+                    int castPower = 0;
+
+                    if (!isUnlimited)
+                    {
+                        TryBuildBestRunInfoCastBookPreview(
+                            patternType,
+                            patternEvaluator,
+                            slotPairDamageCalculator,
+                            playerDevices,
+                            lockSlotDiceIndexes,
+                            calculationContext,
+                            out score,
+                            out force,
+                            out castPower);
+                    }
+
+                    snapshots.Add(new RunInfoCastBookEntrySnapshot(
+                        patternType,
+                        CastBoardCatalog.GetDisplayName(patternType),
+                        score,
+                        force,
+                        FormatForce(force),
+                        castPower,
+                        remainingUses,
+                        maxUses,
+                        isUnlimited,
+                        i));
+
+                    if (simulator != null && originalDiceValues != null)
+                        simulator.SetCurrentDiceValuesForTest(roundState, originalDiceValues);
+
+                    await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
+                }
+            }
+            finally
+            {
+                if (simulator != null && originalDiceValues != null)
+                    simulator.SetCurrentDiceValuesForTest(roundState, originalDiceValues);
+            }
+
+            snapshots.Sort(CompareRunInfoCastBookSnapshots);
+            return snapshots;
+        }
+
+        /// <summary>즉시 표시용 RunInfo 족보 간이 캐시를 생성한다.</summary>
+        private void RefreshRunInfoCastBookFallbackCache()
+        {
+            List<RunInfoCastBookEntrySnapshot> fallbackSnapshots = BuildRunInfoCastBookFallbackSnapshots();
+
+            cachedRunInfoCastBookSnapshots.Clear();
+            cachedRunInfoCastBookSnapshots.AddRange(fallbackSnapshots);
+
+            PublishRunInfoCastBookSnapshotsUpdated();
+        }
+
+        /// <summary>Canonical 주사위 조합 기준으로 RunInfo 족보 간이 스냅샷을 생성한다.</summary>
+        private List<RunInfoCastBookEntrySnapshot> BuildRunInfoCastBookFallbackSnapshots()
+        {
+            List<RunInfoCastBookEntrySnapshot> snapshots = new List<RunInfoCastBookEntrySnapshot>();
+
+            if (roundState == null)
+                return snapshots;
+
+            PatternEvaluator patternEvaluator = PatternEvaluator.CreateDefault();
+            SlotPairDamageCalculator slotPairDamageCalculator = new SlotPairDamageCalculator();
+            List<SlotPairDeviceDefinition> playerDevices = CreatePlayerDeviceDefinitions();
+            List<int> lockSlotDiceIndexes = CreateRunInfoDefaultLockSlotDiceIndexList();
+            SlotPairCalculationContext calculationContext = CreateRunInfoSlotPairCalculationContext();
+            RollPatternType[] patternTypes = CreateRunInfoCastBookPatternTypes();
+
+            List<int> originalDiceValues = roundState.GetCurrentDiceValues();
+
+            try
+            {
+                for (int i = 0; i < patternTypes.Length; i++)
+                {
+                    RollPatternType patternType = patternTypes[i];
+                    bool isUnlimited = patternType == RollPatternType.BrokenCast;
+                    int maxUses = ResolveRunInfoCastMaxUses(patternType);
+                    int usedCount = roundState.GetPatternUseCount(patternType);
+                    int remainingUses = isUnlimited ? int.MaxValue : Mathf.Max(0, maxUses - usedCount);
+
+                    int score = 0;
+                    float force = 0f;
+                    int castPower = 0;
+
+                    if (!isUnlimited)
+                    {
+                        IReadOnlyList<int> rawDiceValues = CreateRunInfoCanonicalDiceValues(patternType);
+                        IReadOnlyList<int> effectiveDiceValues = CreateRunInfoEffectiveDiceValues(rawDiceValues);
+
+                        TryBuildRunInfoCastBookCandidate(
+                            patternType,
+                            patternEvaluator,
+                            slotPairDamageCalculator,
+                            effectiveDiceValues,
+                            playerDevices,
+                            lockSlotDiceIndexes,
+                            calculationContext,
+                            out score,
+                            out force,
+                            out castPower);
+                    }
+
+                    snapshots.Add(new RunInfoCastBookEntrySnapshot(
+                        patternType,
+                        CastBoardCatalog.GetDisplayName(patternType),
+                        score,
+                        force,
+                        FormatForce(force),
+                        castPower,
+                        remainingUses,
+                        maxUses,
+                        isUnlimited,
+                        i));
+                }
+            }
+            finally
+            {
+                if (simulator != null && originalDiceValues != null)
+                    simulator.SetCurrentDiceValuesForTest(roundState, originalDiceValues);
+            }
+
+            snapshots.Sort(CompareRunInfoCastBookSnapshots);
+            return snapshots;
+        }
+
+        /// <summary>RunInfo 간이 표시용 대표 주사위 조합을 생성한다.</summary>
+        private static IReadOnlyList<int> CreateRunInfoCanonicalDiceValues(RollPatternType patternType)
+        {
+            switch (patternType)
+            {
+                case RollPatternType.Aces:
+                    return CreateRepeatedRunInfoDiceValues(1);
+
+                case RollPatternType.Twos:
+                    return CreateRepeatedRunInfoDiceValues(2);
+
+                case RollPatternType.Threes:
+                    return CreateRepeatedRunInfoDiceValues(3);
+
+                case RollPatternType.Fours:
+                    return CreateRepeatedRunInfoDiceValues(4);
+
+                case RollPatternType.Fives:
+                    return CreateRepeatedRunInfoDiceValues(5);
+
+                case RollPatternType.Sixes:
+                    return CreateRepeatedRunInfoDiceValues(6);
+
+                case RollPatternType.ThreeOfAKind:
+                    return new List<int> { 6, 6, 6, 5, 4 };
+
+                case RollPatternType.FourOfAKind:
+                    return new List<int> { 6, 6, 6, 6, 5 };
+
+                case RollPatternType.FullHouse:
+                    return new List<int> { 6, 6, 6, 5, 5 };
+
+                case RollPatternType.SmallStraight:
+                    return new List<int> { 3, 4, 5, 6, 6 };
+
+                case RollPatternType.LargeStraight:
+                    return new List<int> { 2, 3, 4, 5, 6 };
+
+                case RollPatternType.Chance:
+                    return CreateRepeatedRunInfoDiceValues(6);
+
+                case RollPatternType.Tessera:
+                    return CreateRepeatedRunInfoDiceValues(6);
+
+                default:
+                    return new List<int> { 1, 2, 3, 4, 5 };
+            }
+        }
+
+        /// <summary>동일 눈금 5개로 RunInfo 대표 주사위 조합을 생성한다.</summary>
+        private static IReadOnlyList<int> CreateRepeatedRunInfoDiceValues(int value)
+        {
+            int clampedValue = Mathf.Clamp(value, 1, 6);
+
+            return new List<int>
+            {
+                clampedValue,
+                clampedValue,
+                clampedValue,
+                clampedValue,
+                clampedValue
+            };
+        }
+
+        /// <summary>RunInfo 족보 캐시 갱신 이벤트를 발행한다.</summary>
+        private void PublishRunInfoCastBookSnapshotsUpdated()
+        {
+            if (RunInfoCastBookSnapshotsUpdated == null)
+                return;
+
+            RunInfoCastBookSnapshotsUpdated.Invoke(new List<RunInfoCastBookEntrySnapshot>(cachedRunInfoCastBookSnapshots));
+        }
+
+        /// <summary>RunInfo 계산용 기본 SlotPair DiceIndex 매핑을 생성한다.</summary>
+        private static List<int> CreateRunInfoDefaultLockSlotDiceIndexList()
+        {
+            List<int> lockSlotDiceIndexes = new List<int>(SlotPairDamageCalculator.SlotPairCount);
+
+            for (int i = 0; i < SlotPairDamageCalculator.SlotPairCount; i++)
+                lockSlotDiceIndexes.Add(i);
+
+            return lockSlotDiceIndexes;
+        }
+
+        /// <summary>RunInfo 계산에 사용할 SlotPair 계산 컨텍스트를 생성한다.</summary>
+        private SlotPairCalculationContext CreateRunInfoSlotPairCalculationContext()
+        {
+            int stageThreatLevel = runSession != null ? runSession.StageThreatLevel : 0;
+
+            return new SlotPairCalculationContext(
+                stageThreatLevel,
+                roundState != null ? roundState.DiceTypes : null,
+                roundState != null ? roundState.DiceSynergyRules : null);
+        }
+
+        /// <summary>RunInfo에서 표시할 Cast 최대 사용 횟수를 반환한다.</summary>
+        private int ResolveRunInfoCastMaxUses(RollPatternType patternType)
+        {
+            if (patternType == RollPatternType.BrokenCast)
+                return int.MaxValue;
+
+            if (roundState == null || roundState.RuleContext == null)
+                return 1;
+
+            return Mathf.Max(1, roundState.RuleContext.MaxUsesPerCastPerRound);
+        }
+
+        /// <summary>현재 덱/Device 기준으로 특정 Cast의 최고 계산값을 탐색한다.</summary>
+        private bool TryBuildBestRunInfoCastBookPreview(
+            RollPatternType patternType,
+            PatternEvaluator patternEvaluator,
+            SlotPairDamageCalculator slotPairDamageCalculator,
+            IReadOnlyList<SlotPairDeviceDefinition> playerDevices,
+            IReadOnlyList<int> lockSlotDiceIndexes,
+            SlotPairCalculationContext calculationContext,
+            out int bestScore,
+            out float bestForce,
+            out int bestCastPower)
+        {
+            bestScore = 0;
+            bestForce = 0f;
+            bestCastPower = 0;
+
+            if (roundState == null || patternEvaluator == null || slotPairDamageCalculator == null)
+                return false;
+
+            bool hasBest = false;
+            List<int> rawDiceValues = new List<int>(SlotPairDamageCalculator.SlotPairCount)
+            {
+                1, 1, 1, 1, 1
+            };
+
+            for (int first = 1; first <= 6; first++)
+            {
+                rawDiceValues[0] = first;
+
+                for (int second = 1; second <= 6; second++)
+                {
+                    rawDiceValues[1] = second;
+
+                    for (int third = 1; third <= 6; third++)
+                    {
+                        rawDiceValues[2] = third;
+
+                        for (int fourth = 1; fourth <= 6; fourth++)
+                        {
+                            rawDiceValues[3] = fourth;
+
+                            for (int fifth = 1; fifth <= 6; fifth++)
+                            {
+                                rawDiceValues[4] = fifth;
+
+                                IReadOnlyList<int> effectiveDiceValues = CreateRunInfoEffectiveDiceValues(rawDiceValues);
+
+                                if (!TryBuildRunInfoCastBookCandidate(
+                                        patternType,
+                                        patternEvaluator,
+                                        slotPairDamageCalculator,
+                                        effectiveDiceValues,
+                                        playerDevices,
+                                        lockSlotDiceIndexes,
+                                        calculationContext,
+                                        out int candidateScore,
+                                        out float candidateForce,
+                                        out int candidateCastPower))
+                                {
+                                    continue;
+                                }
+
+                                if (!hasBest || IsBetterRunInfoCastBookCandidate(
+                                        candidateScore,
+                                        candidateForce,
+                                        candidateCastPower,
+                                        bestScore,
+                                        bestForce,
+                                        bestCastPower))
+                                {
+                                    bestScore = candidateScore;
+                                    bestForce = candidateForce;
+                                    bestCastPower = candidateCastPower;
+                                    hasBest = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return hasBest;
+        }
+
+        /// <summary>FaceUpgrade가 있으면 RunInfo 탐색용 주사위 값을 유효 숫자로 변환한다.</summary>
+        private IReadOnlyList<int> CreateRunInfoEffectiveDiceValues(IReadOnlyList<int> rawDiceValues)
+        {
+            if (rawDiceValues == null)
+                return null;
+
+            if (roundState == null || !roundState.HasDiceFaceUpgrades || simulator == null)
+                return rawDiceValues;
+
+            simulator.SetCurrentDiceValuesForTest(roundState, rawDiceValues);
+
+            List<DiceFace> effectiveFaces = roundState.GetCurrentEffectiveDiceFaces();
+            List<int> effectiveValues = new List<int>(rawDiceValues.Count);
+
+            for (int i = 0; i < rawDiceValues.Count; i++)
+            {
+                int fallbackValue = rawDiceValues[i];
+
+                if (effectiveFaces == null || i >= effectiveFaces.Count || !effectiveFaces[i].IsNumber)
+                {
+                    effectiveValues.Add(fallbackValue);
+                    continue;
+                }
+
+                int effectiveValue = effectiveFaces[i].NumberValue;
+
+                if (effectiveValue < 1 || effectiveValue > 6)
+                    effectiveValue = fallbackValue;
+
+                effectiveValues.Add(effectiveValue);
+            }
+
+            return effectiveValues;
+        }
+
+        /// <summary>특정 주사위 배열에서 RunInfo Cast 후보 계산값을 생성한다.</summary>
+        private bool TryBuildRunInfoCastBookCandidate(
+            RollPatternType patternType,
+            PatternEvaluator patternEvaluator,
+            SlotPairDamageCalculator slotPairDamageCalculator,
+            IReadOnlyList<int> diceValues,
+            IReadOnlyList<SlotPairDeviceDefinition> playerDevices,
+            IReadOnlyList<int> lockSlotDiceIndexes,
+            SlotPairCalculationContext calculationContext,
+            out int score,
+            out float force,
+            out int castPower)
+        {
+            score = 0;
+            force = 0f;
+            castPower = 0;
+
+            if (diceValues == null)
+                return false;
+
+            if (!patternEvaluator.TryEvaluateSpecificPattern(diceValues, patternType, out PatternResult patternResult))
+                return false;
+
+            if (patternResult == null)
+                return false;
+
+            SlotPairDamagePreview preview = slotPairDamageCalculator.Calculate(
+                patternResult,
+                diceValues,
+                lockSlotDiceIndexes,
+                playerDevices,
+                calculationContext);
+
+            if (preview == null)
+                return false;
+
+            TableRuleEvaluationResult tableRuleResult = TableRuleEvaluator.Evaluate(
+                roundState.RuleContext,
+                patternType,
+                preview.CastPowerBeforeTableRules);
+
+            score = preview.FinalScore;
+            force = preview.FinalForce;
+            castPower = tableRuleResult != null
+                ? Mathf.Max(0, tableRuleResult.ModifiedCastPower)
+                : Mathf.Max(0, preview.CastPowerBeforeTableRules);
+
+            return true;
+        }
+
+        /// <summary>RunInfo 후보 간 우선순위를 비교한다.</summary>
+        private static bool IsBetterRunInfoCastBookCandidate(
+            int candidateScore,
+            float candidateForce,
+            int candidateCastPower,
+            int currentScore,
+            float currentForce,
+            int currentCastPower)
+        {
+            if (candidateCastPower != currentCastPower)
+                return candidateCastPower > currentCastPower;
+
+            if (candidateScore != currentScore)
+                return candidateScore > currentScore;
+
+            return candidateForce > currentForce;
+        }
+
+        /// <summary>RunInfo 족보 스냅샷 정렬 우선순위를 비교한다.</summary>
+        private static int CompareRunInfoCastBookSnapshots(
+            RunInfoCastBookEntrySnapshot left,
+            RunInfoCastBookEntrySnapshot right)
+        {
+            if (left == null && right == null)
+                return 0;
+
+            if (left == null)
+                return 1;
+
+            if (right == null)
+                return -1;
+
+            int castPowerCompare = right.CastPower.CompareTo(left.CastPower);
+
+            if (castPowerCompare != 0)
+                return castPowerCompare;
+
+            int scoreCompare = right.Score.CompareTo(left.Score);
+
+            if (scoreCompare != 0)
+                return scoreCompare;
+
+            int forceCompare = right.ForceValue.CompareTo(left.ForceValue);
+
+            if (forceCompare != 0)
+                return forceCompare;
+
+            return left.SortOrder.CompareTo(right.SortOrder);
         }
 
         #endregion
