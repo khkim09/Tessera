@@ -9,6 +9,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using Tessera.Infrastructure;
+using UnityEngine.Serialization;
 
 namespace Tessera.UI
 {
@@ -145,8 +146,11 @@ namespace Tessera.UI
         [Header("Cast Popup")]
         [SerializeField] private CastCandidatePopupView castCandidatePopupView;
 
+        [Header("3D Cast Submit Input")]
+        [SerializeField] private PlayButton3DView playButton3DView;
+        [SerializeField] private bool usePlayButton3DInput = true;
+
         [Header("Buttons")]
-        [SerializeField] private Button submitSelectedButton;
         [SerializeField] private Button togglePopupButton;
 
         [Header("Turn Flow")]
@@ -1363,6 +1367,15 @@ namespace Tessera.UI
             PlayDiceCupRollSequenceAsync().Forget();
         }
 
+        /// <summary>3D Play 버튼 클릭 입력을 현재 선택 Cast 제출로 연결한다.</summary>
+        private void OnPlayButtonClicked()
+        {
+            if (!usePlayButton3DInput)
+                return;
+
+            SubmitSelectedCast();
+        }
+
         /// <summary>현재 상태에서 Roll 가능한지 검사한다.</summary>
         private bool TryCanRollUnlockedDice(out string failureMessage)
         {
@@ -2487,10 +2500,10 @@ namespace Tessera.UI
         {
             bool hasRound = roundState != null;
             bool canPrepareCast = CanPrepareCastPreviewInCurrentAttempt();
+            bool canSubmitSelectedCast = canPrepareCast && selectedPatternType != RollPatternType.None;
 
-            SetButtonInteractable(
-                submitSelectedButton,
-                canPrepareCast && selectedPatternType != RollPatternType.None);
+            if (playButton3DView != null)
+                playButton3DView.SetInteractable(usePlayButton3DInput && canSubmitSelectedCast);
 
             SetButtonInteractable(
                 togglePopupButton,
@@ -2824,15 +2837,6 @@ namespace Tessera.UI
 
             if (opponentDeviceRack3DView != null)
                 opponentDeviceRack3DView.ClearHighlight();
-        }
-
-        /// <summary>현재 SlotPair 단계의 DiceView를 제자리에서 점프/회전시킨다.</summary>
-        private async UniTaskVoid PlayEvaluationDiceJumpRollAsync(
-            SlotPairDamageStep step,
-            CancellationToken cancellationToken)
-        {
-            PlayEvaluationDiceJumpRollAsync(DiceOwnerType.Player, step, cancellationToken).Forget();
-            await UniTask.CompletedTask;
         }
 
         /// <summary>현재 SlotPair 단계의 지정 소유자 DiceView를 제자리에서 점프/회전시킨다.</summary>
@@ -4962,8 +4966,8 @@ namespace Tessera.UI
             if (diceCup3DView != null)
                 diceCup3DView.Clicked += OnDiceCupClicked;
 
-            if (submitSelectedButton != null)
-                submitSelectedButton.onClick.AddListener(SubmitSelectedCast);
+            if (playButton3DView != null)
+                playButton3DView.Clicked += OnPlayButtonClicked;
 
             if (togglePopupButton != null)
                 togglePopupButton.onClick.AddListener(ToggleCastCandidatePopup);
@@ -4975,8 +4979,8 @@ namespace Tessera.UI
             if (diceCup3DView != null)
                 diceCup3DView.Clicked -= OnDiceCupClicked;
 
-            if (submitSelectedButton != null)
-                submitSelectedButton.onClick.RemoveListener(SubmitSelectedCast);
+            if (playButton3DView != null)
+                playButton3DView.Clicked -= OnPlayButtonClicked;
 
             if (togglePopupButton != null)
                 togglePopupButton.onClick.RemoveListener(ToggleCastCandidatePopup);
